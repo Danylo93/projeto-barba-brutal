@@ -1,0 +1,38 @@
+GET http://localhost:3001/servico
+
+
+###
+POST http://localhost:3001/usuario/login
+Content-Type: application/json
+
+{
+    "email": "leonardomleitao@formacao.dev",
+    "senha": "#Senha123"
+}
+
+###
+POST http://localhost:3001/usuario/registrar
+Content-Type: application/json
+
+{
+    "nome": "Kathya Tesourada",
+    "email": "kathya@barbabrutal.app",
+    "senha": "#Senha123",
+    "telefone": "11999999999"
+}
+
+###
+POST http://localhost:3001/agendamentos
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwibm9tZSI6Ikxlb25hcmRvIExlaXTDo28iLCJlbWFpbCI6Imxlb25hcmRvbWxlaXRhb0Bmb3JtYWNhby5kZXYiLCJ0ZWxlZm9uZSI6IjIxMzEyMzEyMzEyIiwiYmFyYmVpcm8iOmZhbHNlLCJpYXQiOjE3MjIzMDU0MTMsImV4cCI6MTcyMzYwMTQxM30.Lgf-1msBxcbz0_xy4eiq9sbVjICKWamqT-pPYhTU1vo
+Content-Type: application/json
+
+{
+    "data": "2024-07-30T13:00:00.000Z",
+    "usuario": { "id": 5 },
+    "profissional": { "id": 4 },
+    "servicos": [
+        { "id": 1 }, 
+        { "id": 2 },
+        { "id": 3 }
+    ]
+}
