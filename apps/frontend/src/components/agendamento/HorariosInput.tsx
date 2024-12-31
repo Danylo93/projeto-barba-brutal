@@ -37,7 +37,7 @@ export default function HorariosInput(props: HorariosInputProps) {
         const naoSelecionavel = !temHorarios && periodo.includes(horario)
         const periodoBloqueado =
             periodo.includes(horario) && periodo.some((h) => horariosOcupados.includes(h))
-        const ocupado = horariosOcupados.includes(horario)
+        const ocupado = horariosOcupados?.includes(horario)
 
         return (
             <div

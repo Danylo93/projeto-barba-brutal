@@ -11,7 +11,7 @@ interface HorariosInputProps {
 
 export default function HorariosInput(props: HorariosInputProps) {
     const [horaAtual, setHoraAtual] = useState<string | null>(null)
-    const { horariosOcupados } = useAgendamento()
+    const { horariosOcupados } = useAgendamento() || { horariosOcupados: [] }
     const { manha, tarde, noite } = AgendaUtils.horariosDoDia()
 
     const horaSelecionada = props.data.toLocaleTimeString('pt-BR', {
@@ -35,12 +35,12 @@ export default function HorariosInput(props: HorariosInputProps) {
         const selecionado =
             periodoSelecionado.length === props.qtdeHorarios && periodoSelecionado.includes(horario)
 
-        const periodoBloqueado = periodo.some((h) =>
-            horariosOcupados.some((ocupada) => ocupada === h)
-        )
+            const periodoBloqueado =
+            Array.isArray(horariosOcupados) &&
+            periodo.some((h) => horariosOcupados.some((ocupada) => ocupada === h))
 
         const horaIndisponivel = periodoSelecionado.includes(horario)
-        const ocupado = horariosOcupados.includes(horario)
+        const ocupado = Array.isArray(horariosOcupados) && horariosOcupados.includes(horario)
 
         const getBotaoProps = () => {
             if (selecionado && !periodoBloqueado && !ocupado) {
