@@ -67,7 +67,7 @@ export function ProvedorAgendamento({ children }: { children: React.ReactNode })
         if (!usuario?.email) return
 
         await httpPost('agendamentos', {
-            emailCliente: usuario.email,
+            usuario: usuario,
             data: data!,
             profissional: profissional!,
             servicos: servicos,

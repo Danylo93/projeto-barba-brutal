@@ -6,15 +6,26 @@ import { NavigationContainer } from '@react-navigation/native'
 import Cadastro from './screens/Cadastro'
 import Principal from './screens/Principal'
 import Sumario from './screens/Sumario'
+import Login from './screens/Login'
+import { ProvedorSessao } from './data/contexts/ContextoSessao'
+import { AuthProvider } from './data/contexts/UserContext'
 
 const Stack = createNativeStackNavigator()
 
 export default function App() {
     return (
-        <ProvedorUsuario>
+        <AuthProvider>
+        
             <ProvedorAgendamento>
                 <NavigationContainer>
                     <Stack.Navigator>
+                        <Stack.Screen
+                            name="Login"
+                            component={Login}
+                            options={{
+                                headerShown: false,
+                            }}
+                        />
                         <Stack.Screen
                             name="Cadastro"
                             component={Cadastro}
@@ -39,6 +50,6 @@ export default function App() {
                     </Stack.Navigator>
                 </NavigationContainer>
             </ProvedorAgendamento>
-        </ProvedorUsuario>
+        </AuthProvider>
     )
 }

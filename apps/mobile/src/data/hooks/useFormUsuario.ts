@@ -2,12 +2,14 @@ import { useState } from "react"
 import useUsuario from "./useUsuario"
 
 export default function useFormUsuario() {
-    const { entrar } = useUsuario()
+    const { registrar } = useUsuario()
 
     const [nome, setNome] = useState('')
     const [email, setEmail] = useState('')
     const [telefone, setTelefone] = useState('')
-    const [errors, setErrors] = useState({ nome: '', email: '', telefone: '' })
+    const [senha, setSenha] = useState('')
+
+    const [errors, setErrors] = useState({ nome: '', email: '', telefone: '', senha: '' })
 
     function validate() {
         let errors: any = {}
@@ -19,6 +21,9 @@ export default function useFormUsuario() {
             errors.email = 'E-mail é obrigatório'
         } else if (!/\S+@\S+\.\S+/.test(email)) {
             errors.email = 'E-mail inválido'
+        }
+        else if (!senha) {
+           errors.senha = 'Senha é obrigatória'
         }
         if (!telefone) {
             errors.telefone = 'Telefone é obrigatório'
@@ -32,7 +37,7 @@ export default function useFormUsuario() {
 
     async function cadastrar() {
         if (validate()) {
-            await entrar({ nome, email, telefone })
+            await registrar({ nome, email, telefone, senha })
         }
     }
 
@@ -41,6 +46,8 @@ export default function useFormUsuario() {
         setNome,
         email,
         setEmail,
+        senha,
+        setSenha,
         telefone,
         setTelefone,
         errors,
