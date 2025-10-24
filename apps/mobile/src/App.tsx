@@ -3,6 +3,8 @@ import { Text, View } from 'react-native'
 import { ProvedorUsuario } from './data/contexts/ContextoUsuario'
 import { ProvedorAgendamento } from './data/contexts/ContextoAgendamento'
 import { NavigationContainer } from '@react-navigation/native'
+import SelecionarTenant from './screens/SelecionarTenant'
+import Login from './screens/Login'
 import Cadastro from './screens/Cadastro'
 import Principal from './screens/Principal'
 import Sumario from './screens/Sumario'
@@ -15,6 +17,20 @@ export default function App() {
             <ProvedorAgendamento>
                 <NavigationContainer>
                     <Stack.Navigator>
+                        <Stack.Screen
+                            name="SelecionarTenant"
+                            component={SelecionarTenant}
+                            options={{
+                                headerShown: false,
+                            }}
+                        />
+                        <Stack.Screen
+                            name="Login"
+                            component={Login}
+                            options={{
+                                headerShown: false,
+                            }}
+                        />
                         <Stack.Screen
                             name="Cadastro"
                             component={Cadastro}

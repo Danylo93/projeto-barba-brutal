@@ -4,6 +4,7 @@ import NossosClientes from '@/components/cliente/NossosClientes'
 import TituloSlogan from '@/components/landing/TituloSlogan'
 import NossosProfissionais from '@/components/profissional/NossosProfissionais'
 import NossosServicos from '@/components/servico/NossosServicos'
+import PlanosPrecos from '@/components/landing/PlanosPrecos'
 import ContainerComBackground from '@/components/shared/ContainerComBackground'
 
 export default function Landing() {
@@ -19,6 +20,7 @@ export default function Landing() {
             <ContainerComBackground imagem="/banners/clientes.webp">
                 <NossosClientes />
             </ContainerComBackground>
+            <PlanosPrecos />
         </div>
     )
 }

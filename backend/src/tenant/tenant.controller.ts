@@ -1,0 +1,66 @@
+import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { TenantService } from './tenant.service';
+
+@Controller('tenants')
+export class TenantController {
+  constructor(private readonly tenantService: TenantService) {}
+
+  @Post()
+  create(@Body() data: {
+    nome: string;
+    email: string;
+    telefone: string;
+    endereco?: string;
+    cnpj?: string;
+    dominio?: string;
+    logo?: string;
+    corPrimaria?: string;
+    corSecundaria?: string;
+  }) {
+    return this.tenantService.create(data);
+  }
+
+  @Get()
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    return this.tenantService.findAll(pageNum, limitNum);
+  }
+
+  @Get(':id')
+  findById(@Param('id', ParseIntPipe) id: number) {
+    return this.tenantService.findById(id);
+  }
+
+  @Put(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: Partial<{
+      nome: string;
+      email: string;
+      telefone: string;
+      endereco: string;
+      cnpj: string;
+      dominio: string;
+      logo: string;
+      corPrimaria: string;
+      corSecundaria: string;
+      ativo: boolean;
+    }>
+  ) {
+    return this.tenantService.update(id, data);
+  }
+
+  @Delete(':id')
+  delete(@Param('id', ParseIntPipe) id: number) {
+    return this.tenantService.delete(id);
+  }
+
+  @Get(':id/limits')
+  checkLimits(@Param('id', ParseIntPipe) id: number) {
+    return this.tenantService.checkLimits(id);
+  }
+}

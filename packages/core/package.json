@@ -5,8 +5,8 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
-        "dev": "tsup src/index.ts --dts --watch",
-        "build": "tsup src/index.ts --dts --minify"
+        "dev": "tsc --watch",
+        "build": "tsc"
     },
     "keywords": [],
     "author": "Leonardo Moura Leitão",
