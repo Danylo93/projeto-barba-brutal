@@ -167,3 +167,16 @@ model Agendamento {
 
   @@map("agendamento")
 }
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  userId    Int?
+  action    String
+  entity    String?
+  entityId  Int?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@map("audit_log")
+}

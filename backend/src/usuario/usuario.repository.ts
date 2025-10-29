@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { RepositorioUsuario, Usuario } from '@barba/core';
+import { RepositorioUsuario, Usuario } from '../types';
 import { PrismaService } from 'src/db/prisma.service';
 
 @Injectable()
@@ -14,8 +14,8 @@ export class UsuarioRepository implements RepositorioUsuario {
     });
   }
 
-  async buscarPorEmail(email: string): Promise<Usuario> {
-    return this.prismaService.usuario.findUnique({
+  async buscarPorEmail(email: string): Promise<Usuario | null> {
+    return this.prismaService.usuario.findFirst({
       where: { email },
     });
   }

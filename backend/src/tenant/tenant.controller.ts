@@ -1,5 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { TenantService } from './tenant.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantAuthGuard } from '../auth/tenant-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 @Controller('tenants')
 export class TenantController {
@@ -18,6 +21,12 @@ export class TenantController {
     corSecundaria?: string;
   }) {
     return this.tenantService.create(data);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  getMe(@CurrentUser() user: any) {
+    return this.tenantService.findById(user.id);
   }
 
   @Get()

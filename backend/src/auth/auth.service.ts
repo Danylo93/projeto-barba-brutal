@@ -1,6 +1,7 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../db/prisma.service';
+import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private subscriptionValidation: SubscriptionValidationService,
   ) {}
 
   async loginTenant(email: string, senha: string) {
@@ -32,6 +34,10 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    // ✅ VALIDAR ASSINATURA ATIVA PARA TENANT/OWNER
+    // O owner precisa ter um plano ativo para acessar o sistema
+    await this.subscriptionValidation.validateTenantSubscription(tenant.id);
+
     const payload = {
       id: tenant.id,
       tenantId: tenant.id,
@@ -39,9 +45,13 @@ export class AuthService {
       email: tenant.email,
     };
 
+    // Obter informações da assinatura para retornar
+    const subscriptionStatus = await this.subscriptionValidation.getSubscriptionStatus(tenant.id);
+
     return {
       access_token: this.jwtService.sign(payload),
       tenant,
+      subscription: subscriptionStatus,
     };
   }
 
@@ -75,6 +85,10 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    // ✅ VALIDAR ASSINATURA ATIVA DO TENANT
+    // O barbeiro só pode logar se o owner/tenant tiver um plano ativo
+    await this.subscriptionValidation.validateTenantSubscription(tenantId);
+
     const payload = {
       id: usuario.id,
       tenantId: usuario.tenantId,
@@ -83,9 +97,13 @@ export class AuthService {
       barbeiro: usuario.barbeiro,
     };
 
+    // Obter informações da assinatura para retornar
+    const subscriptionStatus = await this.subscriptionValidation.getSubscriptionStatus(tenantId);
+
     return {
       access_token: this.jwtService.sign(payload),
       usuario,
+      subscription: subscriptionStatus,
     };
   }
 

@@ -1,4 +1,4 @@
-import { Agendamento, ObterHorariosOcupados, Usuario } from '@barba/core';
+import { Agendamento, ObterHorariosOcupados, Usuario } from '../types';
 import { AgendamentoRepository } from './agendamento.repository';
 import {
   Body,
@@ -15,22 +15,27 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SubscriptionGuard } from '../auth/subscription.guard';
 import { LimitsGuard } from '../auth/limits.guard';
 import { CurrentTenant } from '../auth/current-tenant.decorator';
+import { FeatureGuard } from '../auth/feature.guard';
+import { RequiresFeature } from '../auth/feature.decorator';
+
 
 @Controller('agendamentos')
-@UseGuards(JwtAuthGuard, SubscriptionGuard, LimitsGuard)
+@RequiresFeature('agendamentos')
+@UseGuards(JwtAuthGuard, SubscriptionGuard, LimitsGuard, FeatureGuard)
 export class AgendamentoController {
   constructor(private readonly repo: AgendamentoRepository) {}
 
   @Post()
-  criar(
+  async criar(
     @Body() agendamento: Agendamento,
     @UsuarioLogado() usuarioLogado: Usuario,
     @CurrentTenant() tenant: any,
   ) {
-    if (agendamento.usuario.id !== usuarioLogado.id) {
+    if (agendamento.usuarioId !== usuarioLogado.id) {
       throw new HttpException('Usuário não autorizado', 401);
     }
-    return this.repo.criar(agendamento, tenant.id);
+    agendamento.tenantId = tenant.id;
+    await this.repo.salvar(agendamento);
   }
 
   @Get(':email')
@@ -39,13 +44,13 @@ export class AgendamentoController {
   }
 
   @Get('ocupacao/:profissional/:data')
-  buscarOcupacaoPorProfissionalEData(
+  async buscarOcupacaoPorProfissionalEData(
     @Param('profissional') profissional: string,
     @Param('data') dataParam: string,
     @CurrentTenant() tenant: any,
   ) {
     const casoDeUso = new ObterHorariosOcupados(this.repo);
-    return casoDeUso.executar(+profissional, new Date(dataParam), tenant.id);
+    return casoDeUso.executar(+profissional, new Date(dataParam));
   }
 
   @Get(':profissional/:data')

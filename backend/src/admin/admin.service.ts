@@ -34,18 +34,16 @@ export class AdminService {
   }
 
   async getTotalRevenue() {
-    const result = await this.prisma.assinatura.aggregate({
-      _sum: {
-        plano: {
-          preco: true,
-        },
-      },
+    const assinaturas = await this.prisma.assinatura.findMany({
       where: {
         status: 'active',
       },
+      include: {
+        plano: true,
+      },
     });
 
-    return result._sum.plano?.preco || 0;
+    return assinaturas.reduce((total, assinatura) => total + assinatura.plano.preco, 0);
   }
 
   async getPlanosStats() {
@@ -97,8 +95,8 @@ export class AdminService {
     
     const where = search ? {
       OR: [
-        { nome: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
+        { nome: { contains: search, mode: 'insensitive' as const } },
+        { email: { contains: search, mode: 'insensitive' as const } },
       ],
     } : {};
 

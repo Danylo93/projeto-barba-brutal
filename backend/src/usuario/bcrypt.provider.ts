@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ProvedorCriptografia } from '@barba/core';
+import { ProvedorCriptografia } from '../types';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()

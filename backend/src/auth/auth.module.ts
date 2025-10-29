@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { DbModule } from '../db/db.module';
+import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { DbModule } from '../db/db.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService],
+  providers: [AuthService, JwtStrategy, SubscriptionValidationService],
+  exports: [AuthService, SubscriptionValidationService],
 })
 export class AuthModule {}

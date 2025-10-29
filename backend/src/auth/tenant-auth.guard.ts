@@ -16,6 +16,9 @@ export class TenantAuthGuard implements CanActivate {
       throw new ForbiddenException('Acesso negado - apenas tenants e admins');
     }
 
+    // Populate request.tenant for use in @CurrentTenant() decorator
+    request.tenant = user;
+
     return true;
   }
 }

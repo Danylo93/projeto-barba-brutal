@@ -12,6 +12,26 @@ export class AssinaturaService {
     });
   }
 
+  private async createOrGetProduct(plano: any): Promise<string> {
+    // Buscar produto existente
+    const products = await this.stripe.products.list({
+      limit: 100,
+    });
+    
+    const existingProduct = products.data.find(p => p.name === plano.nome);
+    if (existingProduct) {
+      return existingProduct.id;
+    }
+    
+    // Criar novo produto
+    const product = await this.stripe.products.create({
+      name: plano.nome,
+      description: plano.descricao,
+    });
+    
+    return product.id;
+  }
+
   async createCheckoutSession(
     tenantId: number,
     planoId: number,
@@ -117,10 +137,7 @@ export class AssinaturaService {
       items: [{
         price_data: {
           currency: 'brl',
-          product_data: {
-            name: plano.nome,
-            description: plano.descricao,
-          },
+          product: await this.createOrGetProduct(plano),
           unit_amount: Math.round(plano.preco * 100), // Converter para centavos
           recurring: {
             interval: plano.duracao === 30 ? 'month' : 'year',
@@ -202,47 +219,6 @@ export class AssinaturaService {
     });
   }
 
-  async createCheckoutSession(tenantId: number, planoId: number, successUrl: string, cancelUrl: string) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-
-    const plano = await this.prisma.plano.findUnique({
-      where: { id: planoId },
-    });
-
-    if (!tenant || !plano) {
-      throw new Error('Tenant ou plano não encontrado');
-    }
-
-    const session = await this.stripe.checkout.sessions.create({
-      customer_email: tenant.email,
-      payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: 'brl',
-          product_data: {
-            name: plano.nome,
-            description: plano.descricao,
-          },
-          unit_amount: Math.round(plano.preco * 100),
-          recurring: {
-            interval: plano.duracao === 30 ? 'month' : 'year',
-          },
-        },
-        quantity: 1,
-      }],
-      mode: 'subscription',
-      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl,
-      metadata: {
-        tenantId: tenantId.toString(),
-        planoId: planoId.toString(),
-      },
-    });
-
-    return session;
-  }
 
   async handleWebhook(event: any) {
     switch (event.type) {

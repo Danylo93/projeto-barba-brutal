@@ -1,27 +1,97 @@
 import { Injectable } from '@nestjs/common';
-import { Agendamento, RepositorioAgendamento } from '@barba/core';
+import { Agendamento, RepositorioAgendamento } from '../types';
 import { PrismaService } from 'src/db/prisma.service';
 
 @Injectable()
 export class AgendamentoRepository implements RepositorioAgendamento {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async criar(agendamento: Agendamento, tenantId: number): Promise<void> {
+  async salvar(agendamento: Agendamento): Promise<void> {
     await this.prismaService.agendamento.create({
       data: {
         data: agendamento.data,
-        tenantId,
-        usuario: { connect: { id: agendamento.usuario.id } },
-        profissional: { connect: { id: agendamento.profissional.id } },
+        tenantId: agendamento.tenantId,
+        usuarioId: agendamento.usuarioId,
+        profissionalId: agendamento.profissionalId,
         servicos: {
-          connect: agendamento.servicos.map((servico) => ({ id: servico.id })),
+          connect: agendamento.servicos.map((servicoId) => ({ id: servicoId })),
         },
+        status: agendamento.status || 'agendado',
+        observacoes: agendamento.observacoes,
       },
     });
   }
 
+  async buscarPorUsuario(usuarioId: number): Promise<Agendamento[]> {
+    const agendamentos = await this.prismaService.agendamento.findMany({
+      where: {
+        usuarioId,
+        data: {
+          gte: new Date(),
+        },
+      },
+      include: {
+        servicos: true,
+        profissional: true,
+        usuario: true,
+      },
+      orderBy: {
+        data: 'desc',
+      },
+    });
+
+    return agendamentos.map(agendamento => ({
+      id: agendamento.id,
+      data: agendamento.data,
+      profissionalId: agendamento.profissionalId,
+      servicos: agendamento.servicos.map(servico => servico.id),
+      usuarioId: agendamento.usuarioId,
+      tenantId: agendamento.tenantId,
+      status: agendamento.status,
+      observacoes: agendamento.observacoes,
+      createdAt: agendamento.createdAt,
+      updatedAt: agendamento.updatedAt,
+    }));
+  }
+
+  async buscarPorProfissional(profissionalId: number, data: Date): Promise<Agendamento[]> {
+    const ano = data.getFullYear();
+    const mes = data.getUTCMonth();
+    const dia = data.getUTCDate();
+
+    const inicioDoDia = new Date(ano, mes, dia, 0, 0, 0);
+    const fimDoDia = new Date(ano, mes, dia, 23, 59, 59);
+
+    const agendamentos = await this.prismaService.agendamento.findMany({
+      where: {
+        profissionalId,
+        data: {
+          gte: inicioDoDia,
+          lte: fimDoDia,
+        },
+      },
+      include: { 
+        servicos: true, 
+        usuario: true 
+      },
+    });
+
+    return agendamentos.map(agendamento => ({
+      id: agendamento.id,
+      data: agendamento.data,
+      profissionalId: agendamento.profissionalId,
+      servicos: agendamento.servicos.map(servico => servico.id),
+      usuarioId: agendamento.usuarioId,
+      tenantId: agendamento.tenantId,
+      status: agendamento.status,
+      observacoes: agendamento.observacoes,
+      createdAt: agendamento.createdAt,
+      updatedAt: agendamento.updatedAt,
+    }));
+  }
+
   async buscarPorEmail(email: string, tenantId: number): Promise<Agendamento[]> {
-    return this.prismaService.agendamento.findMany({
+    const agendamentos = await this.prismaService.agendamento.findMany({
       where: {
         tenantId,
         usuario: {
@@ -40,6 +110,19 @@ export class AgendamentoRepository implements RepositorioAgendamento {
         data: 'desc',
       },
     });
+
+    return agendamentos.map(agendamento => ({
+      id: agendamento.id,
+      data: agendamento.data,
+      profissionalId: agendamento.profissionalId,
+      servicos: agendamento.servicos.map(servico => servico.id),
+      usuarioId: agendamento.usuarioId,
+      tenantId: agendamento.tenantId,
+      status: agendamento.status,
+      observacoes: agendamento.observacoes,
+      createdAt: agendamento.createdAt,
+      updatedAt: agendamento.updatedAt,
+    }));
   }
 
   async buscarPorProfissionalEData(
@@ -47,26 +130,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     data: Date,
     tenantId: number,
   ): Promise<Agendamento[]> {
-    const ano = data.getFullYear();
-    const mes = data.getUTCMonth();
-    const dia = data.getUTCDate();
-
-    const inicioDoDia = new Date(ano, mes, dia, 0, 0, 0);
-    const fimDoDia = new Date(ano, mes, dia, 23, 59, 59);
-
-    const resultado: any = await this.prismaService.agendamento.findMany({
-      where: {
-        tenantId,
-        profissionalId: profissional,
-        data: {
-          gte: inicioDoDia,
-          lte: fimDoDia,
-        },
-      },
-      include: { servicos: true, usuario: true },
-    });
-
-    return resultado;
+    return this.buscarPorProfissional(profissional, data);
   }
 
   async excluir(id: number, tenantId: number): Promise<void> {
@@ -74,9 +138,6 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       where: {
         id: id,
         tenantId,
-      },
-      include: {
-        servicos: true,
       },
     });
   }
