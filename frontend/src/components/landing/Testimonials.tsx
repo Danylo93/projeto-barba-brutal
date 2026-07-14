@@ -25,13 +25,13 @@ const testimonials = [
 
 export function Testimonials() {
   return (
-    <section id="testimonials" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+    <section id="testimonials" className="py-20 px-4 sm:px-6 lg:px-8 bg-zinc-900">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
             O que nossos clientes dizem
           </h2>
-          <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+          <p className="text-xl text-zinc-400 max-w-3xl mx-auto">
             Mais de 500 barbearias já transformaram seus negócios com nossa plataforma.
           </p>
         </div>
@@ -40,7 +40,7 @@ export function Testimonials() {
           {testimonials.map((testimonial, index) => (
             <div
               key={index}
-              className="bg-slate-50 rounded-2xl p-8 border border-slate-200"
+              className="bg-zinc-950 rounded-2xl p-8 border border-zinc-800"
             >
               <div className="flex items-center mb-4">
                 {[...Array(testimonial.rating)].map((_, i) => (
@@ -48,15 +48,15 @@ export function Testimonials() {
                 ))}
               </div>
               
-              <blockquote className="text-slate-700 mb-6">
+              <blockquote className="text-zinc-300 mb-6">
                 &ldquo;{testimonial.content}&rdquo;
               </blockquote>
               
               <div>
-                <div className="font-semibold text-slate-900">
+                <div className="font-semibold text-white">
                   {testimonial.name}
                 </div>
-                <div className="text-slate-600 text-sm">
+                <div className="text-zinc-400 text-sm">
                   {testimonial.role}
                 </div>
               </div>

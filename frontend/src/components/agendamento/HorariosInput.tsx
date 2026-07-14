@@ -27,6 +27,11 @@ export default function HorariosInput(props: HorariosInputProps) {
         return horarios.slice(indice, indice + qtde)
     }
 
+    // Um horário "passou" se, para o dia selecionado, o momento já ficou no passado.
+    function horarioPassou(horario: string): boolean {
+        return aplicarHorario(props.data, horario).getTime() < Date.now()
+    }
+
     function renderizarHorario(horario: string) {
         const periodo = obterPeriodo(horaHover, props.qtdeHorarios)
         const temHorarios = periodo.length === props.qtdeHorarios
@@ -35,38 +40,46 @@ export default function HorariosInput(props: HorariosInputProps) {
         const selecionado =
             periodoSelecionado.length === props.qtdeHorarios && periodoSelecionado.includes(horario)
         const naoSelecionavel = !temHorarios && periodo.includes(horario)
+        const passou = horarioPassou(horario)
         const periodoBloqueado =
-            periodo.includes(horario) && periodo.some((h) => horariosOcupados.includes(h))
+            periodo.includes(horario) &&
+            periodo.some((h) => horariosOcupados.includes(h) || horarioPassou(h))
         const ocupado = horariosOcupados?.includes(horario)
+        const indisponivel = passou || ocupado
 
         return (
             <div
                 key={horario}
                 className={cn(
-                    'flex justify-center items-center cursor-pointer h-8 border border-zinc-800 rounded select-none',
+                    'flex justify-center items-center h-8 border border-zinc-800 rounded select-none',
+                    indisponivel ? 'cursor-not-allowed' : 'cursor-pointer',
                     {
-                        'bg-yellow-400': destacarHora,
-                        'bg-red-500': naoSelecionavel || periodoBloqueado,
+                        'bg-yellow-400': destacarHora && !indisponivel,
+                        'bg-red-500': (naoSelecionavel || periodoBloqueado) && !passou,
                         'text-white bg-green-500': selecionado,
-                        'cursor-not-allowed bg-zinc-800': ocupado,
+                        'bg-zinc-800': ocupado,
+                        'bg-zinc-900 opacity-40': passou && !selecionado,
                     }
                 )}
-                onMouseEnter={(_) => setHoraHover(horario)}
-                onMouseLeave={(_) => setHoraHover(null)}
+                onMouseEnter={() => !indisponivel && setHoraHover(horario)}
+                onMouseLeave={() => setHoraHover(null)}
                 onClick={() => {
-                    if (naoSelecionavel) return
-                    if (ocupado || periodoBloqueado) return
+                    if (naoSelecionavel || indisponivel || periodoBloqueado) return
                     props.dataMudou(aplicarHorario(props.data, horario))
                 }}
+                title={passou ? 'Horário já passou' : ocupado ? 'Horário ocupado' : undefined}
             >
                 <span
                     className={cn('text-sm text-zinc-400', {
-                        'text-black font-semibold': destacarHora,
+                        'text-black font-semibold': destacarHora && !indisponivel,
                         'text-white font-semibold': selecionado,
+                        'text-zinc-500 line-through': passou && !selecionado,
                         'text-zinc-400 font-semibold': ocupado,
                     })}
                 >
-                    {naoSelecionavel || periodoBloqueado || ocupado ? (
+                    {passou ? (
+                        horario
+                    ) : naoSelecionavel || periodoBloqueado || ocupado ? (
                         <IconX size={18} className="text-white" />
                     ) : (
                         horario

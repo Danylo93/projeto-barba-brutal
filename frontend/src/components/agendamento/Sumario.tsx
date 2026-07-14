@@ -37,7 +37,8 @@ export default function Sumario() {
     function podeFinalizar() {
         if (!profissional) return false
         if (!servicos.length) return false
-        return data && data.getHours() >= 8 && data.getHours() <= 21
+        if (!data || data.getTime() < Date.now()) return false // nada no passado
+        return data.getHours() >= 8 && data.getHours() <= 21
     }
 
     return (

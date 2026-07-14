@@ -41,17 +41,17 @@ export default function AgendamentosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-zinc-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Agendamentos</h1>
-            <p className="text-gray-600 mt-2">Gerencie seus agendamentos do dia</p>
+            <h1 className="text-3xl font-bold text-white">Agendamentos</h1>
+            <p className="text-zinc-400 mt-2">Gerencie seus agendamentos do dia</p>
           </div>
           <Link
             href="/agendamento"
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 bg-yellow-400 text-zinc-900 px-4 py-2 rounded-lg hover:bg-yellow-300 transition-colors"
           >
             <Plus size={20} />
             Novo Agendamento
@@ -60,20 +60,20 @@ export default function AgendamentosPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+          <div className="bg-red-950/40 border border-red-900 text-red-300 px-4 py-3 rounded-lg mb-6">
             {error}
           </div>
         )}
 
         {/* Empty State */}
         {mapped.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <Calendar size={48} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum agendamento</h3>
-            <p className="text-gray-600 mb-6">Comece criando seu primeiro agendamento</p>
+          <div className="text-center py-12 bg-zinc-900 rounded-lg border border-zinc-800">
+            <Calendar size={48} className="mx-auto text-zinc-600 mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">Nenhum agendamento</h3>
+            <p className="text-zinc-400 mb-6">Comece criando seu primeiro agendamento</p>
             <Link
               href="/agendamento"
-              className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-block bg-yellow-400 text-zinc-900 px-6 py-2 rounded-lg hover:bg-yellow-300 transition-colors"
             >
               Criar Agendamento
             </Link>
@@ -82,23 +82,23 @@ export default function AgendamentosPage() {
 
         {/* Agendamentos List */}
         {mapped.length > 0 && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-100 border-b border-gray-200">
+                <thead className="bg-zinc-900 border-b border-zinc-800">
                   <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Data/Hora</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Cliente</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Profissional</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Serviços</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Ações</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-white">Data/Hora</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-white">Cliente</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-white">Profissional</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-white">Serviços</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-white">Status</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-white">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-zinc-800">
                   {mapped.map((agendamento) => (
-                    <tr key={agendamento.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                    <tr key={agendamento.id} className="hover:bg-zinc-950">
+                      <td className="px-6 py-4 text-sm text-white">
                         {new Date(agendamento.data).toLocaleDateString('pt-BR', {
                           day: '2-digit',
                           month: '2-digit',
@@ -107,19 +107,19 @@ export default function AgendamentosPage() {
                           minute: '2-digit',
                         })}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-6 py-4 text-sm text-white">
                         <div>
                           <p className="font-medium">{agendamento.usuario.nome}</p>
-                          <p className="text-gray-600">{agendamento.usuario.email || '-'}</p>
+                          <p className="text-zinc-400">{agendamento.usuario.email || '-'}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-6 py-4 text-sm text-white">
                         {agendamento.profissional?.nome || usuario?.nome}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-6 py-4 text-sm text-white">
                         <div className="flex flex-wrap gap-1">
                           {agendamento.servicos.map((servico, idx) => (
-                            <span key={idx} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                            <span key={idx} className="bg-yellow-400/15 text-yellow-300 px-2 py-1 rounded text-xs">
                               {servico.nome}
                             </span>
                           ))}
@@ -128,10 +128,10 @@ export default function AgendamentosPage() {
                       <td className="px-6 py-4 text-sm">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           agendamento.status === 'confirmado'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-green-500/15 text-green-400'
                             : agendamento.status === 'cancelado'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-red-500/15 text-red-400'
+                            : 'bg-yellow-500/15 text-yellow-400'
                         }`}>
                           {agendamento.status}
                         </span>
@@ -140,14 +140,14 @@ export default function AgendamentosPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => router.push(`/agendamentos/${agendamento.id}`)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-yellow-400 hover:text-blue-900"
                             title="Visualizar"
                           >
                             <Eye size={18} />
                           </button>
                           <button
                             onClick={() => handleDelete(agendamento.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-400 hover:text-red-900"
                             title="Deletar"
                           >
                             <Trash2 size={18} />

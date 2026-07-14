@@ -76,21 +76,21 @@ export default function PlanosPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="text-gray-600 mt-4">Carregando planos...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400"></div>
+          <p className="text-zinc-400 mt-4">Carregando planos...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-zinc-950">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Planos</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold text-white">Planos</h1>
+          <p className="text-zinc-400 mt-2">
             {isTenant
               ? 'Escolha o plano ideal para a sua barbearia'
               : 'Somente a conta da barbearia pode alterar o plano'}
@@ -98,13 +98,13 @@ export default function PlanosPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+          <div className="bg-red-950/40 border border-red-900 text-red-300 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
             <AlertCircle size={20} />
             {error}
           </div>
         )}
         {sucesso && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+          <div className="bg-green-950/40 border border-green-900 text-green-300 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
             <CheckCircle size={20} />
             {sucesso}
           </div>
@@ -116,35 +116,35 @@ export default function PlanosPage() {
             return (
               <div
                 key={plano.id}
-                className={`bg-white rounded-lg shadow flex flex-col p-6 border-2 ${
-                  atual ? 'border-blue-600' : 'border-transparent'
+                className={`bg-zinc-900 border border-zinc-800 rounded-lg flex flex-col p-6 border-2 ${
+                  atual ? 'border-yellow-400' : 'border-transparent'
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xl font-bold text-gray-900">{plano.nome}</h2>
+                  <h2 className="text-xl font-bold text-white">{plano.nome}</h2>
                   {atual && (
-                    <span className="flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                    <span className="flex items-center gap-1 text-xs font-semibold text-yellow-400 bg-zinc-800 px-2 py-1 rounded-full">
                       <Crown size={14} /> Plano atual
                     </span>
                   )}
                 </div>
-                <p className="text-gray-600 text-sm mb-4">{plano.descricao}</p>
-                <p className="text-3xl font-bold text-gray-900 mb-1">
+                <p className="text-zinc-400 text-sm mb-4">{plano.descricao}</p>
+                <p className="text-3xl font-bold text-white mb-1">
                   R$ {plano.preco.toFixed(2).replace('.', ',')}
-                  <span className="text-sm font-normal text-gray-500">/{plano.duracao === 30 ? 'mês' : `${plano.duracao} dias`}</span>
+                  <span className="text-sm font-normal text-zinc-500">/{plano.duracao === 30 ? 'mês' : `${plano.duracao} dias`}</span>
                 </p>
                 <ul className="space-y-2 my-6 flex-1">
-                  <li className="flex items-center gap-2 text-sm text-gray-700">
-                    <CheckCircle size={16} className="text-green-600 flex-shrink-0" />
+                  <li className="flex items-center gap-2 text-sm text-zinc-300">
+                    <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
                     Até {plano.maxUsuarios} usuários
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-gray-700">
-                    <CheckCircle size={16} className="text-green-600 flex-shrink-0" />
+                  <li className="flex items-center gap-2 text-sm text-zinc-300">
+                    <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
                     {plano.maxAgendamentos} agendamentos/mês
                   </li>
                   {plano.features.map((f, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
-                      <CheckCircle size={16} className="text-green-600 flex-shrink-0" />
+                    <li key={i} className="flex items-center gap-2 text-sm text-zinc-300">
+                      <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
                       {f}
                     </li>
                   ))}
@@ -155,8 +155,8 @@ export default function PlanosPage() {
                     disabled={atual || salvandoId !== null}
                     className={`w-full py-2 rounded-lg font-semibold transition-colors ${
                       atual
-                        ? 'bg-gray-100 text-gray-400 cursor-default'
-                        : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60'
+                        ? 'bg-zinc-900 text-zinc-600 cursor-default'
+                        : 'bg-yellow-400 text-zinc-900 hover:bg-yellow-300 disabled:opacity-60'
                     }`}
                   >
                     {atual

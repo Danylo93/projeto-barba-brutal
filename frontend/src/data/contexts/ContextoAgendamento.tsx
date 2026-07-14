@@ -63,6 +63,10 @@ export function ProvedorAgendamento({ children }: { children: React.ReactNode })
             throw new Error('Selecione profissional, serviços e horário antes de finalizar.')
         }
 
+        if (data.getTime() < Date.now()) {
+            throw new Error('Escolha um horário futuro para o agendamento.')
+        }
+
         // O backend espera IDs (não os objetos completos) e valida usuarioId contra o token.
         const resposta = await httpPost('agendamentos', {
             usuarioId: usuario.id,

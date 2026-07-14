@@ -56,7 +56,7 @@ const plans = [
 
 export function Pricing() {
   return (
-    <section id="pricing" className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-50 to-background overflow-hidden">
+    <section id="pricing" className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-zinc-950 to-background overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 z-0 opacity-[0.03]">
         <div className="absolute inset-0" style={{
@@ -67,10 +67,10 @@ export function Pricing() {
 
       <div className="relative z-10 max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
             Planos que cabem no seu bolso
           </h2>
-          <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+          <p className="text-xl text-zinc-400 max-w-3xl mx-auto">
             Escolha o plano ideal para sua barbearia. Sem compromisso, 
             cancele quando quiser.
           </p>
@@ -82,13 +82,13 @@ export function Pricing() {
               key={index}
               className={`relative rounded-2xl border-2 p-8 ${
                 plan.popular
-                  ? 'border-blue-500 bg-white shadow-xl'
-                  : 'border-slate-200 bg-white'
+                  ? 'border-yellow-400 bg-zinc-900 shadow-xl'
+                  : 'border-zinc-800 bg-zinc-900'
               }`}
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center">
+                  <div className="bg-yellow-400 text-zinc-900 px-4 py-2 rounded-full text-sm font-medium flex items-center">
                     <Star className="h-4 w-4 mr-1" />
                     Mais Popular
                   </div>
@@ -96,15 +96,15 @@ export function Pricing() {
               )}
 
               <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                <h3 className="text-2xl font-bold text-white mb-2">
                   {plan.name}
                 </h3>
-                <p className="text-slate-600 mb-4">{plan.description}</p>
+                <p className="text-zinc-400 mb-4">{plan.description}</p>
                 <div className="flex items-baseline justify-center">
-                  <span className="text-4xl font-bold text-slate-900">
+                  <span className="text-4xl font-bold text-white">
                     {plan.price}
                   </span>
-                  <span className="text-slate-600 ml-1">{plan.period}</span>
+                  <span className="text-zinc-400 ml-1">{plan.period}</span>
                 </div>
               </div>
 
@@ -112,7 +112,7 @@ export function Pricing() {
                 {plan.features.map((feature, featureIndex) => (
                   <li key={featureIndex} className="flex items-start">
                     <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-slate-600">{feature}</span>
+                    <span className="text-zinc-400">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -120,7 +120,7 @@ export function Pricing() {
               <Button
                 className={`w-full ${
                   plan.popular
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+                    ? 'bg-yellow-400 text-zinc-900 hover:bg-yellow-300'
                     : ''
                 }`}
                 variant={plan.popular ? 'default' : 'outline'}
@@ -133,10 +133,10 @@ export function Pricing() {
         </div>
 
         <div className="text-center mt-12">
-          <p className="text-slate-600 mb-4">
+          <p className="text-zinc-400 mb-4">
             Todos os planos incluem teste gratuito de 14 dias
           </p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-500">
+          <div className="flex flex-wrap justify-center gap-4 text-sm text-zinc-500">
             <span>✓ Sem taxa de instalação</span>
             <span>✓ Cancelamento a qualquer momento</span>
             <span>✓ Migração de dados gratuita</span>

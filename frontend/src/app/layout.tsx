@@ -26,7 +26,7 @@ export default function RootLayout({
         <html lang="pt-BR" suppressHydrationWarning>
             <body className={inter.className}>
                 <ThemeProvider
-                    defaultTheme="system"
+                    defaultTheme="dark"
                     storageKey="barba-brutal-theme"
                 >
                     {children}
