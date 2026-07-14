@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import useAPI from '@/data/hooks/useAPI'
+import useSessao from '@/data/hooks/useSessao'
 
 interface Tenant {
     id: number
@@ -25,15 +26,28 @@ interface Stats {
 export default function DashboardPage() {
     const router = useRouter()
     const { httpGet } = useAPI()
+    const { carregando, token, limparSessao } = useSessao()
     const [tenant, setTenant] = useState<Tenant | null>(null)
     const [stats, setStats] = useState<Stats | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        // Buscar dados do tenant usando o hook useAPI que já envia o token
+        // Aguardar a sessão carregar do cookie antes de chamar a API
+        // (senão a primeira chamada sai sem token e recebe 401).
+        if (carregando) return
+        if (!token) {
+            router.push('/login')
+            return
+        }
+
         httpGet('/tenants/me')
             .then(data => {
-                setTenant(data)
+                // httpGet devolve o corpo mesmo em erro; validar o formato
+                if (data?.id && data?.nome) {
+                    setTenant(data)
+                } else {
+                    router.push('/login')
+                }
             })
             .catch(err => {
                 if (process.env.NODE_ENV === 'development') {
@@ -47,11 +61,14 @@ export default function DashboardPage() {
 
         // Estatísticas reais do dashboard
         httpGet('/tenants/me/stats')
-            .then(data => setStats(data))
+            .then(data => {
+                setStats(typeof data?.receitaMes === 'number' ? data : null)
+            })
             .catch(() => setStats(null))
-    }, [httpGet, router])
+    }, [httpGet, router, carregando, token])
 
     const handleLogout = () => {
+        limparSessao()
         router.push('/')
     }
 

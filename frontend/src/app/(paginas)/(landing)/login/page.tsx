@@ -23,32 +23,46 @@ export default function LoginPage() {
         }))
     }
 
+    // Tenta autenticar em cascata: barbearia (tenant) → admin do SaaS →
+    // cliente/barbeiro (usuario, na barbearia padrão). Cada papel vai para
+    // a sua área após o login.
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
         setLoading(true)
 
-        try {
-            const response = await fetch('/api/auth/tenant/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            })
+        const tenantIdPadrao = Number(process.env.NEXT_PUBLIC_TENANT_DEFAULT_ID || 1)
+        const tentativas: Array<{ url: string; body: any; destino: string }> = [
+            { url: '/api/auth/tenant/login', body: formData, destino: '/dashboard' },
+            { url: '/api/auth/admin/login', body: formData, destino: '/admin' },
+            {
+                url: '/api/auth/usuario/login',
+                body: { ...formData, tenantId: tenantIdPadrao },
+                destino: '/agendamento',
+            },
+        ]
 
-            if (response.ok) {
-                const data = await response.json()
-                // Salvar token no cookie via ContextoSessao
-                criarSessao(data.access_token)
-                // Aguardar um pouco para o contexto atualizar
-                setTimeout(() => {
-                    router.push('/dashboard')
-                }, 100)
-            } else {
-                const errorData = await response.json()
-                setError(errorData.message || 'Erro ao fazer login')
+        try {
+            let ultimaMensagem = ''
+            for (const tentativa of tentativas) {
+                const response = await fetch(tentativa.url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(tentativa.body),
+                })
+                const data = await response.json().catch(() => ({}))
+
+                if (response.ok && data.access_token) {
+                    criarSessao(data.access_token)
+                    // Aguardar um pouco para o contexto atualizar
+                    setTimeout(() => {
+                        router.push(tentativa.destino)
+                    }, 100)
+                    return
+                }
+                ultimaMensagem = data.message || ''
             }
+            setError(ultimaMensagem || 'Email ou senha inválidos')
         } catch (err) {
             setError('Erro de conexão. Tente novamente.')
         } finally {
