@@ -7,47 +7,41 @@ import Link from 'next/link';
 const plans = [
   {
     name: 'Básico',
-    price: 'R$ 29,90',
+    price: 'R$ 49,90',
     period: '/mês',
-    description: 'Perfeito para barbearias pequenas',
+    description: 'Ideal para quem trabalha sozinho',
     features: [
-      'Até 5 usuários',
-      'Até 100 agendamentos/mês',
+      '1 barbeiro',
+      'Agendamentos online',
       'Gestão de clientes',
       'Relatórios básicos',
-      'Suporte por email',
     ],
     popular: false,
   },
   {
     name: 'Profissional',
-    price: 'R$ 59,90',
+    price: 'R$ 99,90',
     period: '/mês',
-    description: 'Ideal para barbearias em crescimento',
+    description: 'Para barbearias em crescimento',
     features: [
-      'Até 15 usuários',
-      'Até 500 agendamentos/mês',
+      'Até 5 barbeiros',
+      'Agendamentos online',
       'Gestão de clientes',
       'Relatórios avançados',
       'Integração WhatsApp',
-      'Marketing digital',
-      'Suporte prioritário',
     ],
     popular: true,
   },
   {
     name: 'Premium',
-    price: 'R$ 99,90',
+    price: 'R$ 159,90',
     period: '/mês',
-    description: 'Para barbearias grandes e redes',
+    description: 'Para barbearias e redes de qualquer tamanho',
     features: [
-      'Até 50 usuários',
+      'Barbeiros ilimitados',
       'Agendamentos ilimitados',
-      'Gestão de clientes',
-      'Relatórios avançados',
+      'Relatórios completos',
       'Integração WhatsApp',
-      'Marketing digital',
-      'API personalizada',
       'Suporte prioritário 24/7',
     ],
     popular: false,
@@ -134,7 +128,7 @@ export function Pricing() {
 
         <div className="text-center mt-12">
           <p className="text-zinc-400 mb-4">
-            Todos os planos incluem teste gratuito de 14 dias
+            Todos os planos incluem <span className="text-yellow-400 font-semibold">30 dias grátis</span> · pagamento via Pix
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm text-zinc-500">
             <span>✓ Sem taxa de instalação</span>

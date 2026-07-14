@@ -31,8 +31,8 @@ export class SubscriptionValidationService {
       );
     }
 
-    // Verificar se o status é "active"
-    if (assinatura.status !== 'active') {
+    // "active" (paga) e "trialing" (período de teste) são válidos
+    if (assinatura.status !== 'active' && assinatura.status !== 'trialing') {
       throw new BadRequestException(
         `Sua assinatura está com status "${assinatura.status}". Por favor, regularize sua situação para continuar.`,
       );
@@ -130,9 +130,11 @@ export class SubscriptionValidationService {
     const isExpired = assinatura.dataFim < agora;
     const isExpiringsoon = this.isExpiringInDays(assinatura.dataFim, 7);
 
+    const statusValido = assinatura.status === 'active' || assinatura.status === 'trialing'
     return {
       hasSubscription: true,
-      isActive: assinatura.status === 'active' && !isExpired,
+      isActive: statusValido && !isExpired,
+      emTeste: assinatura.status === 'trialing' && !isExpired,
       status: assinatura.status,
       plano: assinatura.plano.nome,
       dataInicio: assinatura.dataInicio,

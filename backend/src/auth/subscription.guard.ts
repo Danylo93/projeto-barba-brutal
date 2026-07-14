@@ -33,8 +33,8 @@ export class SubscriptionGuard implements CanActivate {
       throw new ForbiddenException('Assinatura não encontrada');
     }
 
-    // Verificar se a assinatura está ativa
-    if (tenant.assinatura.status !== 'active') {
+    // "active" (paga) e "trialing" (teste) permitem uso do sistema
+    if (tenant.assinatura.status !== 'active' && tenant.assinatura.status !== 'trialing') {
       throw new ForbiddenException('Assinatura inativa. Renove sua assinatura para continuar usando o sistema.');
     }
 

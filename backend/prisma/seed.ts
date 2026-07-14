@@ -8,35 +8,36 @@ async function seed() {
     
     // 1. Criar planos de assinatura
     console.log('📋 Criando planos de assinatura...');
+    // maxUsuarios representa o número de barbeiros permitidos no plano.
     const planos = [
       {
         nome: 'Básico',
-        descricao: 'Plano ideal para barbearias pequenas',
-        preco: 29.90,
+        descricao: 'Ideal para quem trabalha sozinho',
+        preco: 49.90,
         duracao: 30,
-        maxUsuarios: 3,
-        maxAgendamentos: 100,
-        features: ['Gestão de agendamentos', '1 profissional', 'Relatórios básicos'],
+        maxUsuarios: 1,
+        maxAgendamentos: 200,
+        features: ['1 barbeiro', 'Agendamentos online', 'Gestão de clientes', 'Relatórios básicos'],
         ativo: true,
       },
       {
         nome: 'Profissional',
-        descricao: 'Plano completo para barbearias em crescimento',
-        preco: 59.90,
+        descricao: 'Para barbearias em crescimento',
+        preco: 99.90,
         duracao: 30,
-        maxUsuarios: 10,
-        maxAgendamentos: 500,
-        features: ['Gestão de agendamentos', 'Até 5 profissionais', 'Relatórios avançados', 'Integração com WhatsApp'],
+        maxUsuarios: 5,
+        maxAgendamentos: 1000,
+        features: ['Até 5 barbeiros', 'Agendamentos online', 'Gestão de clientes', 'Relatórios avançados', 'Integração WhatsApp'],
         ativo: true,
       },
       {
         nome: 'Premium',
-        descricao: 'Plano para barbearias estabelecidas',
-        preco: 99.90,
+        descricao: 'Para barbearias e redes de qualquer tamanho',
+        preco: 159.90,
         duracao: 30,
-        maxUsuarios: 25,
-        maxAgendamentos: 1000,
-        features: ['Gestão de agendamentos', 'Profissionais ilimitados', 'Relatórios completos', 'Integração com WhatsApp', 'Subdomínio personalizado', 'API completa'],
+        maxUsuarios: 999999,
+        maxAgendamentos: 999999,
+        features: ['Barbeiros ilimitados', 'Agendamentos ilimitados', 'Relatórios completos', 'Integração WhatsApp', 'Suporte prioritário 24/7'],
         ativo: true,
       },
     ];

@@ -139,6 +139,11 @@ export default function AssinaturaPage() {
                       <CheckCircle size={24} className="text-green-400" />
                       <span className="text-green-400 font-semibold">Ativa</span>
                     </>
+                  ) : assinatura.status === 'trialing' ? (
+                    <>
+                      <CheckCircle size={24} className="text-yellow-400" />
+                      <span className="text-yellow-400 font-semibold">Em teste (30 dias)</span>
+                    </>
                   ) : (
                     <>
                       <AlertCircle size={24} className="text-red-400" />

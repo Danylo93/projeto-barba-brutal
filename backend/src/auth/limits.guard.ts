@@ -15,14 +15,14 @@ export class LimitsGuard implements CanActivate {
       throw new ForbiddenException('Informações do tenant não encontradas');
     }
 
-    // Verificar limite de usuários
-    const userCount = await this.prisma.usuario.count({
-      where: { tenantId: tenant.id, ativo: true },
+    // O limite do plano é sobre o número de BARBEIROS (clientes são ilimitados).
+    const barbeirosCount = await this.prisma.usuario.count({
+      where: { tenantId: tenant.id, ativo: true, barbeiro: true },
     });
 
-    if (userCount >= plano.maxUsuarios) {
+    if (barbeirosCount >= plano.maxUsuarios) {
       throw new ForbiddenException(
-        `Limite de usuários excedido. Seu plano permite até ${plano.maxUsuarios} usuários. Faça upgrade do seu plano para adicionar mais usuários.`
+        `Limite de barbeiros excedido. Seu plano permite até ${plano.maxUsuarios} barbeiro(s). Faça upgrade do plano para adicionar mais.`
       );
     }
 

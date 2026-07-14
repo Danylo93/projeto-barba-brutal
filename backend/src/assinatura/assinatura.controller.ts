@@ -14,6 +14,7 @@ import {
 import { AssinaturaService } from './assinatura.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import Stripe from 'stripe';
 
@@ -72,6 +73,40 @@ export class AssinaturaController {
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   getMySubscription(@CurrentUser() user: any) {
     return this.assinaturaService.getSubscription(exigirTenant(user));
+  }
+
+  // ── Pagamento via Pix (Mercado Pago) ──
+
+  @Post('me/pix')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  criarPix(@CurrentUser() user: any, @Body() data: { planoId?: number }) {
+    return this.assinaturaService.criarPagamentoPix(exigirTenant(user), data?.planoId);
+  }
+
+  @Get('me/pix/:id')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  consultarPix(@CurrentUser() user: any, @Param('id', ParseIntPipe) id: number) {
+    return this.assinaturaService.consultarPagamento(exigirTenant(user), id);
+  }
+
+  // ── Controle do admin do SaaS sobre pagamentos ──
+
+  @Get('pagamentos')
+  @UseGuards(JwtAuthGuard, AdminAuthGuard)
+  listarPagamentos() {
+    return this.assinaturaService.listarPagamentos();
+  }
+
+  @Post('pagamentos/:id/confirmar')
+  @UseGuards(JwtAuthGuard, AdminAuthGuard)
+  confirmarPagamento(@Param('id', ParseIntPipe) id: number) {
+    return this.assinaturaService.confirmarPagamentoManual(id);
+  }
+
+  // Webhook do Mercado Pago (público — validado pelo id do pagamento).
+  @Post('webhook/mercadopago')
+  handleMercadoPago(@Body() body: any) {
+    return this.assinaturaService.handleWebhookMercadoPago(body);
   }
 
   // ── Endpoints por tenantId: restritos ao próprio tenant ou admin ──

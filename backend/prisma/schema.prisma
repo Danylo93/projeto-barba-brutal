@@ -26,9 +26,10 @@ model Plano {
   ativo       Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  
+
   assinaturas Assinatura[]
-  
+  pagamentos  Pagamento[]
+
   @@map("plano")
 }
 
@@ -55,7 +56,8 @@ model Tenant {
   profissionais Profissional[]
   servicos      Servico[]
   agendamentos  Agendamento[]
-  
+  pagamentos    Pagamento[]
+
   @@map("tenant")
 }
 
@@ -64,7 +66,8 @@ model Assinatura {
   id                Int       @id @default(autoincrement())
   tenantId          Int       @unique
   planoId           Int
-  status            String    // active, canceled, past_due, unpaid
+  status            String    // trialing, active, canceled, past_due, unpaid
+  emTeste           Boolean   @default(false) // período de teste de 30 dias
   stripeCustomerId  String?   @unique
   stripeSubscriptionId String? @unique
   dataInicio        DateTime
@@ -72,11 +75,30 @@ model Assinatura {
   renovacaoAutomatica Boolean @default(true)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  
+
   tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   plano             Plano     @relation(fields: [planoId], references: [id])
-  
+
   @@map("assinatura")
+}
+
+// Pagamentos (Pix via Mercado Pago) — o admin do SaaS acompanha e controla
+model Pagamento {
+  id            Int       @id @default(autoincrement())
+  tenantId      Int
+  planoId       Int
+  valor         Float
+  metodo        String    @default("pix")
+  status        String    @default("pending") // pending, approved, rejected, cancelled
+  mpPaymentId   String?   @unique  // id do pagamento no Mercado Pago
+  qrCode        String?   // copia e cola (EMV)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plano         Plano     @relation(fields: [planoId], references: [id])
+
+  @@map("pagamento")
 }
 
 // Usuários administrativos do sistema (não ligados a tenants)

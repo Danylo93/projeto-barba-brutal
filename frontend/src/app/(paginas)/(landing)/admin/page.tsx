@@ -41,6 +41,17 @@ interface TenantAdmin {
   _count: { usuarios: number; agendamentos: number }
 }
 
+interface Pagamento {
+  id: number
+  valor: number
+  status: string
+  metodo: string
+  barbearia?: string
+  email?: string
+  plano?: string
+  createdAt: string
+}
+
 const URL_BASE = process.env.NEXT_PUBLIC_URL_BASE
 const inputClasses =
   'w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-colors'
@@ -66,6 +77,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [tenants, setTenants] = useState<TenantAdmin[]>([])
   const [alterandoId, setAlterandoId] = useState<number | null>(null)
+  const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
+  const [confirmandoId, setConfirmandoId] = useState<number | null>(null)
 
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
@@ -76,11 +89,40 @@ export default function AdminPage() {
     if (isAdmin && token) {
       fetchDashboardStats()
       fetchTenants()
+      fetchPagamentos()
     } else {
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, token])
+
+  const fetchPagamentos = async () => {
+    try {
+      const response = await fetch(`${URL_BASE}/assinaturas/pagamentos`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (response.ok) setPagamentos(await response.json())
+    } catch {
+      /* silencioso */
+    }
+  }
+
+  const confirmarPagamento = async (id: number) => {
+    if (!confirm('Confirmar este pagamento manualmente e ativar a assinatura?')) return
+    try {
+      setConfirmandoId(id)
+      const response = await fetch(`${URL_BASE}/assinaturas/pagamentos/${id}/confirmar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (response.ok) {
+        setPagamentos((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'approved' } : p)))
+        fetchTenants()
+      }
+    } finally {
+      setConfirmandoId(null)
+    }
+  }
 
   const fetchTenants = async () => {
     try {
@@ -314,6 +356,72 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
+        </Card>
+
+        {/* Pagamentos (Pix / Mercado Pago) */}
+        <Card className="p-6 mb-8">
+          <h3 className="text-lg font-semibold text-white mb-4">Pagamentos</h3>
+          {pagamentos.length === 0 ? (
+            <p className="text-sm text-zinc-500">Nenhum pagamento registrado ainda.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b border-zinc-800">
+                  <tr className="text-left text-xs font-semibold text-zinc-400 uppercase">
+                    <th className="px-4 py-3">Barbearia</th>
+                    <th className="px-4 py-3">Plano</th>
+                    <th className="px-4 py-3">Valor</th>
+                    <th className="px-4 py-3">Método</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Data</th>
+                    <th className="px-4 py-3">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800">
+                  {pagamentos.map((p) => (
+                    <tr key={p.id} className="hover:bg-zinc-800/40">
+                      <td className="px-4 py-3 text-sm">
+                        <p className="text-white">{p.barbearia}</p>
+                        <p className="text-zinc-500 text-xs">{p.email}</p>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-zinc-300">{p.plano}</td>
+                      <td className="px-4 py-3 text-sm text-white">
+                        R$ {p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-zinc-300 uppercase">{p.metodo}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span
+                          className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
+                            p.status === 'approved'
+                              ? 'bg-green-500/15 text-green-400'
+                              : p.status === 'pending'
+                                ? 'bg-yellow-500/15 text-yellow-400'
+                                : 'bg-red-500/15 text-red-400'
+                          }`}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-zinc-400">
+                        {new Date(p.createdAt).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {p.status !== 'approved' && (
+                          <button
+                            onClick={() => confirmarPagamento(p.id)}
+                            disabled={confirmandoId === p.id}
+                            className="px-3 py-1 rounded-md text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                          >
+                            {confirmandoId === p.id ? '...' : 'Confirmar'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
