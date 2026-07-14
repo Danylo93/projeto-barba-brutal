@@ -2,6 +2,40 @@ import { Injectable } from '@nestjs/common';
 import { Agendamento, RepositorioAgendamento } from '../types';
 import { PrismaService } from 'src/db/prisma.service';
 
+const MINUTOS_POR_SLOT = 30;
+
+/** Formato de leitura consumido pelo frontend (serviços/usuário como objetos). */
+function paraLeitura(agendamento: any) {
+  return {
+    id: agendamento.id,
+    data: agendamento.data,
+    profissionalId: agendamento.profissionalId,
+    profissional: agendamento.profissional
+      ? { id: agendamento.profissional.id, nome: agendamento.profissional.nome }
+      : undefined,
+    servicos: (agendamento.servicos ?? []).map((servico: any) => ({
+      id: servico.id,
+      nome: servico.nome,
+      preco: servico.preco,
+      qtdeSlots: servico.qtdeSlots,
+      duracao: (servico.qtdeSlots ?? 1) * MINUTOS_POR_SLOT,
+    })),
+    usuarioId: agendamento.usuarioId,
+    usuario: agendamento.usuario
+      ? {
+          id: agendamento.usuario.id,
+          nome: agendamento.usuario.nome,
+          email: agendamento.usuario.email,
+        }
+      : undefined,
+    tenantId: agendamento.tenantId,
+    status: agendamento.status,
+    observacoes: agendamento.observacoes,
+    createdAt: agendamento.createdAt,
+    updatedAt: agendamento.updatedAt,
+  };
+}
+
 @Injectable()
 export class AgendamentoRepository implements RepositorioAgendamento {
   constructor(private readonly prismaService: PrismaService) {}
@@ -40,18 +74,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       },
     });
 
-    return agendamentos.map(agendamento => ({
-      id: agendamento.id,
-      data: agendamento.data,
-      profissionalId: agendamento.profissionalId,
-      servicos: agendamento.servicos.map(servico => servico.id),
-      usuarioId: agendamento.usuarioId,
-      tenantId: agendamento.tenantId,
-      status: agendamento.status,
-      observacoes: agendamento.observacoes,
-      createdAt: agendamento.createdAt,
-      updatedAt: agendamento.updatedAt,
-    }));
+    return agendamentos.map(paraLeitura) as unknown as Agendamento[];
   }
 
   async buscarPorProfissional(profissionalId: number, data: Date): Promise<Agendamento[]> {
@@ -76,18 +99,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       },
     });
 
-    return agendamentos.map(agendamento => ({
-      id: agendamento.id,
-      data: agendamento.data,
-      profissionalId: agendamento.profissionalId,
-      servicos: agendamento.servicos.map(servico => servico.id),
-      usuarioId: agendamento.usuarioId,
-      tenantId: agendamento.tenantId,
-      status: agendamento.status,
-      observacoes: agendamento.observacoes,
-      createdAt: agendamento.createdAt,
-      updatedAt: agendamento.updatedAt,
-    }));
+    return agendamentos.map(paraLeitura) as unknown as Agendamento[];
   }
 
   async buscarPorEmail(email: string, tenantId: number): Promise<Agendamento[]> {
@@ -111,18 +123,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       },
     });
 
-    return agendamentos.map(agendamento => ({
-      id: agendamento.id,
-      data: agendamento.data,
-      profissionalId: agendamento.profissionalId,
-      servicos: agendamento.servicos.map(servico => servico.id),
-      usuarioId: agendamento.usuarioId,
-      tenantId: agendamento.tenantId,
-      status: agendamento.status,
-      observacoes: agendamento.observacoes,
-      createdAt: agendamento.createdAt,
-      updatedAt: agendamento.updatedAt,
-    }));
+    return agendamentos.map(paraLeitura) as unknown as Agendamento[];
   }
 
   async buscarPorProfissionalEData(

@@ -2,23 +2,30 @@ import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, UseGuard
 import { PrismaService } from 'src/db/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
-import { CurrentTenant } from '../auth/current-tenant.decorator';
+import { CurrentTenant, CurrentTenantId } from '../auth/current-tenant.decorator';
 
 @Controller('servicos')
 export class ServicoController {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Leitura escopada ao tenant do usuário autenticado (evita vazar serviços de outras barbearias)
   @Get()
-  async buscarTodos() {
+  @UseGuards(JwtAuthGuard)
+  async buscarTodos(@CurrentTenantId() tenantId: number) {
     return this.prisma.servico.findMany({
+      where: { tenantId, ativo: true },
       orderBy: { nome: 'asc' },
     });
   }
 
   @Get(':id')
-  async findById(@Param('id', ParseIntPipe) id: number) {
-    return this.prisma.servico.findUnique({
-      where: { id },
+  @UseGuards(JwtAuthGuard)
+  async findById(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentTenantId() tenantId: number,
+  ) {
+    return this.prisma.servico.findFirst({
+      where: { id, tenantId },
     });
   }
 

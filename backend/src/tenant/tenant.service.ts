@@ -22,7 +22,7 @@ export class TenantService {
   }
 
   async findById(id: number) {
-    return this.prisma.tenant.findUnique({
+    const tenant = await this.prisma.tenant.findUnique({
       where: { id },
       include: {
         assinatura: {
@@ -40,6 +40,39 @@ export class TenantService {
         },
       },
     });
+    if (tenant) delete (tenant as any).senha; // nunca expor o hash da senha
+    return tenant;
+  }
+
+  /** Estatísticas para o dashboard do dono (barbeiro-admin). */
+  async getStats(tenantId: number) {
+    const inicioHoje = new Date();
+    inicioHoje.setHours(0, 0, 0, 0);
+    const fimHoje = new Date();
+    fimHoje.setHours(23, 59, 59, 999);
+    const inicioMes = new Date();
+    inicioMes.setDate(1);
+    inicioMes.setHours(0, 0, 0, 0);
+
+    const [clientesAtivos, agendamentosHoje, agsMes] = await Promise.all([
+      this.prisma.usuario.count({
+        where: { tenantId, ativo: true, barbeiro: false },
+      }),
+      this.prisma.agendamento.count({
+        where: { tenantId, data: { gte: inicioHoje, lte: fimHoje } },
+      }),
+      this.prisma.agendamento.findMany({
+        where: { tenantId, data: { gte: inicioMes } },
+        include: { servicos: true },
+      }),
+    ]);
+
+    const receitaMes = agsMes.reduce(
+      (acc, ag) => acc + ag.servicos.reduce((s, sv) => s + sv.preco, 0),
+      0,
+    );
+
+    return { clientesAtivos, agendamentosHoje, receitaMes };
   }
 
   async findByEmail(email: string) {

@@ -16,10 +16,17 @@ interface Tenant {
     createdAt: string
 }
 
+interface Stats {
+    agendamentosHoje: number
+    clientesAtivos: number
+    receitaMes: number
+}
+
 export default function DashboardPage() {
     const router = useRouter()
     const { httpGet } = useAPI()
     const [tenant, setTenant] = useState<Tenant | null>(null)
+    const [stats, setStats] = useState<Stats | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -37,6 +44,11 @@ export default function DashboardPage() {
             .finally(() => {
                 setLoading(false)
             })
+
+        // Estatísticas reais do dashboard
+        httpGet('/tenants/me/stats')
+            .then(data => setStats(data))
+            .catch(() => setStats(null))
     }, [httpGet, router])
 
     const handleLogout = () => {
@@ -96,7 +108,7 @@ export default function DashboardPage() {
                                                 Agendamentos Hoje
                                             </dt>
                                             <dd className="text-lg font-medium text-gray-900">
-                                                12
+                                                {stats ? stats.agendamentosHoje : '—'}
                                             </dd>
                                         </dl>
                                     </div>
@@ -120,7 +132,7 @@ export default function DashboardPage() {
                                                 Clientes Ativos
                                             </dt>
                                             <dd className="text-lg font-medium text-gray-900">
-                                                156
+                                                {stats ? stats.clientesAtivos : '—'}
                                             </dd>
                                         </dl>
                                     </div>
@@ -144,7 +156,9 @@ export default function DashboardPage() {
                                                 Receita do Mês
                                             </dt>
                                             <dd className="text-lg font-medium text-gray-900">
-                                                R$ 8.450
+                                                {stats
+                                                    ? `R$ ${stats.receitaMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                                    : '—'}
                                             </dd>
                                         </dl>
                                     </div>
@@ -182,7 +196,7 @@ export default function DashboardPage() {
                                     Gerenciar Serviços
                                 </Link>
                                 <Link
-                                    href="/subscription"
+                                    href="/assinatura"
                                     className="block w-full text-left px-4 py-2 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors"
                                 >
                                     Gerenciar Assinatura

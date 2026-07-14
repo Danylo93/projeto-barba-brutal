@@ -49,7 +49,7 @@ export function Testimonials() {
               </div>
               
               <blockquote className="text-slate-700 mb-6">
-                "{testimonial.content}"
+                &ldquo;{testimonial.content}&rdquo;
               </blockquote>
               
               <div>

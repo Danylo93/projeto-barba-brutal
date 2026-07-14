@@ -100,7 +100,7 @@ export default function TermsPage() {
 
                             <h2>10. Limitação de Responsabilidade</h2>
                             <p>
-                                Nosso serviço é fornecido "como está" sem garantias de qualquer tipo. Não seremos responsáveis 
+                                Nosso serviço é fornecido &ldquo;como está&rdquo; sem garantias de qualquer tipo. Não seremos responsáveis
                                 por danos diretos, indiretos, incidentais ou consequenciais resultantes do uso de nosso serviço.
                             </p>
 

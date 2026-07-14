@@ -6,14 +6,18 @@ import { useRouter } from 'next/navigation'
 
 export default function Sumario() {
     const [carregando, setCarregando] = useState(false)
+    const [erro, setErro] = useState('')
     const { data, profissional, servicos, precoTotal, duracaoTotal, agendar } = useAgendamento()
     const router = useRouter()
 
     async function finalizarAgendamento() {
         try {
+            setErro('')
             setCarregando(true)
             await agendar()
             router.push('/agendamento/sucesso')
+        } catch (e) {
+            setErro(e instanceof Error ? e.message : 'Não foi possível concluir o agendamento.')
         } finally {
             setCarregando(false)
         }
@@ -88,6 +92,11 @@ export default function Sumario() {
                 <span className=" text-white font-semibold">R$ {precoTotal()},00</span>
             </div>
             <div className="p-5">
+                {erro && (
+                    <div className="mb-3 text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
+                        {erro}
+                    </div>
+                )}
                 <button
                     className={`flex justify-center items-center text-sm font-semibold ${podeFinalizar() ? 'bg-yellow-400' : 'bg-zinc-600'} text-zinc-900 w-full py-3 rounded-lg`}
                     disabled={!podeFinalizar()}

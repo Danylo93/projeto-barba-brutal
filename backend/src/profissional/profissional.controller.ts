@@ -2,32 +2,35 @@ import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, UseGuard
 import { PrismaService } from 'src/db/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
-import { CurrentTenant } from '../auth/current-tenant.decorator';
+import { CurrentTenant, CurrentTenantId } from '../auth/current-tenant.decorator';
 
 @Controller('profissionais')
-@UseGuards(JwtAuthGuard, TenantAuthGuard)
 export class ProfissionalController {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Leitura: qualquer usuário autenticado do tenant (inclui clientes no agendamento)
   @Get()
-  async findAll(@CurrentTenant() tenant: any) {
+  @UseGuards(JwtAuthGuard)
+  async findAll(@CurrentTenantId() tenantId: number) {
     return this.prisma.profissional.findMany({
-      where: { tenantId: tenant.id },
+      where: { tenantId, ativo: true },
       orderBy: { nome: 'asc' },
     });
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   async findById(
     @Param('id', ParseIntPipe) id: number,
-    @CurrentTenant() tenant: any,
+    @CurrentTenantId() tenantId: number,
   ) {
     return this.prisma.profissional.findFirst({
-      where: { id, tenantId: tenant.id },
+      where: { id, tenantId },
     });
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
   async create(
     @Body() data: {
       nome: string;
@@ -49,6 +52,7 @@ export class ProfissionalController {
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: Partial<{
@@ -68,6 +72,7 @@ export class ProfissionalController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
   async delete(
     @Param('id', ParseIntPipe) id: number,
     @CurrentTenant() tenant: any,

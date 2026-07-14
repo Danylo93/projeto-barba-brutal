@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Plano } from '@/types'
@@ -103,7 +103,7 @@ function CheckoutForm({ plano, tenantId }: { plano: Plano; tenantId: number }) {
   )
 }
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [plano, setPlano] = useState<Plano | null>(null)
@@ -176,5 +176,19 @@ export default function CheckoutPage() {
         <CheckoutForm plano={plano} tenantId={+tenantId!} />
       </div>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+        </div>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
   )
 }

@@ -32,7 +32,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Tenant não encontrado ou inativo');
       }
 
-      return { ...tenant, tipo: 'tenant' };
+      const { senha, ...tenantSemSenha } = tenant;
+      return { ...tenantSemSenha, tipo: 'tenant' };
     }
 
     if (tipo === 'usuario') {
@@ -55,7 +56,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Usuário não encontrado ou inativo');
       }
 
-      return { ...usuario, tipo: 'usuario' };
+      const { senha, tenant, ...usuarioSemSenha } = usuario;
+      const tenantSemSenha = tenant ? (({ senha: _s, ...t }) => t)(tenant) : tenant;
+      return { ...usuarioSemSenha, tenant: tenantSemSenha, tipo: 'usuario' };
     }
 
     if (tipo === 'admin') {
@@ -67,7 +70,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Admin não encontrado ou inativo');
       }
 
-      return { ...admin, tipo: 'admin' };
+      const { senha, ...adminSemSenha } = admin;
+      return { ...adminSemSenha, tipo: 'admin' };
     }
 
     throw new UnauthorizedException('Tipo de usuário inválido');

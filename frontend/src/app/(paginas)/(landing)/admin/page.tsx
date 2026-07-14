@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import useSessao from '@/data/hooks/useSessao'
+import useUsuario from '@/data/hooks/useUsuario'
 
 interface DashboardStats {
   totalTenants: number
@@ -35,20 +37,88 @@ interface DashboardStats {
   }>
 }
 
+interface TenantAdmin {
+  id: number
+  nome: string
+  email: string
+  ativo: boolean
+  assinatura?: { status: string; plano: { nome: string; preco: number } }
+  _count: { usuarios: number; agendamentos: number }
+}
+
+const URL_BASE = process.env.NEXT_PUBLIC_URL_BASE
+
 export default function AdminPage() {
+  const { token, criarSessao } = useSessao()
+  const { usuario } = useUsuario()
+  const isAdmin = usuario?.tipo === 'admin'
+
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [tenants, setTenants] = useState<TenantAdmin[]>([])
+  const [alterandoId, setAlterandoId] = useState<number | null>(null)
+
+  // Estado do formulário de login de admin
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
 
   useEffect(() => {
-    fetchDashboardStats()
-  }, [])
+    if (isAdmin && token) {
+      fetchDashboardStats()
+      fetchTenants()
+    } else {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, token])
+
+  const fetchTenants = async () => {
+    try {
+      const response = await fetch(`${URL_BASE}/admin/tenants?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setTenants(data.tenants || [])
+      }
+    } catch {
+      // silencioso: a seção simplesmente não renderiza sem dados
+    }
+  }
+
+  const alternarStatusTenant = async (tenant: TenantAdmin) => {
+    const acao = tenant.ativo ? 'desativar' : 'ativar'
+    if (!confirm(`Deseja ${acao} a barbearia "${tenant.nome}"?`)) return
+    try {
+      setAlterandoId(tenant.id)
+      const response = await fetch(`${URL_BASE}/admin/tenants/${tenant.id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ativo: !tenant.ativo }),
+      })
+      if (response.ok) {
+        setTenants((prev) =>
+          prev.map((t) => (t.id === tenant.id ? { ...t, ativo: !t.ativo } : t))
+        )
+        fetchDashboardStats()
+      }
+    } finally {
+      setAlterandoId(null)
+    }
+  }
 
   const fetchDashboardStats = async () => {
     try {
+      setLoading(true)
       const response = await fetch('/api/admin/dashboard', {
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
       })
 
@@ -63,6 +133,79 @@ export default function AdminPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginError('')
+    setLoginLoading(true)
+    try {
+      const response = await fetch('/api/auth/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, senha }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        setLoginError(data.message || 'Credenciais inválidas')
+        return
+      }
+      criarSessao(data.access_token)
+    } catch (err) {
+      setLoginError('Erro de conexão. Tente novamente.')
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
+  // Sem sessão de admin: exibir tela de login
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full space-y-6">
+          <div className="text-center">
+            <h2 className="text-3xl font-extrabold text-gray-900">Painel do Administrador</h2>
+            <p className="mt-2 text-sm text-gray-600">Acesso restrito ao administrador do sistema</p>
+          </div>
+          <form onSubmit={handleAdminLogin} className="bg-white shadow rounded-lg p-6 space-y-4">
+            {loginError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                {loginError}
+              </div>
+            )}
+            <div>
+              <label htmlFor="admin-email" className="block text-sm font-medium text-gray-700">Email</label>
+              <input
+                id="admin-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="admin-senha" className="block text-sm font-medium text-gray-700">Senha</label>
+              <input
+                id="admin-senha"
+                type="password"
+                required
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="w-full flex justify-center py-2 px-4 rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+            >
+              {loginLoading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -209,6 +352,71 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Gestão de barbearias (tenants) */}
+          <div className="bg-white shadow rounded-lg p-6 mb-8">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Gerenciar Barbearias</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-100 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Barbearia</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Plano</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Usuários</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Agendamentos</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {tenants.map((tenant) => (
+                    <tr key={tenant.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm">
+                        <p className="font-medium text-gray-900">{tenant.nome}</p>
+                        <p className="text-gray-500">{tenant.email}</p>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {tenant.assinatura ? (
+                          <>
+                            <p>{tenant.assinatura.plano.nome}</p>
+                            <p className="text-xs text-gray-500">
+                              {tenant.assinatura.status === 'active' ? 'ativa' : tenant.assinatura.status}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">Sem plano</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{tenant._count.usuarios}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{tenant._count.agendamentos}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          tenant.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {tenant.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <button
+                          onClick={() => alternarStatusTenant(tenant)}
+                          disabled={alterandoId === tenant.id}
+                          className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 ${
+                            tenant.ativo
+                              ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                              : 'bg-green-50 text-green-600 hover:bg-green-100'
+                          }`}
+                        >
+                          {alterandoId === tenant.id
+                            ? '...'
+                            : tenant.ativo ? 'Desativar' : 'Ativar'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import Stripe from 'stripe';
 
@@ -186,19 +186,71 @@ export class AssinaturaService {
       where: { tenantId },
     });
 
-    if (!assinatura?.stripeSubscriptionId) {
-      throw new Error('Assinatura não encontrada');
+    if (!assinatura) {
+      throw new NotFoundException('Assinatura não encontrada');
     }
 
-    // Cancelar no Stripe
-    await this.stripe.subscriptions.cancel(assinatura.stripeSubscriptionId);
+    // Cancelar no Stripe quando houver subscription vinculada (best effort:
+    // assinaturas criadas manualmente/seed não têm stripeSubscriptionId).
+    if (assinatura.stripeSubscriptionId) {
+      try {
+        await this.stripe.subscriptions.cancel(assinatura.stripeSubscriptionId);
+      } catch (err) {
+        console.error('Falha ao cancelar no Stripe (seguindo com cancelamento local):', err?.message);
+      }
+    }
 
     // Atualizar no banco
     return this.prisma.assinatura.update({
       where: { tenantId },
       data: {
         status: 'canceled',
+        renovacaoAutomatica: false,
       },
+    });
+  }
+
+  /**
+   * Troca de plano feita pelo próprio tenant (barbeiro-admin).
+   * Atualiza a assinatura local; a cobrança via Stripe é ajustada pelo
+   * webhook/checkout quando o billing estiver configurado.
+   */
+  async changePlan(tenantId: number, planoId: number) {
+    const plano = await this.prisma.plano.findUnique({ where: { id: planoId } });
+    if (!plano || !plano.ativo) {
+      throw new NotFoundException('Plano não encontrado ou inativo');
+    }
+
+    const assinatura = await this.prisma.assinatura.findUnique({ where: { tenantId } });
+
+    const dataInicio = new Date();
+    const dataFim = new Date();
+    dataFim.setDate(dataFim.getDate() + plano.duracao);
+
+    if (!assinatura) {
+      return this.prisma.assinatura.create({
+        data: {
+          tenantId,
+          planoId,
+          status: 'active',
+          dataInicio,
+          dataFim,
+          renovacaoAutomatica: true,
+        },
+        include: { plano: true },
+      });
+    }
+
+    return this.prisma.assinatura.update({
+      where: { tenantId },
+      data: {
+        planoId,
+        status: 'active',
+        dataInicio,
+        dataFim,
+        renovacaoAutomatica: true,
+      },
+      include: { plano: true },
     });
   }
 

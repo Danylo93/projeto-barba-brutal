@@ -13,8 +13,8 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.substring(7)
 
-    // Fazer requisição para o backend
-    const response = await fetch(`${process.env.BACKEND_URL}/assinaturas/cancel`, {
+    // Fazer requisição para o backend (o tenant autenticado cancela a própria assinatura)
+    const response = await fetch(`${process.env.BACKEND_URL}/assinaturas/me/cancel`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

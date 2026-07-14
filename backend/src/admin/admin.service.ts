@@ -71,7 +71,7 @@ export class AdminService {
   }
 
   async getRecentTenants() {
-    return this.prisma.tenant.findMany({
+    const tenants = await this.prisma.tenant.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -88,6 +88,8 @@ export class AdminService {
         },
       },
     });
+    // nunca expor o hash de senha do tenant
+    return tenants.map(({ senha, ...t }) => t);
   }
 
   async getAllTenants(page: number = 1, limit: number = 10, search?: string) {
@@ -124,7 +126,8 @@ export class AdminService {
     ]);
 
     return {
-      tenants,
+      // nunca expor o hash de senha do tenant
+      tenants: tenants.map(({ senha, ...t }) => t),
       total,
       page,
       limit,
@@ -133,7 +136,7 @@ export class AdminService {
   }
 
   async getTenantById(id: number) {
-    return this.prisma.tenant.findUnique({
+    const tenant = await this.prisma.tenant.findUnique({
       where: { id },
       include: {
         assinatura: {
@@ -169,13 +172,22 @@ export class AdminService {
         },
       },
     });
+    if (!tenant) return tenant;
+    // remover hashes de senha do tenant e dos usuários aninhados
+    const { senha, usuarios, ...rest } = tenant as any;
+    return {
+      ...rest,
+      usuarios: (usuarios ?? []).map(({ senha: _s, ...u }: any) => u),
+    };
   }
 
   async updateTenantStatus(id: number, ativo: boolean) {
-    return this.prisma.tenant.update({
+    const tenant = await this.prisma.tenant.update({
       where: { id },
       data: { ativo },
     });
+    const { senha, ...rest } = tenant as any;
+    return rest;
   }
 
   async getRevenueByMonth(months: number = 12) {

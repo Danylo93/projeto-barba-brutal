@@ -29,6 +29,12 @@ export class TenantController {
     return this.tenantService.findById(user.id);
   }
 
+  @Get('me/stats')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  getMyStats(@CurrentUser() user: any) {
+    return this.tenantService.getStats(user.id);
+  }
+
   @Get()
   findAll(
     @Query('page') page?: string,

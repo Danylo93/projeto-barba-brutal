@@ -55,7 +55,7 @@ async function seed() {
       create: {
         nome: 'Administrador do Sistema',
         email: 'admin@barbabrutal.app',
-        senha: '$2b$10$9LQTRK3LRzIddKYW2C4MTelydFzk5Ys4JoROPajNqvYshhrn1PRa6', // #Admin123
+        senha: '$2b$10$9LQTRK3LRzIddKYW2C4MTelydFzk5Ys4JoROPajNqvYshhrn1PRa6', // senha: #Senha123
         ativo: true,
       },
     });

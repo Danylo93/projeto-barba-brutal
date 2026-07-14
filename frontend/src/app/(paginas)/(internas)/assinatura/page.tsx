@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import useSessao from '@/data/hooks/useSessao'
 
 interface Assinatura {
   id: number
@@ -24,13 +25,15 @@ interface Assinatura {
 
 export default function AssinaturaPage() {
   const router = useRouter()
+  const { token } = useSessao()
   const [assinatura, setAssinatura] = useState<Assinatura | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetchAssinatura()
-  }, [])
+    if (token) fetchAssinatura()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
 
   const fetchAssinatura = async () => {
     try {
@@ -39,6 +42,7 @@ export default function AssinaturaPage() {
       const response = await fetch('/api/tenants/me', {
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
       })
 
@@ -65,6 +69,7 @@ export default function AssinaturaPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
       })
 

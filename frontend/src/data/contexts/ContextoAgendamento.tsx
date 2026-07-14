@@ -59,14 +59,22 @@ export function ProvedorAgendamento({ children }: { children: React.ReactNode })
     }
 
     async function agendar() {
-        if (!usuario?.email) return
+        if (!usuario?.id || !profissional || servicos.length === 0) {
+            throw new Error('Selecione profissional, serviços e horário antes de finalizar.')
+        }
 
-        await httpPost('agendamentos', {
-            usuario: usuario,
+        // O backend espera IDs (não os objetos completos) e valida usuarioId contra o token.
+        const resposta = await httpPost('agendamentos', {
+            usuarioId: usuario.id,
+            profissionalId: profissional.id,
+            servicos: servicos.map((s) => s.id),
             data: data!,
-            profissional: profissional!,
-            servicos: servicos,
         })
+
+        // httpPost devolve o corpo mesmo em erro; detectar falha do backend.
+        if (resposta && (resposta.statusCode >= 400 || resposta.message)) {
+            throw new Error(resposta.message || 'Não foi possível concluir o agendamento.')
+        }
 
         limpar()
     }

@@ -27,7 +27,13 @@ export function ProvedorUsuario({ children }: any) {
     }
 
     async function registrar(dados: { nome: string; email: string; senha: string; telefone: string }) {
-        await httpPost('/usuario/registrar', dados)
+        const tenantId = Number(process.env.NEXT_PUBLIC_TENANT_DEFAULT_ID || 1)
+        const response = await httpPost('/auth/usuario/register', {
+            ...dados,
+            barbeiro: false,
+            tenantId,
+        })
+        if (response?.access_token) criarSessao(response.access_token)
     }
 
     function sair() {

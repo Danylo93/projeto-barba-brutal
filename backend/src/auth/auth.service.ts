@@ -4,6 +4,13 @@ import { PrismaService } from '../db/prisma.service';
 import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
 import * as bcrypt from 'bcrypt';
 
+/** Remove o campo `senha` de um objeto (shallow), evitando vazar o hash em respostas. */
+function semSenha<T extends { senha?: any } | null | undefined>(obj: T): T {
+  if (!obj) return obj;
+  const { senha, ...rest } = obj as any;
+  return rest;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -50,7 +57,7 @@ export class AuthService {
 
     return {
       access_token: this.jwtService.sign(payload),
-      tenant,
+      tenant: semSenha(tenant),
       subscription: subscriptionStatus,
     };
   }
@@ -102,7 +109,7 @@ export class AuthService {
 
     return {
       access_token: this.jwtService.sign(payload),
-      usuario,
+      usuario: { ...semSenha(usuario), tenant: semSenha(usuario.tenant) },
       subscription: subscriptionStatus,
     };
   }
@@ -129,7 +136,7 @@ export class AuthService {
 
     return {
       access_token: this.jwtService.sign(payload),
-      admin,
+      admin: semSenha(admin),
     };
   }
 
@@ -159,7 +166,7 @@ export class AuthService {
 
     return {
       access_token: this.jwtService.sign(payload),
-      tenant,
+      tenant: semSenha(tenant),
     };
   }
 
@@ -201,7 +208,7 @@ export class AuthService {
 
     return {
       access_token: this.jwtService.sign(payload),
-      usuario,
+      usuario: { ...semSenha(usuario), tenant: semSenha(usuario.tenant) },
     };
   }
 }
