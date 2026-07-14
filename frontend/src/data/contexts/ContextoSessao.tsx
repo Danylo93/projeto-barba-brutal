@@ -37,6 +37,7 @@ export function ProvedorSessao(props: any) {
     }, [carregarSessao])
 
     function criarSessao(jwt: string) {
+        if (!jwt || typeof jwt !== 'string') return // nunca gravar cookie inválido
         const isDevelopment = process.env.NODE_ENV === 'development'
         cookie.set(nomeCookie, jwt, {
             expires: 1,

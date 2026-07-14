@@ -23,6 +23,9 @@ export function ProvedorUsuario({ children }: any) {
     async function entrar(cred: { email: string; senha: string; tenantId?: number }) {
         const tenantId = Number(process.env.NEXT_PUBLIC_TENANT_DEFAULT_ID || 1)
         const response = await httpPost('/auth/usuario/login', { ...cred, tenantId: cred.tenantId ?? tenantId })
+        if (!response?.access_token) {
+            throw new Error(response?.message || 'Email ou senha inválidos')
+        }
         criarSessao(response.access_token)
     }
 
@@ -33,7 +36,10 @@ export function ProvedorUsuario({ children }: any) {
             barbeiro: false,
             tenantId,
         })
-        if (response?.access_token) criarSessao(response.access_token)
+        if (!response?.access_token) {
+            throw new Error(response?.message || 'Não foi possível criar a conta')
+        }
+        criarSessao(response.access_token)
     }
 
     function sair() {

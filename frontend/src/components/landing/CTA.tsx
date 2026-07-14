@@ -25,8 +25,8 @@ export function CTA() {
             </Link>
           </Button>
           
-          <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-white text-red-500 hover:bg-white hover:text-blue-600">
-            Falar com Vendas
+          <Button size="lg" variant="outline" asChild className="text-lg px-8 py-6 border-white text-white hover:bg-white hover:text-blue-600">
+            <Link href="/contact">Falar com Vendas</Link>
           </Button>
         </div>
 

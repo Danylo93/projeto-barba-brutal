@@ -3,9 +3,17 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import useSessao from '@/data/hooks/useSessao'
+import AuthShell from '@/components/auth/AuthShell'
+import { formatarTelefone, formatarTelefoneInput } from '@/lib/agendamento-utils'
+
+const inputClasses =
+    'w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 ' +
+    'focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-colors'
 
 export default function RegisterPage() {
     const router = useRouter()
+    const { criarSessao } = useSessao()
     const [formData, setFormData] = useState({
         nome: '',
         email: '',
@@ -14,61 +22,57 @@ export default function RegisterPage() {
         confirmarSenha: '',
         endereco: '',
         cnpj: '',
-        aceitoTermos: false
+        aceitoTermos: false,
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: type === 'checkbox' ? checked : value,
         }))
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
-        setLoading(true)
 
         if (formData.senha !== formData.confirmarSenha) {
             setError('As senhas não coincidem')
-            setLoading(false)
             return
         }
-
         if (!formData.aceitoTermos) {
             setError('Você deve aceitar os termos de uso')
-            setLoading(false)
             return
         }
 
+        setLoading(true)
         try {
             const response = await fetch('/api/auth/tenant/register', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     nome: formData.nome,
                     email: formData.email,
-                    telefone: formData.telefone,
+                    telefone: formData.telefone.replace(/\D/g, ''),
                     senha: formData.senha,
-                    endereco: formData.endereco,
-                    cnpj: formData.cnpj,
+                    endereco: formData.endereco || undefined,
+                    cnpj: formData.cnpj || undefined,
                 }),
             })
+            const data = await response.json().catch(() => ({}))
 
-            if (response.ok) {
-                const data = await response.json()
-                // Salvar token e redirecionar
-                localStorage.setItem('token', data.access_token)
-                router.push('/dashboard')
-            } else {
-                const errorData = await response.json()
-                setError(errorData.message || 'Erro ao criar conta')
+            if (!response.ok || !data.access_token) {
+                setError(data.message || 'Erro ao criar conta')
+                return
             }
+
+            // Sessão do app vive em cookie (ContextoSessao), não em localStorage.
+            // Novo dono ainda não tem plano ativo → leva para escolher o plano.
+            criarSessao(data.access_token)
+            setTimeout(() => router.push('/planos'), 100)
         } catch (err) {
             setError('Erro de conexão. Tente novamente.')
         } finally {
@@ -77,163 +81,132 @@ export default function RegisterPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        Crie sua conta gratuita
-                    </h2>
-                    <p className="mt-2 text-center text-sm text-gray-600">
-                        Ou{' '}
-                        <Link href="/entrar" className="font-medium text-green-600 hover:text-green-500">
-                            faça login na sua conta existente
-                        </Link>
+        <AuthShell>
+            <div className="flex flex-col gap-6">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-white">Cadastre sua barbearia</h1>
+                    <p className="text-sm text-zinc-400 mt-1">
+                        Comece grátis e gerencie agendamentos, equipe e clientes
                     </p>
                 </div>
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                        <div className="bg-red-950/60 border border-red-800 text-red-300 text-sm px-4 py-3 rounded-lg">
                             {error}
                         </div>
                     )}
-                    
-                    <div className="space-y-4">
-                        <div>
-                            <label htmlFor="nome" className="block text-sm font-medium text-gray-700">
-                                Nome da Barbearia
-                            </label>
-                            <input
-                                id="nome"
-                                name="nome"
-                                type="text"
-                                required
-                                value={formData.nome}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                            />
-                        </div>
 
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                Email
-                            </label>
-                            <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                required
-                                value={formData.email}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                            />
-                        </div>
+                    <input
+                        type="text"
+                        name="nome"
+                        required
+                        value={formData.nome}
+                        onChange={handleChange}
+                        placeholder="Nome da barbearia"
+                        className={inputClasses}
+                    />
+                    <input
+                        type="email"
+                        name="email"
+                        required
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="E-mail"
+                        className={inputClasses}
+                    />
+                    <input
+                        type="tel"
+                        name="telefone"
+                        required
+                        value={formatarTelefone(formData.telefone)}
+                        onChange={(e) =>
+                            setFormData((prev) => ({
+                                ...prev,
+                                telefone: formatarTelefoneInput(e.target.value),
+                            }))
+                        }
+                        placeholder="Telefone"
+                        className={inputClasses}
+                    />
+                    <input
+                        type="text"
+                        name="endereco"
+                        value={formData.endereco}
+                        onChange={handleChange}
+                        placeholder="Endereço (opcional)"
+                        className={inputClasses}
+                    />
+                    <input
+                        type="text"
+                        name="cnpj"
+                        value={formData.cnpj}
+                        onChange={handleChange}
+                        placeholder="CNPJ (opcional)"
+                        className={inputClasses}
+                    />
+                    <input
+                        type="password"
+                        name="senha"
+                        required
+                        minLength={6}
+                        value={formData.senha}
+                        onChange={handleChange}
+                        placeholder="Senha"
+                        className={inputClasses}
+                    />
+                    <input
+                        type="password"
+                        name="confirmarSenha"
+                        required
+                        minLength={6}
+                        value={formData.confirmarSenha}
+                        onChange={handleChange}
+                        placeholder="Confirmar senha"
+                        className={inputClasses}
+                    />
 
-                        <div>
-                            <label htmlFor="telefone" className="block text-sm font-medium text-gray-700">
-                                Telefone
-                            </label>
-                            <input
-                                id="telefone"
-                                name="telefone"
-                                type="tel"
-                                required
-                                value={formData.telefone}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="endereco" className="block text-sm font-medium text-gray-700">
-                                Endereço
-                            </label>
-                            <input
-                                id="endereco"
-                                name="endereco"
-                                type="text"
-                                value={formData.endereco}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="cnpj" className="block text-sm font-medium text-gray-700">
-                                CNPJ (opcional)
-                            </label>
-                            <input
-                                id="cnpj"
-                                name="cnpj"
-                                type="text"
-                                value={formData.cnpj}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="senha" className="block text-sm font-medium text-gray-700">
-                                Senha
-                            </label>
-                            <input
-                                id="senha"
-                                name="senha"
-                                type="password"
-                                required
-                                value={formData.senha}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="confirmarSenha" className="block text-sm font-medium text-gray-700">
-                                Confirmar Senha
-                            </label>
-                            <input
-                                id="confirmarSenha"
-                                name="confirmarSenha"
-                                type="password"
-                                required
-                                value={formData.confirmarSenha}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex items-center">
+                    <label className="flex items-start gap-2 text-sm text-zinc-400 select-none">
                         <input
-                            id="aceitoTermos"
-                            name="aceitoTermos"
                             type="checkbox"
+                            name="aceitoTermos"
                             checked={formData.aceitoTermos}
                             onChange={handleChange}
-                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                            className="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-900 accent-yellow-400"
                         />
-                        <label htmlFor="aceitoTermos" className="ml-2 block text-sm text-gray-900">
-                            Eu aceito os{' '}
-                            <Link href="/terms" className="text-green-600 hover:text-green-500">
-                                Termos de Uso
+                        <span>
+                            Li e aceito os{' '}
+                            <Link href="/terms" className="text-yellow-400 hover:text-yellow-300">
+                                termos de uso
                             </Link>{' '}
-                            e{' '}
-                            <Link href="/privacy" className="text-green-600 hover:text-green-500">
-                                Política de Privacidade
+                            e a{' '}
+                            <Link href="/privacy" className="text-yellow-400 hover:text-yellow-300">
+                                política de privacidade
                             </Link>
-                        </label>
-                    </div>
+                        </span>
+                    </label>
 
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                        >
-                            {loading ? 'Criando conta...' : 'Criar conta gratuita'}
-                        </button>
-                    </div>
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-3 rounded-lg bg-yellow-400 text-zinc-900 font-bold hover:bg-yellow-300 disabled:opacity-60 transition-colors"
+                    >
+                        {loading ? 'Criando conta...' : 'Criar conta grátis'}
+                    </button>
                 </form>
+
+                <div className="border-t border-zinc-800 pt-4 text-center">
+                    <p className="text-sm text-zinc-400">
+                        Já tem conta?{' '}
+                        <Link
+                            href="/login"
+                            className="text-yellow-400 font-semibold hover:text-yellow-300 transition-colors"
+                        >
+                            Entrar
+                        </Link>
+                    </p>
+                </div>
             </div>
-        </div>
+        </AuthShell>
     )
 }

@@ -13,7 +13,7 @@ export default function ForcarUsuario(props: any) {
     }
 
     if (!usuario?.email && carregando) return <div>Carregando...</div>
-    if (!usuario?.email) return redirecionarPara(`/entrar?destino=${caminho}`)
+    if (!usuario?.email) return redirecionarPara(`/login?destino=${encodeURIComponent(caminho)}`)
 
     return props.children
 }

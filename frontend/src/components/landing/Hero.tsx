@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Play, Star, Users, Calendar, Shield } from 'lucide-react';
+import { ArrowRight, Play, Star, Users, Calendar, Shield, CalendarClock } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -56,14 +56,16 @@ export function Hero() {
           >
             <Button size="lg" asChild className="text-lg px-8 py-6 group">
               <Link href="/register">
-                Começar Grátis
+                Sou dono — Começar Grátis
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
-            
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 group">
-              <Play className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-              Ver Demonstração
+
+            <Button size="lg" variant="outline" asChild className="text-lg px-8 py-6 group">
+              <Link href="/login?destino=/agendamento">
+                <CalendarClock className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
+                Quero agendar um horário
+              </Link>
             </Button>
           </motion.div>
 

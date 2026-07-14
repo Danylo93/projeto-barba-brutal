@@ -126,7 +126,7 @@ export function Pricing() {
                 variant={plan.popular ? 'default' : 'outline'}
                 asChild
               >
-                <Link href="/register">Começar Agora</Link>
+                <Link href={`/register?plano=${plan.name.toLowerCase()}`}>Começar Agora</Link>
               </Button>
             </div>
           ))}
