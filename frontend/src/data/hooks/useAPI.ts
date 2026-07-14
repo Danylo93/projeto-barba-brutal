@@ -35,6 +35,22 @@ export default function useAPI() {
         },
         [token]
     )
+    const httpPut = useCallback(
+        async function (uri: string, body: any): Promise<any> {
+            const path = uri.startsWith('/') ? uri : `/${uri}`
+            const resp = await fetch(`${URL_BASE}${path}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(body),
+            })
+            return extrairDados(resp)
+        },
+        [token]
+    )
+
     const httpDelete = useCallback(
         async function (uri: string): Promise<any> {
             const path = uri.startsWith('/') ? uri : `/${uri}`
@@ -60,5 +76,5 @@ export default function useAPI() {
         }
     }
 
-    return { httpGet, httpPost, httpDelete }
+    return { httpGet, httpPost, httpPut, httpDelete }
 }

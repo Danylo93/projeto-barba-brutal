@@ -12,6 +12,7 @@ import {
   Card,
   StatCard,
 } from '@/components/painel/Painel'
+import PainelNav from '@/components/painel/PainelNav'
 
 interface DashboardStats {
   totalTenants: number
@@ -225,6 +226,7 @@ export default function AdminPage() {
 
   return (
     <PainelShell>
+      <PainelNav />
       <PainelHeader
         titulo="Painel do Administrador"
         descricao="Visão geral do sistema SaaS Barba Brutal"

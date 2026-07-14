@@ -35,6 +35,12 @@ export class TenantController {
     return this.tenantService.getStats(user.id);
   }
 
+  @Get('me/agendamentos')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  getMyAgendamentos(@CurrentUser() user: any) {
+    return this.tenantService.getAgendamentos(user.id);
+  }
+
   @Get()
   findAll(
     @Query('page') page?: string,

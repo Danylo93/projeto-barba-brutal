@@ -12,8 +12,8 @@ export default function useProfissionalAgenda() {
     const carregarAgendamentos = useCallback(async () => {
         if (!usuario) return
         const dtString = data.toISOString().slice(0, 10)
-        const agendamentos = await httpGet(`agendamentos/${usuario.id}/${dtString}`)
-        setAgendamentos(agendamentos)
+        const resposta = await httpGet(`agendamentos/${usuario.id}/${dtString}`)
+        setAgendamentos(Array.isArray(resposta) ? resposta : [])
     }, [httpGet, usuario, data])
 
     useEffect(() => {

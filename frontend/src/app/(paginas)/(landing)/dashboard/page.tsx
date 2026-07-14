@@ -11,7 +11,6 @@ import {
     Scissors,
     UserCog,
     CreditCard,
-    LogOut,
 } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import useSessao from '@/data/hooks/useSessao'
@@ -22,6 +21,7 @@ import {
     Card,
     StatCard,
 } from '@/components/painel/Painel'
+import PainelNav from '@/components/painel/PainelNav'
 
 interface Tenant {
     id: number
@@ -51,7 +51,7 @@ const acoesRapidas = [
 export default function DashboardPage() {
     const router = useRouter()
     const { httpGet } = useAPI()
-    const { carregando, token, limparSessao } = useSessao()
+    const { carregando, token } = useSessao()
     const [tenant, setTenant] = useState<Tenant | null>(null)
     const [stats, setStats] = useState<Stats | null>(null)
     const [loading, setLoading] = useState(true)
@@ -76,11 +76,6 @@ export default function DashboardPage() {
             .catch(() => setStats(null))
     }, [httpGet, router, carregando, token])
 
-    const handleLogout = () => {
-        limparSessao()
-        router.push('/')
-    }
-
     if (loading) {
         return (
             <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -96,17 +91,10 @@ export default function DashboardPage() {
 
     return (
         <PainelShell>
+            <PainelNav />
             <PainelHeader
                 titulo={`Olá, ${tenant.nome}`}
                 descricao="Painel de gestão da sua barbearia"
-                acao={
-                    <button
-                        onClick={handleLogout}
-                        className="inline-flex items-center gap-2 text-sm text-zinc-300 border border-zinc-700 px-4 py-2 rounded-lg hover:bg-zinc-800 transition-colors"
-                    >
-                        <LogOut size={16} /> Sair
-                    </button>
-                }
             />
 
             <PainelMain>

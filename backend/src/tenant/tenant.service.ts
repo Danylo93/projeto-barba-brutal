@@ -44,6 +44,28 @@ export class TenantService {
     return tenant;
   }
 
+  /** Todos os agendamentos do tenant (para a listagem do dono). */
+  async getAgendamentos(tenantId: number) {
+    const agendamentos = await this.prisma.agendamento.findMany({
+      where: { tenantId },
+      include: {
+        servicos: true,
+        profissional: true,
+        usuario: true,
+      },
+      orderBy: { data: 'desc' },
+    });
+
+    return agendamentos.map((a) => ({
+      id: a.id,
+      data: a.data,
+      status: a.status,
+      profissional: a.profissional ? { nome: a.profissional.nome } : undefined,
+      usuario: a.usuario ? { nome: a.usuario.nome, email: a.usuario.email } : undefined,
+      servicos: a.servicos.map((s) => ({ nome: s.nome, preco: s.preco })),
+    }));
+  }
+
   /** Estatísticas para o dashboard do dono (barbeiro-admin). */
   async getStats(tenantId: number) {
     const inicioHoje = new Date();
