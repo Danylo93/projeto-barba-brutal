@@ -40,7 +40,7 @@ export function Testimonials() {
           {testimonials.map((testimonial, index) => (
             <div
               key={index}
-              className="bg-zinc-950 rounded-2xl p-8 border border-zinc-800"
+              className="bg-zinc-950 rounded-2xl p-8 border border-zinc-800 transition-all duration-300 hover:border-zinc-700 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/40"
             >
               <div className="flex items-center mb-4">
                 {[...Array(testimonial.rating)].map((_, i) => (

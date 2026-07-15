@@ -156,7 +156,7 @@ export default function PlanosPage() {
     <div className="min-h-screen bg-zinc-950">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-white">Planos</h1>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Planos</h1>
           <p className="text-zinc-400 mt-2">
             {isTenant
               ? 'Teste 30 dias grátis e pague com Pix quando quiser'
@@ -180,7 +180,7 @@ export default function PlanosPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-slide-up">
           {planos.map((plano) => {
             const atual = plano.id === planoAtualId
             const ilimitado = plano.maxUsuarios >= 999999
@@ -200,7 +200,7 @@ export default function PlanosPage() {
                   )}
                 </div>
                 <p className="text-zinc-400 text-sm mb-4">{plano.descricao}</p>
-                <p className="text-3xl font-bold text-white mb-1">
+                <p className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-1">
                   R$ {plano.preco.toFixed(2).replace('.', ',')}
                   <span className="text-sm font-normal text-zinc-500">/mês</span>
                 </p>
@@ -226,7 +226,7 @@ export default function PlanosPage() {
                       emTeste ? (
                         <button
                           onClick={() => abrirPix(plano)}
-                          className="w-full py-2.5 rounded-lg bg-yellow-400 text-zinc-900 font-semibold hover:bg-yellow-300 transition-colors flex items-center justify-center gap-2"
+                          className="w-full py-2.5 rounded-lg bg-yellow-400 text-zinc-900 font-semibold hover:bg-yellow-300 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                         >
                           <QrCode size={18} /> Pagar com Pix
                         </button>

@@ -50,7 +50,7 @@ export default function AuthShell({ children }: AuthShellProps) {
 
             {/* Painel do formulário */}
             <div className="flex flex-col items-center justify-center px-4 py-10 sm:px-8">
-                <div className="w-full max-w-sm flex flex-col gap-6">
+                <div className="w-full max-w-sm flex flex-col gap-6 animate-slide-up">
                     <div className="flex justify-center lg:hidden">
                         <Logo />
                     </div>

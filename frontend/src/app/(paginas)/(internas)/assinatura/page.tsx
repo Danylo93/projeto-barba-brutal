@@ -462,7 +462,7 @@ export default function AssinaturaPage() {
                       Máx. Usuários
                     </p>
                   </div>
-                  <p className="text-3xl font-black text-white tracking-tight">
+                  <p className="text-3xl sm:text-4xl font-black tracking-tight text-white tracking-tight">
                     {assinatura.plano.maxUsuarios}
                   </p>
                 </div>
@@ -475,7 +475,7 @@ export default function AssinaturaPage() {
                       Máx. Agendamentos
                     </p>
                   </div>
-                  <p className="text-3xl font-black text-white tracking-tight">
+                  <p className="text-3xl sm:text-4xl font-black tracking-tight text-white tracking-tight">
                     {assinatura.plano.maxAgendamentos}
                   </p>
                 </div>

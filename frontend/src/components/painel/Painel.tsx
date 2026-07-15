@@ -46,7 +46,7 @@ export function PainelHeader({
 
 export function PainelMain({ children }: { children: React.ReactNode }) {
     return (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 animate-slide-up">
             {children}
         </main>
     )
@@ -97,7 +97,7 @@ export function StatCard({
                     <p className="text-[11px] sm:text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate">
                         {rotulo}
                     </p>
-                    <p className="text-2xl sm:text-3xl font-black text-white mt-0.5 tracking-tight">
+                    <p className="text-2xl sm:text-3xl font-black text-white mt-0.5 tracking-tight tabular-nums">
                         {valor}
                     </p>
                 </div>

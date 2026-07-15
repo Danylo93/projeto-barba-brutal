@@ -23,11 +23,12 @@ export default function Modal({ aberto, titulo, onFechar, children }: ModalProps
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+            style={{ animationDuration: '0.2s' }}
             onClick={onFechar}
         >
             <div
-                className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl"
+                className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl animate-scale-in"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">

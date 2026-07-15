@@ -74,10 +74,11 @@ export function Pricing() {
           {plans.map((plan, index) => (
             <div
               key={index}
-              className={`relative rounded-2xl border-2 p-8 ${
+              style={{ animationDelay: `${index * 0.1}s` }}
+              className={`relative rounded-2xl border-2 p-8 animate-slide-up transition-all duration-300 hover:-translate-y-1.5 ${
                 plan.popular
-                  ? 'border-yellow-400 bg-zinc-900 shadow-xl'
-                  : 'border-zinc-800 bg-zinc-900'
+                  ? 'border-yellow-400 bg-zinc-900 shadow-xl hover:shadow-[0_12px_40px_rgba(250,204,21,0.12)]'
+                  : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:shadow-xl hover:shadow-black/40'
               }`}
             >
               {plan.popular && (

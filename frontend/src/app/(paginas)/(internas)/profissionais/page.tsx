@@ -124,12 +124,12 @@ export default function ProfissionaisPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white">Profissionais</h1>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Profissionais</h1>
             <p className="text-zinc-400 mt-2">Gerencie todos os profissionais da sua barbearia</p>
           </div>
           <button
             onClick={abrirNovo}
-            className="flex items-center gap-2 bg-yellow-400 text-zinc-900 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-300 transition-colors"
+            className="flex items-center gap-2 bg-yellow-400 text-zinc-900 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-300 active:scale-[0.98] transition-all"
           >
             <Plus size={20} />
             Novo Profissional
@@ -143,7 +143,7 @@ export default function ProfissionaisPage() {
         )}
 
         {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-up">
             {[1, 2, 3].map((n) => (
               <div key={n} className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 space-y-4">
                 <Skeleton className="h-40 w-full bg-zinc-800" />
@@ -156,13 +156,13 @@ export default function ProfissionaisPage() {
         )}
 
         {!loading && profissionais.length === 0 && (
-          <div className="text-center py-12 bg-zinc-900 rounded-lg border border-zinc-800">
+          <div className="text-center py-12 bg-zinc-900 rounded-lg border border-zinc-800 animate-fade-in">
             <Users size={48} className="mx-auto text-zinc-600 mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">Nenhum profissional cadastrado</h3>
             <p className="text-zinc-400 mb-6">Comece adicionando seu primeiro profissional</p>
             <button
               onClick={abrirNovo}
-              className="inline-block bg-yellow-400 text-zinc-900 font-semibold px-6 py-2 rounded-lg hover:bg-yellow-300 transition-colors"
+              className="inline-block bg-yellow-400 text-zinc-900 font-semibold px-6 py-2 rounded-lg hover:bg-yellow-300 active:scale-[0.98] transition-all"
             >
               Adicionar Profissional
             </button>
@@ -170,7 +170,7 @@ export default function ProfissionaisPage() {
         )}
 
         {!loading && profissionais.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-up">
             {profissionais.map((profissional) => (
               <div
                 key={profissional.id}

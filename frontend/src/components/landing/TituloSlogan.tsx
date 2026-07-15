@@ -24,7 +24,7 @@ export default function TituloSlogan() {
                             para Barbearias
                         </span>
                     </h1>
-                    <p className="w-96 text-center text-zinc-400 text-base sm:text-lg font-extralight">
+                    <p className="w-full max-w-md text-center text-zinc-400 text-base sm:text-lg font-extralight">
                         🤘 Transforme sua barbearia em um negócio digital! 🤘
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4">
