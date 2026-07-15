@@ -1,8 +1,10 @@
 import { Metadata } from 'next';
 import { Hero } from '@/components/landing/Hero';
+import { HowItWorks } from '@/components/landing/HowItWorks';
 import { Features } from '@/components/landing/Features';
 import { Pricing } from '@/components/landing/Pricing';
 import { Testimonials } from '@/components/landing/Testimonials';
+import { FAQ } from '@/components/landing/FAQ';
 import { CTA } from '@/components/landing/CTA';
 import { Header } from '@/components/landing/Header';
 import { Footer } from '@/components/landing/Footer';
@@ -24,9 +26,11 @@ export default function HomePage() {
       <Header />
       <main>
         <Hero />
+        <HowItWorks />
         <Features />
         <Pricing />
         <Testimonials />
+        <FAQ />
         <CTA />
       </main>
       <Footer />

@@ -26,9 +26,9 @@ const features = [
   },
   {
     icon: Smartphone,
-    title: 'App Mobile',
-    description: 'Aplicativo mobile para clientes agendarem serviços a qualquer hora.',
-    benefits: ['App nativo', 'Notificações push', 'Interface intuitiva'],
+    title: 'Funciona no celular',
+    description: 'Sistema 100% responsivo: seus clientes agendam pelo celular a qualquer hora.',
+    benefits: ['Sem instalar nada', 'Agendamento 24h', 'Interface intuitiva'],
   },
   {
     icon: Shield,
@@ -46,7 +46,7 @@ const features = [
 
 export function Features() {
   return (
-    <section id="features" className="relative py-20 px-4 sm:px-6 lg:px-8 bg-muted/30 overflow-hidden">
+    <section id="features" className="relative py-20 px-4 sm:px-6 lg:px-8 bg-zinc-900 overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 z-0 opacity-5">
         <div className="absolute inset-0" style={{
@@ -89,8 +89,8 @@ export function Features() {
               >
                 <Card className="h-full hover:shadow-lg transition-all duration-300 border-border/50 hover:border-primary/50">
                   <CardHeader>
-                    <div className="w-12 h-12 bg-gradient-to-r from-primary to-purple-600 rounded-lg flex items-center justify-center mb-4">
-                      <Icon className="h-6 w-6 text-white" />
+                    <div className="w-12 h-12 rounded-xl bg-yellow-400/10 border border-yellow-400/30 flex items-center justify-center mb-4">
+                      <Icon className="h-6 w-6 text-yellow-400" />
                     </div>
                     <CardTitle className="text-xl font-semibold text-foreground">
                       {feature.title}
@@ -103,7 +103,7 @@ export function Features() {
                     <ul className="space-y-2">
                       {feature.benefits.map((benefit, benefitIndex) => (
                         <li key={benefitIndex} className="flex items-center text-sm text-muted-foreground">
-                          <CheckCircle className="h-4 w-4 text-primary mr-2 flex-shrink-0" />
+                          <CheckCircle className="h-4 w-4 text-yellow-400 mr-2 flex-shrink-0" />
                           {benefit}
                         </li>
                       ))}
@@ -122,7 +122,7 @@ export function Features() {
           viewport={{ once: true }}
           className="mt-16 text-center"
         >
-          <div className="inline-flex items-center space-x-2 text-primary">
+          <div className="inline-flex items-center space-x-2 text-yellow-400">
             <span className="text-sm font-medium">E muito mais recursos chegando</span>
             <Zap className="h-4 w-4" />
           </div>
