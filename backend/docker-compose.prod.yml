@@ -1,0 +1,44 @@
+services:
+  postgres-prod:
+    image: postgres:15-alpine
+    container_name: barba-brutal-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-barba_brutal_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - barba-brutal-prod-network
+
+  backend-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: barba-brutal-backend-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres123@postgres-prod:5432/barba_brutal_prod?schema=public}
+      JWT_SECRET: ${JWT_SECRET}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+      MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres-prod
+    networks:
+      - barba-brutal-prod-network
+
+volumes:
+  postgres_prod_data:
+
+networks:
+  barba-brutal-prod-network:
+    driver: bridge

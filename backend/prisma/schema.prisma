@@ -126,6 +126,7 @@ model Usuario {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   agendamentos Agendamento[]
+  profissional Profissional?
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
@@ -141,12 +142,14 @@ model Profissional {
   avaliacao            Float
   quantidadeAvaliacoes Int
   tenantId             Int
+  usuarioId            Int?          @unique
   ativo                Boolean       @default(true)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   agendamentos         Agendamento[]
 
   tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuario              Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
   
   @@unique([nome, tenantId]) // nome único por tenant
   @@map("profissional")

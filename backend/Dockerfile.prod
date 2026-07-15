@@ -1,0 +1,56 @@
+# -----------------------------
+# Fase 1: Build
+# -----------------------------
+FROM node:18-alpine AS builder
+
+# Adicionar pacotes necessários para o Prisma e node-gyp (se necessário)
+RUN apk add --no-cache libc6-compat openssl
+
+WORKDIR /app
+
+# Copiar dependências
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Instalar dependências (incluindo dev para build)
+RUN npm ci
+
+# Gerar Prisma Client
+RUN npx prisma generate
+
+# Copiar código fonte
+COPY . .
+
+# Fazer o build do NestJS
+RUN npm run build
+
+# -----------------------------
+# Fase 2: Produção
+# -----------------------------
+FROM node:18-alpine AS runner
+
+RUN apk add --no-cache libc6-compat openssl bash
+
+WORKDIR /app
+
+# Definir ambiente de produção
+ENV NODE_ENV=production
+
+# Copiar pacotes
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Instalar apenas dependências de produção
+RUN npm ci --only=production
+
+# Gerar Prisma Client (necessário para rodar)
+RUN npx prisma generate
+
+# Copiar build e script de startup
+COPY --from=builder /app/dist ./dist
+COPY start-prod.sh ./
+RUN chmod +x ./start-prod.sh
+
+EXPOSE 3001
+
+CMD ["./start-prod.sh"]

@@ -4,6 +4,8 @@ import { ErrorFilter } from './error.filter';
 import { LoggingInterceptor } from './common/logging.interceptor';
 import { AuditInterceptor } from './common/audit.interceptor';
 import { PrismaService } from './db/prisma.service';
+import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const corsOptions = {
@@ -14,6 +16,16 @@ async function bootstrap() {
   };
 
   const app = await NestFactory.create(AppModule, { cors: corsOptions });
+  
+  // Security headers
+  app.use(helmet());
+
+  // Global Validation Pipe
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+  }));
+
   app.useGlobalFilters(new ErrorFilter());
   const prisma = app.get(PrismaService);
   app.useGlobalInterceptors(new LoggingInterceptor(), new AuditInterceptor(prisma));

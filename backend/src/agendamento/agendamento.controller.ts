@@ -38,6 +38,17 @@ export class AgendamentoController {
     await this.repo.salvar(agendamento);
   }
 
+  @Get('barbeiro/meus-horarios')
+  async buscarMeusHorariosBarbeiro(
+    @UsuarioLogado() usuarioLogado: Usuario,
+    @CurrentTenant() tenant: any,
+  ) {
+    if (!usuarioLogado.barbeiro) {
+      throw new HttpException('Usuário não autorizado', 401);
+    }
+    return this.repo.buscarPorUsuarioProfissional(usuarioLogado.id, tenant.id);
+  }
+
   @Get(':email')
   buscarPorEmail(@Param('email') email: string, @CurrentTenant() tenant: any) {
     return this.repo.buscarPorEmail(email, tenant.id);

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Users, Plus, Trash2, Edit2, Star } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface Profissional {
   id: number
@@ -16,7 +17,7 @@ interface Profissional {
   createdAt: string
 }
 
-const formVazio = { nome: '', descricao: '', imagemUrl: '' }
+const formVazio = { nome: '', descricao: '', imagemUrl: '', email: '', senha: '', telefone: '' }
 
 export default function ProfissionaisPage() {
   const { httpGet, httpPost, httpPut, httpDelete } = useAPI()
@@ -55,7 +56,14 @@ export default function ProfissionaisPage() {
 
   const abrirEdicao = (p: Profissional) => {
     setEditando(p)
-    setForm({ nome: p.nome, descricao: p.descricao, imagemUrl: p.imagemUrl || '' })
+    setForm({ 
+      nome: p.nome, 
+      descricao: p.descricao, 
+      imagemUrl: p.imagemUrl || '',
+      email: '',
+      senha: '',
+      telefone: ''
+    })
     setError('')
     setModalAberto(true)
   }
@@ -65,11 +73,14 @@ export default function ProfissionaisPage() {
     setSalvando(true)
     setError('')
     try {
-      const payload = {
+      const payload: any = {
         nome: form.nome,
         descricao: form.descricao,
         imagemUrl: form.imagemUrl,
       }
+      if (form.email) payload.email = form.email
+      if (form.senha) payload.senha = form.senha
+      if (form.telefone) payload.telefone = form.telefone
       const resposta = editando
         ? await httpPut(`profissionais/${editando.id}`, payload)
         : await httpPost('profissionais', payload)
@@ -119,9 +130,15 @@ export default function ProfissionaisPage() {
         )}
 
         {loading && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400"></div>
-            <p className="text-zinc-400 mt-4">Carregando profissionais...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 space-y-4">
+                <Skeleton className="h-40 w-full bg-zinc-800" />
+                <Skeleton className="h-6 w-3/4 bg-zinc-800" />
+                <Skeleton className="h-4 w-full bg-zinc-800" />
+                <Skeleton className="h-4 w-1/2 bg-zinc-800" />
+              </div>
+            ))}
           </div>
         )}
 
@@ -246,6 +263,40 @@ export default function ProfissionaisPage() {
               value={form.imagemUrl}
               onChange={(e) => setForm({ ...form, imagemUrl: e.target.value })}
               placeholder="https://..."
+              className={inputModalClasses}
+            />
+          </div>
+          <hr className="border-zinc-800 my-2" />
+          <h4 className="text-sm font-semibold text-white">Criar/Atualizar Acesso (Opcional)</h4>
+          <p className="text-xs text-zinc-400 -mt-2 mb-2">
+            Preencha para que o profissional possa acessar a própria agenda.
+          </p>
+          <div>
+            <label className="block text-sm text-zinc-400 mb-1">E-mail de Acesso</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="email@exemplo.com"
+              className={inputModalClasses}
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-zinc-400 mb-1">Senha</label>
+            <input
+              type="password"
+              value={form.senha}
+              onChange={(e) => setForm({ ...form, senha: e.target.value })}
+              placeholder="******"
+              className={inputModalClasses}
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-zinc-400 mb-1">Telefone do Profissional</label>
+            <input
+              value={form.telefone}
+              onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+              placeholder="(11) 99999-9999"
               className={inputModalClasses}
             />
           </div>

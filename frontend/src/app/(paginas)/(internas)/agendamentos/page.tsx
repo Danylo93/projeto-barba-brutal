@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Calendar, Plus, Trash2 } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
+import { Skeleton } from '@/components/ui/skeleton'
 import useUsuario from '@/data/hooks/useUsuario'
 
 interface AgendamentoUI {
@@ -24,15 +25,18 @@ export default function AgendamentosPage() {
 
   const isTenant = usuario?.tipo === 'tenant'
   const isBarbeiro = !!usuario?.barbeiro
+  const isEmployeeBarber = isBarbeiro && !isTenant
 
   const carregar = useCallback(async () => {
     if (!usuario) return
     try {
       setLoading(true)
-      // Dono vê todos os agendamentos da barbearia; cliente/barbeiro veem os próprios.
-      const uri = isTenant
-        ? '/tenants/me/agendamentos'
-        : `agendamentos/${encodeURIComponent(usuario.email)}`
+      let uri = `agendamentos/${encodeURIComponent(usuario.email)}`
+      if (isTenant) {
+        uri = '/tenants/me/agendamentos'
+      } else if (isEmployeeBarber) {
+        uri = 'agendamentos/barbeiro/meus-horarios'
+      }
       const resposta = await httpGet(uri)
       setAgendamentos(Array.isArray(resposta) ? resposta : [])
     } catch (err) {
@@ -41,7 +45,7 @@ export default function AgendamentosPage() {
     } finally {
       setLoading(false)
     }
-  }, [httpGet, usuario, isTenant])
+  }, [httpGet, usuario, isTenant, isEmployeeBarber])
 
   useEffect(() => {
     carregar()
@@ -71,13 +75,15 @@ export default function AgendamentosPage() {
             <h1 className="text-3xl font-bold text-white">{titulo}</h1>
             <p className="text-zinc-400 mt-2">{descricao}</p>
           </div>
-          <Link
-            href="/agendamento"
-            className="flex items-center gap-2 bg-yellow-400 text-zinc-900 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-300 transition-colors"
-          >
-            <Plus size={20} />
-            Novo Agendamento
-          </Link>
+          {!isEmployeeBarber && (
+            <Link
+              href="/agendamento"
+              className="flex items-center gap-2 bg-yellow-400 text-zinc-900 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-300 transition-colors"
+            >
+              <Plus size={20} />
+              Novo Agendamento
+            </Link>
+          )}
         </div>
 
         {error && (
@@ -87,9 +93,14 @@ export default function AgendamentosPage() {
         )}
 
         {loading && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400"></div>
-            <p className="text-zinc-400 mt-4">Carregando agendamentos...</p>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden p-6">
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full bg-zinc-800" />
+              <Skeleton className="h-10 w-full bg-zinc-800" />
+              <Skeleton className="h-10 w-full bg-zinc-800" />
+              <Skeleton className="h-10 w-full bg-zinc-800" />
+              <Skeleton className="h-10 w-full bg-zinc-800" />
+            </div>
           </div>
         )}
 
@@ -98,12 +109,14 @@ export default function AgendamentosPage() {
             <Calendar size={48} className="mx-auto text-zinc-600 mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">Nenhum agendamento</h3>
             <p className="text-zinc-400 mb-6">Comece criando seu primeiro agendamento</p>
-            <Link
-              href="/agendamento"
-              className="inline-block bg-yellow-400 text-zinc-900 font-semibold px-6 py-2 rounded-lg hover:bg-yellow-300 transition-colors"
-            >
-              Criar Agendamento
-            </Link>
+            {!isEmployeeBarber && (
+              <Link
+                href="/agendamento"
+                className="inline-block bg-yellow-400 text-zinc-900 font-semibold px-6 py-2 rounded-lg hover:bg-yellow-300 transition-colors"
+              >
+                Criar Agendamento
+              </Link>
+            )}
           </div>
         )}
 
@@ -115,7 +128,7 @@ export default function AgendamentosPage() {
                   <tr className="text-left text-sm font-semibold text-zinc-400">
                     <th className="px-6 py-3">Data/Hora</th>
                     <th className="px-6 py-3">Cliente</th>
-                    <th className="px-6 py-3">Profissional</th>
+                    {!isEmployeeBarber && <th className="px-6 py-3">Profissional</th>}
                     <th className="px-6 py-3">Serviços</th>
                     <th className="px-6 py-3">Status</th>
                     {isBarbeiro && <th className="px-6 py-3">Ações</th>}
@@ -137,9 +150,11 @@ export default function AgendamentosPage() {
                         <p className="font-medium">{agendamento.usuario?.nome ?? '-'}</p>
                         <p className="text-zinc-500">{agendamento.usuario?.email ?? ''}</p>
                       </td>
-                      <td className="px-6 py-4 text-sm text-zinc-300">
-                        {agendamento.profissional?.nome ?? '-'}
-                      </td>
+                      {!isEmployeeBarber && (
+                        <td className="px-6 py-4 text-sm text-zinc-300">
+                          {agendamento.profissional?.nome ?? '-'}
+                        </td>
+                      )}
                       <td className="px-6 py-4 text-sm">
                         <div className="flex flex-wrap gap-1">
                           {(agendamento.servicos ?? []).map((servico, idx) => (

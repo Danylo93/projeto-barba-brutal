@@ -142,4 +142,29 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       },
     });
   }
+
+  async buscarPorUsuarioProfissional(usuarioId: number, tenantId: number): Promise<Agendamento[]> {
+    const agendamentos = await this.prismaService.agendamento.findMany({
+      where: {
+        tenantId,
+        profissional: {
+          usuarioId: usuarioId,
+        },
+        data: {
+          gte: new Date(),
+        },
+      },
+      include: {
+        servicos: true,
+        profissional: true,
+        usuario: true,
+      },
+      orderBy: {
+        data: 'desc',
+      },
+    });
+
+    return agendamentos.map(paraLeitura) as unknown as Agendamento[];
+  }
 }
+

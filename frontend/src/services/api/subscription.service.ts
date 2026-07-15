@@ -127,5 +127,5 @@ class SubscriptionService {
   }
 }
 
-export default new SubscriptionService();
-
+const subscriptionService = new SubscriptionService();
+export default subscriptionService;
