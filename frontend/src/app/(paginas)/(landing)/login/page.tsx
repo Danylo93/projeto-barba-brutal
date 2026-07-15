@@ -234,7 +234,11 @@ function LoginContent() {
 export default function LoginPage() {
     return (
         <AuthShell>
-            <Suspense fallback={<div className="text-zinc-400 text-center">Carregando...</div>}>
+            <Suspense fallback={
+                <div className="flex flex-col justify-center items-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-800 border-t-yellow-400"></div>
+                </div>
+            }>
                 <LoginContent />
             </Suspense>
         </AuthShell>

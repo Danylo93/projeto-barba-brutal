@@ -5,6 +5,8 @@ import { Users, Plus, Trash2, Mail, Phone } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import useUsuario from '@/data/hooks/useUsuario'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
+import ConfirmModal from '@/components/shared/ConfirmModal'
+import { useToast } from '@/hooks/use-toast'
 import { formatarTelefone, formatarTelefoneInput } from '@/lib/agendamento-utils'
 
 interface Cliente {
@@ -21,12 +23,15 @@ const formVazio = { nome: '', email: '', telefone: '', senha: '' }
 export default function ClientesPage() {
   const { httpGet, httpDelete } = useAPI()
   const { usuario } = useUsuario()
+  const { success, error: toastError } = useToast()
+
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
 
   const [modalAberto, setModalAberto] = useState(false)
+  const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null)
   const [form, setForm] = useState(formVazio)
   const [salvando, setSalvando] = useState(false)
 
@@ -76,20 +81,27 @@ export default function ClientesPage() {
       }
       setModalAberto(false)
       await fetchClientes()
+      success('Cliente cadastrado', 'O cliente foi cadastrado com sucesso.')
     } catch (err) {
+      toastError('Erro ao cadastrar', err instanceof Error ? err.message : 'Erro ao cadastrar cliente')
       setError(err instanceof Error ? err.message : 'Erro ao cadastrar')
     } finally {
       setSalvando(false)
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja deletar este cliente?')) return
+  const handleDelete = async () => {
+    if (confirmarExclusao === null) return
+    const id = confirmarExclusao
     try {
       await httpDelete(`usuarios/${id}`)
       setClientes(clientes.filter((c) => c.id !== id))
+      success('Cliente excluído', 'O cliente foi removido com sucesso.')
     } catch (err) {
+      toastError('Erro ao excluir', err instanceof Error ? err.message : 'Erro ao deletar cliente')
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
+    } finally {
+      setConfirmarExclusao(null)
     }
   }
 
@@ -169,7 +181,7 @@ export default function ClientesPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => handleDelete(cliente.id)}
+                    onClick={() => setConfirmarExclusao(cliente.id)}
                     className="text-red-400 hover:text-red-300"
                     title="Deletar"
                   >
@@ -196,6 +208,15 @@ export default function ClientesPage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        aberto={confirmarExclusao !== null}
+        titulo="Deletar Cliente"
+        mensagem="Tem certeza que deseja excluir este cliente? O acesso dele será revogado."
+        textoConfirmar="Deletar"
+        onConfirmar={handleDelete}
+        onCancelar={() => setConfirmarExclusao(null)}
+      />
 
       <Modal aberto={modalAberto} titulo="Novo Cliente" onFechar={() => setModalAberto(false)}>
         <form onSubmit={salvar} className="flex flex-col gap-4">

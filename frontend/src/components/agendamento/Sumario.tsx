@@ -15,7 +15,7 @@ export default function Sumario() {
             setErro('')
             setCarregando(true)
             await agendar()
-            router.push('/agendamento/sucesso')
+            router.push('/agendamentos')
         } catch (e) {
             setErro(e instanceof Error ? e.message : 'Não foi possível concluir o agendamento.')
         } finally {

@@ -24,17 +24,30 @@ export function aplicarHorario(data: Date, horario: string): Date {
   return novaData
 }
 
-export function horariosDoDia() {
-  const manha = [
-    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  ]
-  const tarde = [
-    '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
-    '17:00', '17:30', '18:00', '18:30',
-  ]
-  const noite = [
-    '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
-  ]
+export function horariosDoDia(configuracoes?: any) {
+  const abertura = configuracoes?.horaAbertura || '08:00'
+  const fechamento = configuracoes?.horaFechamento || '21:00'
+
+  const [horaAbertura, minAbertura] = abertura.split(':').map(Number)
+  const [horaFechamento, minFechamento] = fechamento.split(':').map(Number)
+
+  const horarios = []
+  let horaAtual = horaAbertura
+  let minAtual = minAbertura
+
+  while (horaAtual < horaFechamento || (horaAtual === horaFechamento && minAtual <= minFechamento)) {
+    horarios.push(`${String(horaAtual).padStart(2, '0')}:${String(minAtual).padStart(2, '0')}`)
+    minAtual += 30
+    if (minAtual >= 60) {
+      minAtual -= 60
+      horaAtual += 1
+    }
+  }
+
+  const manha = horarios.filter((h) => parseInt(h.split(':')[0]) < 12)
+  const tarde = horarios.filter((h) => parseInt(h.split(':')[0]) >= 12 && parseInt(h.split(':')[0]) < 18)
+  const noite = horarios.filter((h) => parseInt(h.split(':')[0]) >= 18)
+
   return { manha, tarde, noite }
 }
 
@@ -48,6 +61,7 @@ export function duracaoTotal(servicos: Array<{ duracao: number }>): string {
 export interface Agendamento {
   id: number
   data: string
+  status?: string
   usuario: { nome: string }
   servicos: Array<{ id: number; nome: string; preco: number; duracao: number; qtdeSlots?: number }>
   profissionalId: number

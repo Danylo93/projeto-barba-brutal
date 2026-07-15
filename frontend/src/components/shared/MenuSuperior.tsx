@@ -18,13 +18,24 @@ export default function MenuSuperior() {
 
     const isTenant = usuario?.tipo === 'tenant'
     const isBarbeiro = !!usuario?.barbeiro || isTenant
+    const isEmployeeBarber = isBarbeiro && !isTenant
 
     // Navegação depende do papel do usuário logado.
     const linksLogado: LinkNav[] = []
     if (usuario) {
-        linksLogado.push({ href: '/agendamento', rotulo: 'Agendar' })
-        linksLogado.push({ href: '/agendamentos', rotulo: 'Agendamentos' })
-        if (isBarbeiro) linksLogado.push({ href: '/agenda', rotulo: 'Minha Agenda' })
+        if (!isEmployeeBarber) {
+            linksLogado.push({ href: '/agendamento', rotulo: 'Agendar' })
+            linksLogado.push({ href: '/agendamentos', rotulo: 'Agendamentos' })
+        }
+        
+        if (isBarbeiro) {
+            linksLogado.push({ href: '/agenda', rotulo: 'Minha Agenda' })
+        }
+        
+        if (isEmployeeBarber) {
+            linksLogado.push({ href: '/financas', rotulo: 'Finanças' })
+        }
+
         if (isTenant) {
             linksLogado.push({ href: '/servicos', rotulo: 'Serviços' })
             linksLogado.push({ href: '/profissionais', rotulo: 'Profissionais' })

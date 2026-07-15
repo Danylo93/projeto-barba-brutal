@@ -68,13 +68,34 @@ export default function useAPI() {
 
     async function extrairDados(resp: Response) {
         let conteudo = ''
+        let dados: any
         try {
             conteudo = await resp.text()
-            return JSON.parse(conteudo)
+            dados = JSON.parse(conteudo)
         } catch (e) {
-            return conteudo
+            dados = conteudo
         }
+        if (!resp.ok) {
+            throw new Error(dados?.message || (typeof dados === 'string' && dados ? dados : `Erro HTTP: ${resp.status}`))
+        }
+        return dados
     }
 
-    return { httpGet, httpPost, httpPut, httpDelete }
+    const httpPatch = useCallback(
+        async function (uri: string, body: any): Promise<any> {
+            const path = uri.startsWith('/') ? uri : `/${uri}`
+            const resp = await fetch(`${URL_BASE}${path}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(body),
+            })
+            return extrairDados(resp)
+        },
+        [token]
+    )
+
+    return { httpGet, httpPost, httpPut, httpPatch, httpDelete }
 }

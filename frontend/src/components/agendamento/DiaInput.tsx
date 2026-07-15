@@ -3,14 +3,13 @@ import { hoje } from '@/lib/agendamento-utils'
 export interface DiaInputProps {
     data: Date
     dataMudou(data: Date): void
+    configuracoes?: any
 }
 
 export default function DiaInput(props: DiaInputProps) {
-    function renderizarDia(data: Date) {
-        if (data.getDay() === 0) {
-            data.setDate(data.getDate() + 1)
-        }
+    const diasAbertos = props.configuracoes?.diasAbertos || [1, 2, 3, 4, 5, 6]
 
+    function renderizarDia(data: Date) {
         const selecionado = data.getDate() === props.data.getDate()
         return (
             <div
@@ -43,9 +42,10 @@ export default function DiaInput(props: DiaInputProps) {
         <div className="flex flex-col gap-5">
             <span className="text-sm uppercase text-zinc-400">Dias Disponíveis</span>
             <div className="flex gap-5 bg-zinc-950 rounded-lg overflow-hidden">
-                {Array.from({ length: 7 })
+                {Array.from({ length: 14 })
                     .map((_, i) => new Date(hoje().getTime() + 86400000 * i))
-                    .filter((date) => date.getDay() !== 0)
+                    .filter((date) => diasAbertos.includes(date.getDay()))
+                    .slice(0, 7)
                     .map((date) => renderizarDia(date))}
             </div>
         </div>

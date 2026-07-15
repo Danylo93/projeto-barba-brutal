@@ -134,6 +134,7 @@ export class TenantService {
     corPrimaria: string;
     corSecundaria: string;
     ativo: boolean;
+    configuracoes: any;
   }>) {
     return this.prisma.tenant.update({
       where: { id },

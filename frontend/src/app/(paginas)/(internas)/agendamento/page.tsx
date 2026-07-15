@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Profissional, Servico } from '@/lib/agendamento-utils'
 import useAgendamento from '@/data/hooks/useAgendamento'
 import Sumario from '@/components/agendamento/Sumario'
@@ -8,8 +9,20 @@ import ProfissionalInput from '@/components/agendamento/ProfissionalInput'
 import Passos from '@/components/shared/Passos'
 import DataInput from '@/components/agendamento/DataInput'
 import Cabecalho from '@/components/shared/Cabecalho'
+import useUsuario from '@/data/hooks/useUsuario'
 
 export default function PaginaAgendamento() {
+    const router = useRouter()
+    const { usuario } = useUsuario()
+    const isTenant = usuario?.tipo === 'tenant'
+    const isEmployeeBarber = !!usuario?.barbeiro && !isTenant
+
+    useEffect(() => {
+        if (isEmployeeBarber) {
+            router.replace('/agenda')
+        }
+    }, [isEmployeeBarber, router])
+
     const [permiteProximoPasso, setPermiteProximoPasso] = useState<boolean>(false)
     const {
         profissional,
@@ -37,6 +50,10 @@ export default function PaginaAgendamento() {
         const temData = data
         const horaValida = data.getHours() >= 8 && data.getHours() <= 21
         setPermiteProximoPasso(temData && horaValida)
+    }
+
+    if (isEmployeeBarber) {
+        return null // Renderiza nada enquanto redireciona
     }
 
     return (

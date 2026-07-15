@@ -47,6 +47,7 @@ model Tenant {
   corPrimaria   String?   // cor primária da marca
   corSecundaria String?   // cor secundária da marca
   stripeCustomerId String? @unique // ID do customer no Stripe
+  configuracoes Json?     // Configurações da barbearia (horários, dias, etc)
   ativo         Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

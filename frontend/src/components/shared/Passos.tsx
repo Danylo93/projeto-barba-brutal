@@ -59,17 +59,16 @@ export default function Passos(props: PassosProps) {
                     <IconChevronLeft size={20} />
                     <span>Anterior</span>
                 </button>
-                <button
-                    onClick={proximoPasso}
-                    disabled={
-                        passoAtual === (props.children?.length ?? 0) - 1 ||
-                        !props.permiteProximoPasso
-                    }
-                    className="flex gap-1 items-center bg-zinc-700 text-sm text-white px-4 py-1.5 rounded-md disabled:opacity-30"
-                >
-                    <span>Próximo</span>
-                    <IconChevronRight size={20} />
-                </button>
+                {passoAtual < (props.children?.length ?? 0) - 1 && (
+                    <button
+                        onClick={proximoPasso}
+                        disabled={!props.permiteProximoPasso}
+                        className="flex gap-1 items-center bg-zinc-700 text-sm text-white px-4 py-1.5 rounded-md disabled:opacity-30"
+                    >
+                        <span>Próximo</span>
+                        <IconChevronRight size={20} />
+                    </button>
+                )}
             </div>
         </div>
     )

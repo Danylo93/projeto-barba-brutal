@@ -5,6 +5,8 @@ import { Users, Plus, Trash2, Edit2, Star } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
 import { Skeleton } from '@/components/ui/skeleton'
+import ConfirmModal from '@/components/shared/ConfirmModal'
+import { useToast } from '@/hooks/use-toast'
 
 interface Profissional {
   id: number
@@ -21,11 +23,15 @@ const formVazio = { nome: '', descricao: '', imagemUrl: '', email: '', senha: ''
 
 export default function ProfissionaisPage() {
   const { httpGet, httpPost, httpPut, httpDelete } = useAPI()
+  const { success, error: toastError } = useToast()
+  
   const [profissionais, setProfissionais] = useState<Profissional[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const [modalAberto, setModalAberto] = useState(false)
+  const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null)
+  
   const [editando, setEditando] = useState<Profissional | null>(null)
   const [form, setForm] = useState(formVazio)
   const [salvando, setSalvando] = useState(false)
@@ -89,20 +95,27 @@ export default function ProfissionaisPage() {
       }
       setModalAberto(false)
       await fetchProfissionais()
+      success('Profissional salvo', 'As informações foram atualizadas com sucesso.')
     } catch (err) {
+      toastError('Erro ao salvar', err instanceof Error ? err.message : 'Erro desconhecido')
       setError(err instanceof Error ? err.message : 'Erro ao salvar')
     } finally {
       setSalvando(false)
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja deletar este profissional?')) return
+  const handleDelete = async () => {
+    if (confirmarExclusao === null) return
+    const id = confirmarExclusao
     try {
       await httpDelete(`profissionais/${id}`)
       setProfissionais(profissionais.filter((p) => p.id !== id))
+      success('Profissional excluído', 'O profissional foi removido com sucesso.')
     } catch (err) {
+      toastError('Erro ao excluir', err instanceof Error ? err.message : 'Erro ao deletar profissional')
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
+    } finally {
+      setConfirmarExclusao(null)
     }
   }
 
@@ -211,7 +224,7 @@ export default function ProfissionaisPage() {
                       Editar
                     </button>
                     <button
-                      onClick={() => handleDelete(profissional.id)}
+                      onClick={() => setConfirmarExclusao(profissional.id)}
                       className="flex-1 flex items-center justify-center gap-2 text-red-400 hover:text-red-300 py-2 transition-colors"
                     >
                       <Trash2 size={18} />
@@ -224,6 +237,15 @@ export default function ProfissionaisPage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        aberto={confirmarExclusao !== null}
+        titulo="Deletar Profissional"
+        mensagem="Tem certeza que deseja excluir este profissional? Esta ação não poderá ser desfeita e ele perderá o acesso ao sistema."
+        textoConfirmar="Deletar"
+        onConfirmar={handleDelete}
+        onCancelar={() => setConfirmarExclusao(null)}
+      />
 
       <Modal
         aberto={modalAberto}

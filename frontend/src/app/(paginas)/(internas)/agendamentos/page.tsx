@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Calendar, Plus, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Calendar, Plus, Trash2, RotateCw } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import { Skeleton } from '@/components/ui/skeleton'
 import useUsuario from '@/data/hooks/useUsuario'
+import ConfirmModal from '@/components/shared/ConfirmModal'
+import { useToast } from '@/hooks/use-toast'
 
 interface AgendamentoUI {
   id: number
@@ -17,11 +20,17 @@ interface AgendamentoUI {
 }
 
 export default function AgendamentosPage() {
+  const router = useRouter()
   const { usuario } = useUsuario()
   const { httpGet, httpDelete } = useAPI()
+  const { success, error: toastError } = useToast()
+  
   const [agendamentos, setAgendamentos] = useState<AgendamentoUI[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  
+  const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null)
+  const [confirmarRemarcar, setConfirmarRemarcar] = useState<number | null>(null)
 
   const isTenant = usuario?.tipo === 'tenant'
   const isBarbeiro = !!usuario?.barbeiro
@@ -51,14 +60,32 @@ export default function AgendamentosPage() {
     carregar()
   }, [carregar])
 
-  const handleDelete = async (id: number) => {
-    // Exclusão de agendamento é permitida a barbeiro (via backend).
-    if (!confirm('Tem certeza que deseja deletar este agendamento?')) return
+  const handleDelete = async () => {
+    if (confirmarExclusao === null) return
+    const id = confirmarExclusao
     try {
       await httpDelete(`agendamentos/${id}`)
       setAgendamentos((prev) => prev.filter((a) => a.id !== id))
+      success('Agendamento excluído', 'O agendamento foi deletado com sucesso.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao deletar')
+      toastError('Erro ao excluir', err instanceof Error ? err.message : 'Erro ao deletar')
+    } finally {
+      setConfirmarExclusao(null)
+    }
+  }
+
+  const handleRemarcar = async () => {
+    if (confirmarRemarcar === null) return
+    const id = confirmarRemarcar
+    try {
+      await httpDelete(`agendamentos/${id}`)
+      setAgendamentos((prev) => prev.filter((a) => a.id !== id))
+      success('Agendamento cancelado', 'Agora você pode escolher seu novo horário.')
+      router.push('/agendamento')
+    } catch (err) {
+      toastError('Erro ao remarcar', err instanceof Error ? err.message : 'Não foi possível cancelar o agendamento atual.')
+    } finally {
+      setConfirmarRemarcar(null)
     }
   }
 
@@ -131,7 +158,7 @@ export default function AgendamentosPage() {
                     {!isEmployeeBarber && <th className="px-6 py-3">Profissional</th>}
                     <th className="px-6 py-3">Serviços</th>
                     <th className="px-6 py-3">Status</th>
-                    {isBarbeiro && <th className="px-6 py-3">Ações</th>}
+                    <th className="px-6 py-3">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
@@ -180,17 +207,26 @@ export default function AgendamentosPage() {
                           {agendamento.status ?? 'agendado'}
                         </span>
                       </td>
-                      {isBarbeiro && (
-                        <td className="px-6 py-4 text-sm">
-                          <button
-                            onClick={() => handleDelete(agendamento.id)}
-                            className="text-red-400 hover:text-red-300"
-                            title="Deletar"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      )}
+                      <td className="px-6 py-4 text-sm">
+                        {agendamento.status !== 'concluido' && (
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => setConfirmarRemarcar(agendamento.id)}
+                              className="text-yellow-400 hover:text-yellow-300"
+                              title="Remarcar Agendamento"
+                            >
+                              <RotateCw size={18} />
+                            </button>
+                            <button
+                              onClick={() => setConfirmarExclusao(agendamento.id)}
+                              className="text-red-400 hover:text-red-300"
+                              title="Cancelar Agendamento"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -198,6 +234,25 @@ export default function AgendamentosPage() {
             </div>
           </div>
         )}
+
+        <ConfirmModal
+            aberto={confirmarExclusao !== null}
+            titulo="Excluir Agendamento"
+            mensagem="Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita."
+            textoConfirmar="Excluir"
+            onConfirmar={handleDelete}
+            onCancelar={() => setConfirmarExclusao(null)}
+        />
+
+        <ConfirmModal
+            aberto={confirmarRemarcar !== null}
+            titulo="Remarcar Agendamento"
+            mensagem="Isso irá cancelar seu agendamento atual e levar você para a tela de horários para criar um novo. Deseja continuar?"
+            textoConfirmar="Continuar para Remarcar"
+            variante="warning"
+            onConfirmar={handleRemarcar}
+            onCancelar={() => setConfirmarRemarcar(null)}
+        />
       </div>
     </div>
   )

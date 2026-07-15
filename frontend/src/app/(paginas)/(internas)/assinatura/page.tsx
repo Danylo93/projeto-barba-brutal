@@ -19,6 +19,8 @@ import {
 import { motion } from 'framer-motion'
 import useSessao from '@/data/hooks/useSessao'
 import useTrialStatus from '@/hooks/useTrialStatus'
+import ConfirmModal from '@/components/shared/ConfirmModal'
+import { useToast } from '@/hooks/use-toast'
 
 interface Assinatura {
   id: number
@@ -57,9 +59,11 @@ export default function AssinaturaPage() {
   const router = useRouter()
   const { token } = useSessao()
   const trial = useTrialStatus()
+  const { success, error: toastError } = useToast()
   const [assinatura, setAssinatura] = useState<Assinatura | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [confirmarCancelamento, setConfirmarCancelamento] = useState(false)
 
   useEffect(() => {
     if (token) fetchAssinatura()
@@ -93,7 +97,7 @@ export default function AssinaturaPage() {
   }
 
   const handleCancelSubscription = async () => {
-    if (!confirm('Tem certeza que deseja cancelar sua assinatura?')) return
+    if (!confirmarCancelamento) return
 
     try {
       const response = await fetch('/api/assinaturas/cancel', {
@@ -109,8 +113,12 @@ export default function AssinaturaPage() {
       }
 
       fetchAssinatura()
+      success('Assinatura cancelada', 'Sua assinatura foi cancelada com sucesso.')
     } catch (err) {
+      toastError('Erro ao cancelar', err instanceof Error ? err.message : 'Erro ao cancelar assinatura')
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
+    } finally {
+      setConfirmarCancelamento(false)
     }
   }
 
@@ -392,7 +400,7 @@ export default function AssinaturaPage() {
                   <ArrowRight size={16} />
                 </button>
                 <button
-                  onClick={handleCancelSubscription}
+                  onClick={() => setConfirmarCancelamento(true)}
                   className="flex-1 flex items-center justify-center gap-2 
                     bg-red-500/10 text-red-400 border border-red-500/20
                     px-5 py-3 rounded-xl font-semibold text-sm
@@ -475,6 +483,15 @@ export default function AssinaturaPage() {
             </motion.div>
           </div>
         )}
+
+        <ConfirmModal
+          aberto={confirmarCancelamento}
+          titulo="Cancelar Assinatura"
+          mensagem="Tem certeza que deseja cancelar sua assinatura? Você perderá acesso aos recursos premium e seu acesso poderá ser bloqueado dependendo da urgência."
+          textoConfirmar="Cancelar Assinatura"
+          onConfirmar={handleCancelSubscription}
+          onCancelar={() => setConfirmarCancelamento(false)}
+        />
       </div>
     </div>
   )

@@ -8,6 +8,7 @@ import {
   HttpException,
   Param,
   Post,
+  Patch,
   UseGuards,
 } from '@nestjs/common';
 import { UsuarioLogado } from 'src/usuario/usuario.decorator';
@@ -83,9 +84,36 @@ export class AgendamentoController {
     @UsuarioLogado() usuarioLogado: Usuario,
     @CurrentTenant() tenant: any,
   ) {
-    if (!usuarioLogado.barbeiro) {
+    const agendamento = await this.repo.buscarPorId(+id, tenant.id);
+    if (!agendamento) {
+      throw new HttpException('Agendamento não encontrado', 404);
+    }
+    if (!usuarioLogado.barbeiro && usuarioLogado.id !== agendamento.usuarioId) {
       throw new HttpException('Usuário não autorizado', 401);
     }
+    if (agendamento.status === 'concluido') {
+      throw new HttpException('Não é possível excluir um agendamento já concluído', 400);
+    }
     await this.repo.excluir(+id, tenant.id);
+  }
+
+  @Patch(':id/status')
+  async atualizarStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+    @UsuarioLogado() usuarioLogado: Usuario,
+    @CurrentTenant() tenant: any,
+  ) {
+    if (!usuarioLogado.barbeiro && usuarioLogado.tipo !== 'tenant') {
+      throw new HttpException('Usuário não autorizado', 401);
+    }
+    const agendamento = await this.repo.buscarPorId(+id, tenant.id);
+    if (!agendamento) {
+      throw new HttpException('Agendamento não encontrado', 404);
+    }
+    if (agendamento.status === 'concluido' && status !== 'concluido') {
+      throw new HttpException('Não é possível reverter o status de um agendamento concluído', 400);
+    }
+    await this.repo.atualizarStatus(+id, tenant.id, status);
   }
 }

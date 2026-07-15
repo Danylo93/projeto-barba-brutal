@@ -28,6 +28,7 @@ export default function PainelNav() {
     const isTenant = usuario?.tipo === 'tenant'
     const isAdmin = usuario?.tipo === 'admin'
     const isBarbeiro = !!usuario?.barbeiro
+    const isEmployeeBarber = isBarbeiro && !isTenant
 
     let links: LinkNav[] = []
     if (isAdmin) {
@@ -40,12 +41,12 @@ export default function PainelNav() {
             { href: '/profissionais', rotulo: 'Profissionais' },
             { href: '/servicos', rotulo: 'Serviços' },
             { href: '/assinatura', rotulo: 'Meu Plano' },
+            { href: '/configuracoes', rotulo: 'Configurações' },
         ]
-    } else if (isBarbeiro) {
+    } else if (isEmployeeBarber) {
         links = [
             { href: '/agenda', rotulo: 'Minha Agenda' },
-            { href: '/agendamento', rotulo: 'Agendar' },
-            { href: '/agendamentos', rotulo: 'Agendamentos' },
+            { href: '/financas', rotulo: 'Finanças' },
         ]
     } else {
         // cliente

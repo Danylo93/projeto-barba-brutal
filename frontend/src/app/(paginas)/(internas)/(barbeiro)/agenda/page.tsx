@@ -4,15 +4,17 @@ import useProfissionalAgenda from '@/data/hooks/useProfissionalAgenda'
 import DiaInput from '@/components/agendamento/DiaInput'
 import Cabecalho from '@/components/shared/Cabecalho'
 import AgendaProfissionalItem from '@/components/agendamento/AgendaProfissionalItem'
+import useTenantConfig from '@/data/hooks/useTenantConfig'
 
 export default function PaginaAgenda() {
-    const { data, agendamentos, alterarData, excluirAgendamento } = useProfissionalAgenda()
+    const { data, agendamentos, alterarData, excluirAgendamento, atualizarStatus } = useProfissionalAgenda()
+    const configuracoes = useTenantConfig()
 
     return (
         <div className="flex flex-col bg-zinc-900">
             <Cabecalho titulo="Minha Agenda" descricao="Veja e gerencie seus agendamentos." />
             <div className="container flex flex-col gap-10 py-16">
-                <DiaInput data={data} dataMudou={alterarData} />
+                <DiaInput data={data} dataMudou={alterarData} configuracoes={configuracoes} />
                 {agendamentos.length > 0 ? (
                     <div className="flex flex-col gap-4">
                         {agendamentos.map((agendamento) => (
@@ -20,6 +22,7 @@ export default function PaginaAgenda() {
                                 key={agendamento.id}
                                 agendamento={agendamento}
                                 excluir={excluirAgendamento}
+                                atualizarStatus={atualizarStatus}
                             />
                         ))}
                     </div>

@@ -5,6 +5,8 @@ import { Scissors, Plus, Trash2, Edit2, Clock, DollarSign } from 'lucide-react'
 import Image from 'next/image'
 import useAPI from '@/data/hooks/useAPI'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
+import ConfirmModal from '@/components/shared/ConfirmModal'
+import { useToast } from '@/hooks/use-toast'
 
 interface Servico {
   id: number
@@ -22,11 +24,15 @@ const formVazio = { nome: '', descricao: '', preco: '', duracao: '30', imagemURL
 
 export default function ServicosPage() {
   const { httpGet, httpPost, httpPut, httpDelete } = useAPI()
+  const { success, error: toastError } = useToast()
+  
   const [servicos, setServicos] = useState<Servico[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const [modalAberto, setModalAberto] = useState(false)
+  const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null)
+  
   const [editando, setEditando] = useState<Servico | null>(null)
   const [form, setForm] = useState(formVazio)
   const [salvando, setSalvando] = useState(false)
@@ -89,20 +95,27 @@ export default function ServicosPage() {
       }
       setModalAberto(false)
       await fetchServicos()
+      success('Serviço salvo', 'O serviço foi salvo com sucesso.')
     } catch (err) {
+      toastError('Erro ao salvar', err instanceof Error ? err.message : 'Erro ao salvar o serviço')
       setError(err instanceof Error ? err.message : 'Erro ao salvar')
     } finally {
       setSalvando(false)
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja deletar este serviço?')) return
+  const handleDelete = async () => {
+    if (confirmarExclusao === null) return
+    const id = confirmarExclusao
     try {
       await httpDelete(`servicos/${id}`)
       setServicos(servicos.filter((s) => s.id !== id))
+      success('Serviço excluído', 'O serviço foi deletado com sucesso.')
     } catch (err) {
+      toastError('Erro ao excluir', err instanceof Error ? err.message : 'Erro ao deletar o serviço')
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
+    } finally {
+      setConfirmarExclusao(null)
     }
   }
 
@@ -203,7 +216,7 @@ export default function ServicosPage() {
                       Editar
                     </button>
                     <button
-                      onClick={() => handleDelete(servico.id)}
+                      onClick={() => setConfirmarExclusao(servico.id)}
                       className="flex-1 flex items-center justify-center gap-2 text-red-400 hover:text-red-300 py-2 transition-colors"
                     >
                       <Trash2 size={18} />
@@ -216,6 +229,15 @@ export default function ServicosPage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        aberto={confirmarExclusao !== null}
+        titulo="Deletar Serviço"
+        mensagem="Tem certeza que deseja excluir este serviço? Esta ação não poderá ser desfeita."
+        textoConfirmar="Deletar"
+        onConfirmar={handleDelete}
+        onCancelar={() => setConfirmarExclusao(null)}
+      />
 
       <Modal
         aberto={modalAberto}

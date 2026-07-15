@@ -8,6 +8,7 @@ export interface Usuario {
   telefone: string;
   barbeiro: boolean;
   tenantId: number;
+  tipo?: string;
   ativo?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -85,12 +86,37 @@ export class RegistrarUsuario {
   }
 }
 
-// Classe para obter horários ocupados
 export class ObterHorariosOcupados {
   constructor(private repo: RepositorioAgendamento) {}
 
-  async executar(profissionalId: number, data: Date): Promise<Date[]> {
+  async executar(profissionalId: number, data: Date): Promise<string[]> {
     const agendamentos = await this.repo.buscarPorProfissional(profissionalId, data);
-    return agendamentos.map(agendamento => agendamento.data);
+    
+    // Filtra agendamentos cancelados
+    const ativos = agendamentos.filter((a: any) => a.status !== 'cancelado');
+    const ocupados: string[] = [];
+
+    for (const agendamento of ativos) {
+      // Pega a quantidade de slots total (ex: 2 serviços de 1 slot = 2)
+      // Como o repositório formata servicos com qtdeSlots no runtime, lemos como any
+      const servicos = (agendamento as any).servicos || [];
+      const totalSlots = servicos.reduce((acc: number, s: any) => acc + (s.qtdeSlots || 1), 0) || 1;
+
+      // Pega a data de início
+      let dataSlot = new Date(agendamento.data);
+      for (let i = 0; i < totalSlots; i++) {
+        // Formata para o timezone do Brasil para garantir a string no formato HH:mm correto
+        const horaStr = dataSlot.toLocaleTimeString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        ocupados.push(horaStr);
+        // Avança 30 minutos (1 slot)
+        dataSlot.setMinutes(dataSlot.getMinutes() + 30);
+      }
+    }
+
+    return ocupados;
   }
 }

@@ -134,11 +134,39 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     return this.buscarPorProfissional(profissional, data);
   }
 
+  async buscarPorId(id: number, tenantId: number): Promise<Agendamento | null> {
+    const agendamento = await this.prismaService.agendamento.findUnique({
+      where: {
+        id,
+        tenantId,
+      },
+      include: {
+        servicos: true,
+        profissional: true,
+        usuario: true,
+      },
+    });
+    if (!agendamento) return null;
+    return paraLeitura(agendamento) as unknown as Agendamento;
+  }
+
   async excluir(id: number, tenantId: number): Promise<void> {
     await this.prismaService.agendamento.delete({
       where: {
         id: id,
         tenantId,
+      },
+    });
+  }
+
+  async atualizarStatus(id: number, tenantId: number, status: string): Promise<void> {
+    await this.prismaService.agendamento.update({
+      where: {
+        id: id,
+        tenantId,
+      },
+      data: {
+        status,
       },
     });
   }

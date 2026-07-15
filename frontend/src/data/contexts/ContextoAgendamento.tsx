@@ -15,6 +15,7 @@ interface ContextoAgendamentoProps {
     selecionarServicos(servicos: Servico[]): void
     selecionarData(data: Date): void
     agendar(): Promise<void>
+    configuracoes: any
 }
 
 export const ContextoAgendamento = createContext({} as ContextoAgendamentoProps)
@@ -26,7 +27,17 @@ export function ProvedorAgendamento({ children }: { children: React.ReactNode })
 
     const { usuario } = useUsuario()
     const [horariosOcupados, setHorariosOcupados] = useState<string[]>([])
+    const [configuracoes, setConfiguracoes] = useState<any>(null)
     const { httpGet, httpPost } = useAPI()
+
+    useEffect(() => {
+        if (!usuario?.tenantId) return
+        httpGet(`tenants/${usuario.tenantId}`).then(tenant => {
+            if (tenant?.configuracoes) {
+                setConfiguracoes(tenant.configuracoes)
+            }
+        }).catch(() => {})
+    }, [usuario?.tenantId, httpGet])
 
     function selecionarProfissional(profissional: Profissional) {
         setProfissional(profissional)
@@ -125,6 +136,7 @@ export function ProvedorAgendamento({ children }: { children: React.ReactNode })
                 quantidadeDeSlots,
                 selecionarServicos,
                 agendar,
+                configuracoes,
             }}
         >
             {children}

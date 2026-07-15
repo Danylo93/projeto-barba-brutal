@@ -35,6 +35,15 @@ export class TenantController {
     return this.tenantService.getStats(user.id);
   }
 
+  @Put('me/configuracoes')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  updateConfiguracoes(
+    @CurrentUser() user: any,
+    @Body() configuracoes: any,
+  ) {
+    return this.tenantService.update(user.id, { configuracoes });
+  }
+
   @Get('me/agendamentos')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   getMyAgendamentos(@CurrentUser() user: any) {
