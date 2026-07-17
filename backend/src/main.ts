@@ -8,14 +8,22 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 
 async function bootstrap() {
+  // FRONTEND_URL aceita várias origens separadas por vírgula
+  // (ex.: produção + previews da Vercel)
+  const origens = (process.env.FRONTEND_URL || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   const corsOptions = {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: origens.length === 1 ? origens[0] : origens,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   };
 
-  const app = await NestFactory.create(AppModule, { cors: corsOptions });
+  // rawBody habilita a validação de assinatura do webhook do Stripe
+  const app = await NestFactory.create(AppModule, { cors: corsOptions, rawBody: true });
   
   // Security headers
   app.use(helmet());

@@ -9,8 +9,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // no Neon: URL "pooled" (-pooler)
+  directUrl = env("DIRECT_URL")     // no Neon: URL direta (migrations); local: igual à DATABASE_URL
 }
 
 // Planos de assinatura disponíveis

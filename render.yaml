@@ -1,0 +1,28 @@
+# Blueprint do Render — backend NestJS (plano free)
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: barba-brutal-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && node dist/main
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # cole a URL POOLED do Neon (com -pooler e ?sslmode=require)
+      - key: DIRECT_URL
+        sync: false # cole a URL DIRETA do Neon (sem -pooler)
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false # ex.: https://seu-app.vercel.app
+      - key: MERCADO_PAGO_ACCESS_TOKEN
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        value: sk_test_placeholder
+      - key: STRIPE_WEBHOOK_SECRET
+        value: whsec_placeholder
