@@ -14,6 +14,21 @@ const nextConfig = {
       { protocol: 'http', hostname: '**' },
     ],
   },
+  // Proxy same-origin: o client chama /api-backend/* e a Vercel encaminha
+  // para o backend real (server-side). Assim as chamadas do navegador não
+  // dependem de NEXT_PUBLIC_URL_BASE nem de CORS.
+  async rewrites() {
+    const backend =
+      process.env.BACKEND_URL ||
+      process.env.NEXT_PUBLIC_URL_BASE ||
+      'https://barba-brutal-api.onrender.com';
+    return [
+      {
+        source: '/api-backend/:path*',
+        destination: `${backend.replace(/\/$/, '')}/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

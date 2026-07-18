@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import useSessao from '@/data/hooks/useSessao'
+import { API_BASE } from '@/lib/api-base'
 
 export interface Profissional {
   id: number
@@ -7,7 +8,7 @@ export interface Profissional {
   imagemUrl: string
 }
 
-const URL_BASE = process.env.NEXT_PUBLIC_URL_BASE
+const URL_BASE = API_BASE
 
 /**
  * Busca os profissionais reais do tenant do usuário autenticado.

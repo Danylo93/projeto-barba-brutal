@@ -1,7 +1,8 @@
 import { useCallback } from 'react'
 import useSessao from './useSessao'
+import { API_BASE } from '@/lib/api-base'
 
-const URL_BASE = process.env.NEXT_PUBLIC_URL_BASE
+const URL_BASE = API_BASE
 
 export default function useAPI() {
     const { token } = useSessao()

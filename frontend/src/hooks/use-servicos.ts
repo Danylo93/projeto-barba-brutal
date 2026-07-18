@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import useSessao from '@/data/hooks/useSessao'
+import { API_BASE } from '@/lib/api-base'
 
 export interface Servico {
   id: number
@@ -10,7 +11,7 @@ export interface Servico {
   imagemURL: string
 }
 
-const URL_BASE = process.env.NEXT_PUBLIC_URL_BASE
+const URL_BASE = API_BASE
 const MINUTOS_POR_SLOT = 30
 
 /**
