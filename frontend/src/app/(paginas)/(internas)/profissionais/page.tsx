@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { Users, Plus, Trash2, Edit2, Star } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
+import { imagemDoProfissional } from '@/lib/agendamento-utils'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
 import { Skeleton } from '@/components/ui/skeleton'
 import ConfirmModal from '@/components/shared/ConfirmModal'
@@ -205,8 +207,13 @@ export default function ProfissionaisPage() {
                 key={profissional.id}
                 className="bg-zinc-900 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors overflow-hidden"
               >
-                <div className="relative h-40 bg-zinc-800 flex items-center justify-center">
-                  <Users size={48} className="text-zinc-600" />
+                <div className="relative h-40 bg-zinc-800">
+                  <Image
+                    src={imagemDoProfissional(profissional.id, profissional.imagemUrl)}
+                    alt={profissional.nome}
+                    fill
+                    className="object-cover"
+                  />
                 </div>
 
                 <div className="p-6">
