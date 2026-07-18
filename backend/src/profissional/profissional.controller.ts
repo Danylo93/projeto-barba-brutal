@@ -17,6 +17,7 @@ export class ProfissionalController {
     return this.prisma.profissional.findMany({
       where: { tenantId, ativo: true },
       orderBy: { nome: 'asc' },
+      include: { servicos: { where: { ativo: true }, select: { id: true, nome: true } } },
     });
   }
 
@@ -28,6 +29,7 @@ export class ProfissionalController {
   ) {
     return this.prisma.profissional.findFirst({
       where: { id, tenantId },
+      include: { servicos: { where: { ativo: true }, select: { id: true, nome: true } } },
     });
   }
 
@@ -54,6 +56,8 @@ export class ProfissionalController {
       usuarioId = user.id;
     }
 
+    const servicoIds = await this.validarServicoIds(data.servicoIds, tenant.id);
+
     return this.prisma.profissional.create({
       data: {
         nome: data.nome,
@@ -63,8 +67,28 @@ export class ProfissionalController {
         usuarioId,
         avaliacao: data.avaliacao || 0,
         quantidadeAvaliacoes: data.quantidadeAvaliacoes || 0,
+        servicos: servicoIds.length
+          ? { connect: servicoIds.map((id) => ({ id })) }
+          : undefined,
       },
+      include: { servicos: { select: { id: true, nome: true } } },
     });
+  }
+
+  /**
+   * Mantém apenas os ids de serviço que pertencem ao próprio tenant,
+   * evitando vincular serviços de outra barbearia.
+   */
+  private async validarServicoIds(
+    servicoIds: number[] | undefined,
+    tenantId: number,
+  ): Promise<number[]> {
+    if (!servicoIds || servicoIds.length === 0) return [];
+    const servicos = await this.prisma.servico.findMany({
+      where: { id: { in: servicoIds }, tenantId },
+      select: { id: true },
+    });
+    return servicos.map((s) => s.id);
   }
 
   @Put(':id')
@@ -116,6 +140,13 @@ export class ProfissionalController {
       }
     }
 
+    // `set` substitui totalmente o vínculo; só aplica quando o campo foi enviado.
+    let servicosUpdate: any = undefined;
+    if (data.servicoIds !== undefined) {
+      const servicoIds = await this.validarServicoIds(data.servicoIds, tenant.id);
+      servicosUpdate = { set: servicoIds.map((sid) => ({ id: sid })) };
+    }
+
     return this.prisma.profissional.update({
       where: { id },
       data: {
@@ -126,7 +157,9 @@ export class ProfissionalController {
         quantidadeAvaliacoes: data.quantidadeAvaliacoes,
         ativo: data.ativo,
         usuarioId,
+        servicos: servicosUpdate,
       },
+      include: { servicos: { select: { id: true, nome: true } } },
     });
   }
 

@@ -74,6 +74,7 @@ export interface Profissional {
   descricao?: string
   avaliacao?: number
   quantidadeAvaliacoes?: number
+  servicos?: { id: number; nome?: string }[]
 }
 
 export interface Servico {
@@ -84,6 +85,7 @@ export interface Servico {
   qtdeSlots?: number
   imagemURL: string
   descricao?: string
+  ehCombo?: boolean
 }
 
 export interface Usuario {

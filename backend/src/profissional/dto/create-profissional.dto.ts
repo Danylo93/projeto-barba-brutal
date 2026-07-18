@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, IsEmail, MinLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, IsEmail, MinLength, IsArray, IsInt } from 'class-validator';
 
 export class CreateProfissionalDto {
   @IsString()
@@ -35,4 +35,9 @@ export class CreateProfissionalDto {
   @IsString()
   @IsOptional()
   telefone?: string;
+
+  @IsArray()
+  @IsInt({ each: true })
+  @IsOptional()
+  servicoIds?: number[];
 }

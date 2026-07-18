@@ -6,6 +6,7 @@ export interface Profissional {
   id: number
   nome: string
   imagemUrl: string
+  servicos: { id: number; nome?: string }[]
 }
 
 const URL_BASE = API_BASE
@@ -36,6 +37,9 @@ export function useProfissionais() {
             id: p.id,
             nome: p.nome,
             imagemUrl: p.imagemUrl || '/avatar.png',
+            servicos: Array.isArray(p.servicos)
+              ? p.servicos.map((s: any) => ({ id: s.id, nome: s.nome }))
+              : [],
           }))
         )
       })

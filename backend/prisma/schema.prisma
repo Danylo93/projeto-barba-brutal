@@ -149,10 +149,11 @@ model Profissional {
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   agendamentos         Agendamento[]
+  servicos             Servico[]     // serviços que este profissional realiza
 
   tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   usuario              Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
-  
+
   @@unique([nome, tenantId]) // nome único por tenant
   @@map("profissional")
 }
@@ -164,14 +165,16 @@ model Servico {
   preco        Float
   qtdeSlots    Int
   imagemURL    String
+  ehCombo      Boolean        @default(false) // combo (ex: barba + cabelo) — seleção exclusiva no agendamento
   tenantId     Int
   ativo        Boolean       @default(true)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   agendamentos Agendamento[]
+  profissionais Profissional[] // profissionais que realizam este serviço
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  
+
   @@unique([nome, tenantId]) // nome único por tenant
   @@map("servico")
 }
