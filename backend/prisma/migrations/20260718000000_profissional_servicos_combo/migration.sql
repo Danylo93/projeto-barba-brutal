@@ -1,6 +1,10 @@
 -- AlterTable
 ALTER TABLE "servico" ADD COLUMN     "ehCombo" BOOLEAN NOT NULL DEFAULT false;
 
+-- Marca serviços já existentes com "combo" no nome como combo,
+-- para a regra de seleção exclusiva valer sem edição manual.
+UPDATE "servico" SET "ehCombo" = true WHERE lower("nome") LIKE '%combo%';
+
 -- CreateTable
 CREATE TABLE "_ProfissionalToServico" (
     "A" INTEGER NOT NULL,
