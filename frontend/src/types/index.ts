@@ -1,5 +1,5 @@
 /**
- * Tipos Compartilhados - Barba Brutal SaaS
+ * Tipos Compartilhados - Barbearia Brutal SaaS
  * Centraliza todos os tipos usados na aplicação
  */
 

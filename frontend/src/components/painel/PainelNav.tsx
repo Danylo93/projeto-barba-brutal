@@ -28,7 +28,7 @@ export default function PainelNav() {
     useEffect(() => {
         if (usuario) {
             if (usuario.tipo === 'tenant' || usuario.tipo === 'admin') {
-                document.title = 'Painel | Barba Brutal'
+                document.title = 'Painel | Barbearia Brutal'
             } else {
                 document.title = 'Agendamento | Barbearia'
             }

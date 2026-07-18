@@ -9,7 +9,7 @@ export interface AuthShellProps {
 /**
  * Layout compartilhado das telas de autenticação (login e cadastro).
  * Split-screen: painel de marca à esquerda (desktop) e formulário à direita,
- * seguindo a identidade dark do Barba Brutal.
+ * seguindo a identidade dark do Barbearia Brutal.
  */
 export default function AuthShell({ children }: AuthShellProps) {
     return (

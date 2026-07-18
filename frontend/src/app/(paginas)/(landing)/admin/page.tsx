@@ -271,7 +271,7 @@ export default function AdminPage() {
       <PainelNav />
       <PainelHeader
         titulo="Painel do Administrador"
-        descricao="Visão geral do sistema SaaS Barba Brutal"
+        descricao="Visão geral do sistema SaaS Barbearia Brutal"
         acao={
           <a
             href="/"

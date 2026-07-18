@@ -28,13 +28,13 @@ export default function TermsPage() {
                         <div className="prose max-w-none">
                             <h2>1. Aceitação dos Termos</h2>
                             <p>
-                                Ao utilizar o sistema Barba Brutal SaaS, você concorda em cumprir e estar sujeito a estes Termos de Uso. 
+                                Ao utilizar o sistema Barbearia Brutal SaaS, você concorda em cumprir e estar sujeito a estes Termos de Uso. 
                                 Se você não concordar com qualquer parte destes termos, não deve usar nosso serviço.
                             </p>
 
                             <h2>2. Descrição do Serviço</h2>
                             <p>
-                                O Barba Brutal SaaS é uma plataforma de gestão para barbearias que oferece:
+                                O Barbearia Brutal SaaS é uma plataforma de gestão para barbearias que oferece:
                             </p>
                             <ul>
                                 <li>Sistema de agendamentos online</li>
@@ -88,7 +88,7 @@ export default function TermsPage() {
 
                             <h2>8. Propriedade Intelectual</h2>
                             <p>
-                                Todo o conteúdo e software do Barba Brutal SaaS são propriedade nossa ou de nossos licenciadores. 
+                                Todo o conteúdo e software do Barbearia Brutal SaaS são propriedade nossa ou de nossos licenciadores. 
                                 Você não tem direito de usar, copiar ou distribuir nosso conteúdo sem autorização.
                             </p>
 
