@@ -12,7 +12,7 @@ export function Footer() {
               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">BB</span>
               </div>
-              <span className="text-xl font-bold">Barba Brutal</span>
+              <span className="text-xl font-bold">Barbearia Brutal</span>
             </Link>
             <p className="text-slate-400 mb-4 max-w-md">
               A plataforma completa para gerenciar sua barbearia. 
@@ -64,7 +64,7 @@ export function Footer() {
         <div className="border-t border-slate-800 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-slate-400 text-sm">
-              © 2024 Barba Brutal. Todos os direitos reservados.
+              © 2024 Barbearia Brutal. Todos os direitos reservados.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <Link href="/privacy" className="text-slate-400 hover:text-white text-sm transition-colors">

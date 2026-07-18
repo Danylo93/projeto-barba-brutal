@@ -202,7 +202,7 @@ export default function AssinaturaPage() {
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Nenhuma assinatura ativa</h3>
             <p className="text-zinc-400 mb-8 max-w-md mx-auto text-sm">
-              Escolha um plano para começar a usar todos os recursos do Barba Brutal e
+              Escolha um plano para começar a usar todos os recursos do Barbearia Brutal e
               transformar a gestão da sua barbearia.
             </p>
             <button
