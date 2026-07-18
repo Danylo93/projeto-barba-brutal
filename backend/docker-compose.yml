@@ -1,0 +1,49 @@
+services:
+  # Banco de dados PostgreSQL para desenvolvimento
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: barba-brutal-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: barba_brutal_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - barba-brutal-dev-network
+
+  # Aplicação Backend para desenvolvimento
+  backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: barba-brutal-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres123@postgres-dev:5432/barba_brutal_dev?schema=public
+      JWT_SECRET: dev-jwt-secret-key
+      STRIPE_SECRET_KEY: your-stripe-secret-key
+      STRIPE_WEBHOOK_SECRET: your-stripe-webhook-secret
+    ports:
+      - "3002:3001"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - postgres-dev
+    networks:
+      - barba-brutal-dev-network
+    command: npm run start:dev
+
+volumes:
+  postgres_dev_data:
+
+networks:
+  barba-brutal-dev-network:
+    driver: bridge
+

@@ -1,0 +1,209 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // no Neon: URL "pooled" (-pooler)
+  directUrl = env("DIRECT_URL")     // no Neon: URL direta (migrations); local: igual à DATABASE_URL
+}
+
+// Planos de assinatura disponíveis
+model Plano {
+  id          Int       @id @default(autoincrement())
+  nome        String    @unique
+  descricao   String
+  preco       Float
+  duracao     Int       // em dias
+  maxUsuarios Int       // máximo de usuários por tenant
+  maxAgendamentos Int   // máximo de agendamentos por mês
+  features    String[]  // features incluídas no plano
+  ativo       Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  assinaturas Assinatura[]
+  pagamentos  Pagamento[]
+
+  @@map("plano")
+}
+
+// Tenants (salões/barbearias)
+model Tenant {
+  id            Int       @id @default(autoincrement())
+  nome          String
+  email         String    @unique
+  telefone      String
+  senha         String?
+  endereco      String?
+  cnpj          String?   @unique
+  dominio       String?   @unique // subdomínio personalizado
+  logo          String?   // URL da logo
+  corPrimaria   String?   // cor primária da marca
+  corSecundaria String?   // cor secundária da marca
+  stripeCustomerId String? @unique // ID do customer no Stripe
+  configuracoes Json?     // Configurações da barbearia (horários, dias, etc)
+  ativo         Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  assinatura    Assinatura?
+  usuarios      Usuario[]
+  profissionais Profissional[]
+  servicos      Servico[]
+  agendamentos  Agendamento[]
+  pagamentos    Pagamento[]
+
+  @@map("tenant")
+}
+
+// Assinaturas dos tenants
+model Assinatura {
+  id                Int       @id @default(autoincrement())
+  tenantId          Int       @unique
+  planoId           Int
+  status            String    // trialing, active, canceled, past_due, unpaid
+  emTeste           Boolean   @default(false) // período de teste de 30 dias
+  stripeCustomerId  String?   @unique
+  stripeSubscriptionId String? @unique
+  dataInicio        DateTime
+  dataFim           DateTime
+  renovacaoAutomatica Boolean @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plano             Plano     @relation(fields: [planoId], references: [id])
+
+  @@map("assinatura")
+}
+
+// Pagamentos (Pix via Mercado Pago) — o admin do SaaS acompanha e controla
+model Pagamento {
+  id            Int       @id @default(autoincrement())
+  tenantId      Int
+  planoId       Int
+  valor         Float
+  metodo        String    @default("pix")
+  status        String    @default("pending") // pending, approved, rejected, cancelled
+  mpPaymentId   String?   @unique  // id do pagamento no Mercado Pago
+  qrCode        String?   // copia e cola (EMV)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plano         Plano     @relation(fields: [planoId], references: [id])
+
+  @@map("pagamento")
+}
+
+// Usuários administrativos do sistema (não ligados a tenants)
+model Admin {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senha     String
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("admin")
+}
+
+model Usuario {
+  id           Int           @id @default(autoincrement())
+  nome         String
+  email        String
+  senha        String
+  telefone     String
+  barbeiro     Boolean
+  tenantId     Int
+  ativo        Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  agendamentos Agendamento[]
+  profissional Profissional?
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([email, tenantId]) // email único por tenant
+  @@map("usuario")
+}
+
+model Profissional {
+  id                   Int           @id @default(autoincrement())
+  nome                 String
+  descricao            String
+  imagemUrl            String
+  avaliacao            Float
+  quantidadeAvaliacoes Int
+  tenantId             Int
+  usuarioId            Int?          @unique
+  ativo                Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  agendamentos         Agendamento[]
+
+  tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuario              Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  
+  @@unique([nome, tenantId]) // nome único por tenant
+  @@map("profissional")
+}
+
+model Servico {
+  id           Int           @id @default(autoincrement())
+  nome         String
+  descricao    String
+  preco        Float
+  qtdeSlots    Int
+  imagemURL    String
+  tenantId     Int
+  ativo        Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  agendamentos Agendamento[]
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@unique([nome, tenantId]) // nome único por tenant
+  @@map("servico")
+}
+
+model Agendamento {
+  id             Int          @id @default(autoincrement())
+  data           DateTime     @db.Timestamptz(3)
+  profissional   Profissional @relation(fields: [profissionalId], references: [id])
+  profissionalId Int
+  servicos       Servico[]
+  usuario        Usuario      @relation(fields: [usuarioId], references: [id])
+  usuarioId      Int
+  tenantId       Int
+  status         String       @default("agendado") // agendado, confirmado, cancelado, concluido
+  observacoes    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("agendamento")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int
+  userId    Int?
+  action    String
+  entity    String?
+  entityId  Int?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@map("audit_log")
+}
