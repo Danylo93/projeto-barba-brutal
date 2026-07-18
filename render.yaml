@@ -6,7 +6,9 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm install && npx prisma generate && npm run build
+    # --include=dev é obrigatório: com NODE_ENV=production o npm pularia as
+    # devDependencies e o @nestjs/cli (nest build) não seria instalado
+    buildCommand: npm install --include=dev && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && node dist/main
     healthCheckPath: /health
     envVars:
