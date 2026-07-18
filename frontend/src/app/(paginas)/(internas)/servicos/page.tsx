@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Scissors, Plus, Trash2, Edit2, Clock, DollarSign } from 'lucide-react'
 import Image from 'next/image'
 import useAPI from '@/data/hooks/useAPI'
+import { imagemDoServico } from '@/lib/agendamento-utils'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useToast } from '@/hooks/use-toast'
@@ -174,13 +175,12 @@ export default function ServicosPage() {
                 className="bg-zinc-900 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors overflow-hidden"
               >
                 <div className="relative h-40 bg-zinc-800">
-                  {servico.imagemURL ? (
-                    <Image src={servico.imagemURL} alt={servico.nome} fill className="object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                      <Scissors size={48} className="text-zinc-600" />
-                    </div>
-                  )}
+                  <Image
+                    src={imagemDoServico(servico.nome, servico.imagemURL)}
+                    alt={servico.nome}
+                    fill
+                    className="object-cover"
+                  />
                 </div>
 
                 <div className="p-6">

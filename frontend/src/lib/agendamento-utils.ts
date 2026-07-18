@@ -88,6 +88,34 @@ export interface Servico {
   ehCombo?: boolean
 }
 
+/**
+ * Resolve a imagem de um serviço para um arquivo local em /public/servicos.
+ * Dados antigos vêm com URLs placeholder (example.com) que não carregam,
+ * então mapeamos pelo nome. URLs reais já cadastradas são mantidas.
+ */
+export function imagemDoServico(nome?: string, imagemURL?: string): string {
+  if (imagemURL && !imagemURL.includes('example.com')) return imagemURL
+  const n = (nome ?? '').toLowerCase()
+  if (n.includes('combo')) return '/servicos/combo.jpg'
+  if (n.includes('barba')) return '/servicos/corte-de-barba.jpg'
+  if (n.includes('infant')) return '/servicos/corte-infantil.jpg'
+  if (n.includes('noiv')) return '/servicos/dia-de-noivo.jpg'
+  if (n.includes('manicure') || n.includes('pedicure') || n.includes('unha'))
+    return '/servicos/manicure-pedicure.jpg'
+  if (n.includes('cabelo') || n.includes('corte')) return '/servicos/corte-de-cabelo.jpg'
+  return '/servicos/corte-de-cabelo.jpg'
+}
+
+/**
+ * Resolve a imagem de um profissional para uma das fotos locais
+ * em /public/profissionais (distribuídas de forma estável pelo id).
+ */
+export function imagemDoProfissional(id?: number, imagemUrl?: string): string {
+  if (imagemUrl && !imagemUrl.includes('example.com')) return imagemUrl
+  const idx = ((((id ?? 1) - 1) % 6) + 6) % 6 + 1
+  return `/profissionais/profissional-${idx}.jpg`
+}
+
 export interface Usuario {
   id: number
   nome: string

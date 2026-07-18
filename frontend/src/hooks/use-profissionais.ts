@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import useSessao from '@/data/hooks/useSessao'
 import { API_BASE } from '@/lib/api-base'
+import { imagemDoProfissional } from '@/lib/agendamento-utils'
 
 export interface Profissional {
   id: number
@@ -36,7 +37,7 @@ export function useProfissionais() {
           (Array.isArray(dados) ? dados : []).map((p: any) => ({
             id: p.id,
             nome: p.nome,
-            imagemUrl: p.imagemUrl || '/avatar.png',
+            imagemUrl: imagemDoProfissional(p.id, p.imagemUrl),
             servicos: Array.isArray(p.servicos)
               ? p.servicos.map((s: any) => ({ id: s.id, nome: s.nome }))
               : [],
