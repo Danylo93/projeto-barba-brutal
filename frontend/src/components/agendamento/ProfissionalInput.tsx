@@ -15,7 +15,7 @@ function Opcao(props: {
     return (
         <div
             className={`
-                flex flex-col items-center cursor-pointer select-none rounded-lg border w-[150px] h-[180px]
+                flex flex-col items-center cursor-pointer select-none rounded-lg border w-full
                 ${props.selecionado ? 'border-green-400' : 'border-zinc-700'} overflow-hidden
             `}
             onClick={() => props.onClick(props.profissional)}
@@ -25,6 +25,7 @@ function Opcao(props: {
                 alt={props.profissional.nome}
                 width={150}
                 height={150}
+                className="w-full h-auto object-cover aspect-square"
             />
             <div
                 className={`
@@ -42,9 +43,9 @@ export default function ProfissionalInput(props: ProfissionalInputProps) {
     const { profissionais } = useProfissionais()
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 w-full">
             <span className="text-sm uppercase text-zinc-400">Profissionais Disponíveis</span>
-            <div className="grid grid-cols-2 md:grid-cols-3 self-start gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5">
                 {profissionais.map((profissional) => (
                     <Opcao
                         key={profissional.id}

@@ -10,7 +10,7 @@ export interface ServicosInputProps {
 function Opcao(props: { servico: Servico; onClick: (s: Servico) => void; selecionado?: boolean }) {
     return (
         <div
-            className={`flex flex-col items-center cursor-pointer select-none border rounded-lg overflow-hidden 
+            className={`flex flex-col items-center cursor-pointer select-none border rounded-lg overflow-hidden
             ${props.selecionado ? 'border-green-400' : 'border-zinc-700'}`}
             onClick={() => props.onClick(props.servico)}
         >
@@ -19,6 +19,7 @@ function Opcao(props: { servico: Servico; onClick: (s: Servico) => void; selecio
                 alt={props.servico.nome}
                 width={150}
                 height={120}
+                className="w-full h-auto object-cover"
             />
             <div
                 className={`
@@ -46,9 +47,9 @@ export default function ServicosInput(props: ServicosInputProps) {
     }
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 w-full">
             <span className="text-sm uppercase text-zinc-400">Serviços Disponíveis</span>
-            <div className="grid grid-cols-3 self-start gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5">
                 {todosServicos.map((servico) => (
                     <Opcao
                         key={servico.id}
