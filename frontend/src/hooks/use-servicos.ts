@@ -9,6 +9,7 @@ export interface Servico {
   duracao: number
   qtdeSlots: number
   imagemURL: string
+  ehCombo: boolean
 }
 
 const URL_BASE = API_BASE
@@ -44,6 +45,7 @@ export function useServicos() {
             qtdeSlots: s.qtdeSlots ?? 1,
             duracao: (s.qtdeSlots ?? 1) * MINUTOS_POR_SLOT,
             imagemURL: s.imagemURL || '/servicos/corte-de-cabelo.jpg',
+            ehCombo: !!s.ehCombo,
           }))
         )
       })

@@ -41,6 +41,9 @@ export function ProvedorAgendamento({ children }: { children: React.ReactNode })
 
     function selecionarProfissional(profissional: Profissional) {
         setProfissional(profissional)
+        // Cada profissional realiza um conjunto próprio de serviços;
+        // limpamos a seleção anterior para não manter serviços que ele não faz.
+        setServicos([])
     }
 
     function selecionarServicos(servicos: Servico[]) {

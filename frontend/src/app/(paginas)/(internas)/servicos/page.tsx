@@ -15,12 +15,13 @@ interface Servico {
   preco: number
   qtdeSlots: number
   imagemURL?: string
+  ehCombo?: boolean
   ativo: boolean
   createdAt: string
 }
 
 const MIN_POR_SLOT = 30
-const formVazio = { nome: '', descricao: '', preco: '', duracao: '30', imagemURL: '' }
+const formVazio = { nome: '', descricao: '', preco: '', duracao: '30', imagemURL: '', ehCombo: false }
 
 export default function ServicosPage() {
   const { httpGet, httpPost, httpPut, httpDelete } = useAPI()
@@ -69,6 +70,7 @@ export default function ServicosPage() {
       preco: String(s.preco),
       duracao: String((s.qtdeSlots ?? 1) * MIN_POR_SLOT),
       imagemURL: s.imagemURL || '',
+      ehCombo: !!s.ehCombo,
     })
     setError('')
     setModalAberto(true)
@@ -86,6 +88,7 @@ export default function ServicosPage() {
         preco: parseFloat(form.preco.replace(',', '.')) || 0,
         qtdeSlots: Math.max(1, Math.ceil(minutos / MIN_POR_SLOT)),
         imagemURL: form.imagemURL,
+        ehCombo: form.ehCombo,
       }
       const resposta = editando
         ? await httpPut(`servicos/${editando.id}`, payload)
@@ -305,6 +308,21 @@ export default function ServicosPage() {
               className={inputModalClasses}
             />
           </div>
+          <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+            <input
+              type="checkbox"
+              checked={form.ehCombo}
+              onChange={(e) => setForm({ ...form, ehCombo: e.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-yellow-400"
+            />
+            <span className="text-sm text-zinc-300">
+              É um combo
+              <span className="block text-xs text-zinc-500">
+                Combos (ex: barba + cabelo) já incluem os serviços individuais. No agendamento
+                eles são selecionados sozinhos, sem precisar marcar barba ou cabelo à parte.
+              </span>
+            </span>
+          </label>
           <div className="flex gap-3 pt-2">
             <button
               type="button"
