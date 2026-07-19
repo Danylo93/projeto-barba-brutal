@@ -123,6 +123,63 @@ export class TenantService {
     });
   }
 
+  /**
+   * Dados públicos da barbearia para a landing do cliente final.
+   * Aceita o domínio (slug) ou o id numérico. Retorna apenas informações
+   * seguras + serviços/profissionais ativos. Não expõe e-mail, cnpj, senha etc.
+   */
+  async getPaginaPublica(identificador: string) {
+    const ehNumero = /^\d+$/.test(identificador);
+    const tenant = await this.prisma.tenant.findFirst({
+      where: ehNumero
+        ? { id: Number(identificador), ativo: true }
+        : { dominio: identificador, ativo: true },
+      include: {
+        servicos: {
+          where: { ativo: true },
+          orderBy: { preco: 'asc' },
+          select: {
+            id: true,
+            nome: true,
+            descricao: true,
+            preco: true,
+            qtdeSlots: true,
+            ehCombo: true,
+            imagemURL: true,
+          },
+        },
+        profissionais: {
+          where: { ativo: true },
+          orderBy: { nome: 'asc' },
+          select: {
+            id: true,
+            nome: true,
+            descricao: true,
+            imagemUrl: true,
+            avaliacao: true,
+            quantidadeAvaliacoes: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant) return null;
+
+    return {
+      id: tenant.id,
+      nome: tenant.nome,
+      endereco: tenant.endereco,
+      telefone: tenant.telefone,
+      dominio: tenant.dominio,
+      logo: tenant.logo,
+      corPrimaria: tenant.corPrimaria,
+      corSecundaria: tenant.corSecundaria,
+      configuracoes: tenant.configuracoes,
+      servicos: tenant.servicos,
+      profissionais: tenant.profissionais,
+    };
+  }
+
   async update(id: number, data: Partial<{
     nome: string;
     email: string;
