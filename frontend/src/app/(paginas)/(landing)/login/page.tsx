@@ -27,7 +27,13 @@ function LoginContent() {
     const [error, setError] = useState('')
 
     const destino = params.get('destino')
-    const tenantIdPadrao = Number(process.env.NEXT_PUBLIC_TENANT_DEFAULT_ID || 1)
+    // Barbearia (tenant) de origem: quando o cliente chega pela landing pública
+    // /barbearia/<x>, o id do tenant vem em ?tenant=. Sem isso, usa o padrão.
+    const tenantParam = Number(params.get('tenant'))
+    const tenantId =
+        Number.isFinite(tenantParam) && tenantParam > 0
+            ? tenantParam
+            : Number(process.env.NEXT_PUBLIC_TENANT_DEFAULT_ID || 1)
 
     function irPara(padraoDoPapel: string, honrarDestino: boolean) {
         // Só o cliente/barbeiro volta para a página que tentou acessar (destino).
@@ -46,7 +52,7 @@ function LoginContent() {
             { url: '/api/auth/admin/login', body: credenciais, home: '/admin', honrarDestino: false },
             {
                 url: '/api/auth/usuario/login',
-                body: { ...credenciais, tenantId: tenantIdPadrao },
+                body: { ...credenciais, tenantId },
                 home: '/agendamento',
                 honrarDestino: true,
             },
@@ -82,7 +88,7 @@ function LoginContent() {
                 senha,
                 telefone,
                 barbeiro: false,
-                tenantId: tenantIdPadrao,
+                tenantId,
             }),
         })
         const data = await response.json().catch(() => ({}))

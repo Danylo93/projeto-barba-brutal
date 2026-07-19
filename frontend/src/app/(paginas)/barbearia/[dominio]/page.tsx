@@ -134,7 +134,9 @@ export default async function BarbeariaPublicaPage({
     const b = await getBarbearia(params.dominio)
     if (!b) notFound()
 
-    const agendarHref = `/entrar?b=${encodeURIComponent(b.dominio ?? String(b.id))}`
+    // Leva o cliente ao login/cadastro já vinculado a esta barbearia (tenant),
+    // e daí para o fluxo de agendamento dela.
+    const agendarHref = `/entrar?tenant=${b.id}&destino=${encodeURIComponent('/agendamento')}`
     const abertura = b.configuracoes?.horaAbertura ?? '08:00'
     const fechamento = b.configuracoes?.horaFechamento ?? '21:00'
     const dias = (b.configuracoes?.diasAbertos ?? [1, 2, 3, 4, 5, 6]).map((d) => DIAS[d])

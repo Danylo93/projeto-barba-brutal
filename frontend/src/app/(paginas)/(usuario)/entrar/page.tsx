@@ -10,8 +10,9 @@ function RedirecionarParaLogin() {
     const params = useSearchParams()
 
     useEffect(() => {
-        const destino = params.get('destino')
-        router.replace(destino ? `/login?destino=${encodeURIComponent(destino)}` : '/login')
+        // Repassa todos os parâmetros (destino, tenant da barbearia) para o /login.
+        const qs = params.toString()
+        router.replace(qs ? `/login?${qs}` : '/login')
     }, [router, params])
 
     return (
