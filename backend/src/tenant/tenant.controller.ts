@@ -50,6 +50,12 @@ export class TenantController {
     return this.tenantService.getAgendamentos(user.id);
   }
 
+  /** Landing pública da barbearia (sem autenticação) — por domínio ou id. */
+  @Get('publico/:identificador')
+  getPaginaPublica(@Param('identificador') identificador: string) {
+    return this.tenantService.getPaginaPublica(identificador);
+  }
+
   @Get()
   findAll(
     @Query('page') page?: string,
