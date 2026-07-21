@@ -1,6 +1,8 @@
 import { useServicos } from '@/hooks/use-servicos'
 import useAgendamento from '@/data/hooks/useAgendamento'
 import { Servico } from '@/lib/agendamento-utils'
+import { cn } from '@/lib/utils'
+import { Check } from 'lucide-react'
 import Image from 'next/image'
 
 export interface ServicosInputProps {
@@ -14,32 +16,46 @@ function Opcao(props: {
     selecionado?: boolean
 }) {
     return (
-        <div
-            className={`relative flex flex-col items-center cursor-pointer select-none border rounded-lg overflow-hidden transition-colors
-            ${props.selecionado ? 'border-green-400' : 'border-zinc-700 hover:border-zinc-600'}`}
+        <button
+            type="button"
             onClick={() => props.onClick(props.servico)}
+            className={cn(
+                'group relative flex w-full select-none flex-col items-center overflow-hidden rounded-xl border transition-all hover:-translate-y-0.5',
+                props.selecionado
+                    ? 'border-green-400 shadow-lg shadow-green-500/10 ring-2 ring-green-400/50'
+                    : 'border-zinc-700 hover:border-zinc-600'
+            )}
         >
             {props.servico.ehCombo && (
-                <span className="absolute top-1.5 left-1.5 z-10 rounded-full bg-yellow-400 text-black text-[10px] font-bold uppercase px-2 py-0.5">
+                <span className="absolute left-2 top-2 z-10 rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-900">
                     Combo
                 </span>
             )}
-            <Image
-                src={props.servico.imagemURL}
-                alt={props.servico.nome}
-                width={150}
-                height={120}
-                className="w-full h-auto object-cover"
-            />
+            {props.selecionado && (
+                <span className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-green-400 text-zinc-900 shadow">
+                    <Check size={15} strokeWidth={3} />
+                </span>
+            )}
+            <div className="w-full overflow-hidden">
+                <Image
+                    src={props.servico.imagemURL}
+                    alt={props.servico.nome}
+                    width={150}
+                    height={120}
+                    className="h-auto w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+            </div>
             <div
-                className={`
-                    py-2 w-full h-full text-center text-xs
-                    ${props.selecionado ? 'text-black bg-green-400 font-semibold' : 'text-zinc-400 font-light bg-zinc-900 '}
-                `}
+                className={cn(
+                    'w-full py-2 text-center text-xs',
+                    props.selecionado
+                        ? 'bg-green-400 font-semibold text-zinc-900'
+                        : 'bg-zinc-900 font-light text-zinc-300'
+                )}
             >
                 {props.servico.nome}
             </div>
-        </div>
+        </button>
     )
 }
 

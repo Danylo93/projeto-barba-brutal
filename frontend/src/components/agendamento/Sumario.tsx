@@ -1,8 +1,8 @@
 import { IconCalendar } from '@tabler/icons-react'
-import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import useAgendamento from '@/data/hooks/useAgendamento'
 import { useRouter } from 'next/navigation'
+import { Botao } from '@/components/ui/botao'
 
 export default function Sumario() {
     const [carregando, setCarregando] = useState(false)
@@ -98,17 +98,14 @@ export default function Sumario() {
                         {erro}
                     </div>
                 )}
-                <button
-                    className={`flex justify-center items-center text-sm font-semibold ${podeFinalizar() ? 'bg-yellow-400' : 'bg-zinc-600'} text-zinc-900 w-full py-3 rounded-lg`}
+                <Botao
+                    cheio
+                    carregando={carregando && !!data}
                     disabled={!podeFinalizar()}
                     onClick={finalizarAgendamento}
                 >
-                    {carregando && data ? (
-                        <Loader2 className="animate-spin" size={32} />
-                    ) : (
-                        'Finalizar Agendamento'
-                    )}
-                </button>
+                    Finalizar Agendamento
+                </Botao>
             </div>
         </div>
     )

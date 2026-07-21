@@ -1,5 +1,6 @@
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { useState } from 'react'
+import { Botao } from '@/components/ui/botao'
 
 export interface PassosProps {
     labels: string[]
@@ -53,23 +54,25 @@ export default function Passos(props: PassosProps) {
                 {props.children?.[passoAtual] ?? props.children}
             </div>
             <div className="flex gap-3 select-none">
-                <button
+                <Botao
+                    variante="secundario"
+                    tamanho="sm"
                     onClick={passoAnterior}
                     disabled={passoAtual === 0}
-                    className="flex gap-1 items-center bg-zinc-700 text-sm text-white px-4 py-1.5 rounded-md disabled:opacity-30"
                 >
-                    <IconChevronLeft size={20} />
-                    <span>Anterior</span>
-                </button>
+                    <IconChevronLeft size={18} />
+                    Anterior
+                </Botao>
                 {passoAtual < (props.children?.length ?? 0) - 1 && (
-                    <button
+                    <Botao
+                        variante="primario"
+                        tamanho="sm"
                         onClick={proximoPasso}
                         disabled={!props.permiteProximoPasso}
-                        className="flex gap-1 items-center bg-zinc-700 text-sm text-white px-4 py-1.5 rounded-md disabled:opacity-30"
                     >
-                        <span>Próximo</span>
-                        <IconChevronRight size={20} />
-                    </button>
+                        Próximo
+                        <IconChevronRight size={18} />
+                    </Botao>
                 )}
             </div>
         </div>
