@@ -11,6 +11,7 @@ import { AdminModule } from './admin/admin.module';
 import { ProfissionalModule } from './profissional/profissional.module';
 import { HealthModule } from './health/health.module';
 import { BillingModule } from './billing/billing.module';
+import { LembreteModule } from './lembrete/lembrete.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { TenantedThrottlerGuard } from './common/tenanted-throttler.guard';
@@ -29,6 +30,7 @@ import { TenantedThrottlerGuard } from './common/tenanted-throttler.guard';
     ProfissionalModule,
     HealthModule,
     BillingModule,
+    LembreteModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,

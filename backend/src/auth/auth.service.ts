@@ -92,6 +92,13 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    // A barbearia (tenant) precisa estar ativa para o cliente/barbeiro acessar.
+    if (!usuario.tenant?.ativo) {
+      throw new UnauthorizedException(
+        'Esta barbearia está indisponível no momento. Fale com a barbearia.',
+      );
+    }
+
     // ✅ VALIDAR ASSINATURA ATIVA DO TENANT
     // O barbeiro só pode logar se o owner/tenant tiver um plano ativo
     await this.subscriptionValidation.validateTenantSubscription(tenantId);
@@ -178,6 +185,17 @@ export class AuthService {
     barbeiro: boolean;
     tenantId: number;
   }) {
+    // Não permite cadastro de cliente em barbearia inexistente/inativa.
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: data.tenantId },
+      select: { ativo: true },
+    });
+    if (!tenant || !tenant.ativo) {
+      throw new UnauthorizedException(
+        'Esta barbearia está indisponível no momento. Fale com a barbearia.',
+      );
+    }
+
     const senhaHash = await bcrypt.hash(data.senha, 10);
 
     const usuario = await this.prisma.usuario.create({
