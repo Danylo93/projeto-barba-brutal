@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
+import { escolherCorMarca, COR_PRIMARIA_PADRAO } from './cores-marca';
 
 @Injectable()
 export class TenantService {
@@ -16,8 +17,21 @@ export class TenantService {
     corPrimaria?: string;
     corSecundaria?: string;
   }) {
+    // Se a cor de marca não veio no payload, atribui uma diferente das já usadas.
+    let { corPrimaria, corSecundaria } = data;
+    if (!corSecundaria) {
+      const existentes = await this.prisma.tenant.findMany({
+        select: { corSecundaria: true },
+      });
+      corSecundaria = escolherCorMarca(
+        existentes.map((t) => t.corSecundaria),
+        existentes.length,
+      );
+      corPrimaria = corPrimaria ?? COR_PRIMARIA_PADRAO;
+    }
+
     return this.prisma.tenant.create({
-      data,
+      data: { ...data, corPrimaria, corSecundaria },
     });
   }
 

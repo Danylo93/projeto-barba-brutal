@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../db/prisma.service';
 import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
+import { escolherCorMarca, COR_PRIMARIA_PADRAO } from '../tenant/cores-marca';
 import * as bcrypt from 'bcrypt';
 
 /** Remove o campo `senha` de um objeto (shallow), evitando vazar o hash em respostas. */
@@ -157,10 +158,21 @@ export class AuthService {
   }) {
     const senhaHash = await bcrypt.hash(data.senha, 10);
 
+    // Cada barbearia nova recebe uma cor de marca diferente das já existentes.
+    const existentes = await this.prisma.tenant.findMany({
+      select: { corSecundaria: true },
+    });
+    const corSecundaria = escolherCorMarca(
+      existentes.map((t) => t.corSecundaria),
+      existentes.length,
+    );
+
     const tenant = await this.prisma.tenant.create({
       data: {
         ...data,
         senha: senhaHash,
+        corPrimaria: COR_PRIMARIA_PADRAO,
+        corSecundaria,
       },
     });
 
