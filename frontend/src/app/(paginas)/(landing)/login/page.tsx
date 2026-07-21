@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import useSessao from '@/data/hooks/useSessao'
 import AuthShell from '@/components/auth/AuthShell'
@@ -270,19 +269,6 @@ function LoginContent() {
                 </button>
             </form>
 
-            {!contextoBarbearia && (
-                <div className="border-t border-zinc-800 pt-4 text-center">
-                    <p className="text-sm text-zinc-400">
-                        É dono de barbearia?{' '}
-                        <Link
-                            href="/register"
-                            className="text-yellow-400 font-semibold hover:text-yellow-300 transition-colors"
-                        >
-                            Cadastre seu negócio grátis
-                        </Link>
-                    </p>
-                </div>
-            )}
         </div>
         </AuthShell>
     )
