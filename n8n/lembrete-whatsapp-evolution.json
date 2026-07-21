@@ -1,0 +1,128 @@
+{
+  "name": "Barbearia Brutal — Lembrete WhatsApp (Evolution)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "A cada 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.BACKEND_URL }}/lembretes/proximos?minutosAntes=60&janelaMin=5",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lembrete-token",
+              "value": "={{ $env.LEMBRETE_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000002",
+      "name": "Buscar agendamentos (1h antes)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza a resposta do backend (array de agendamentos) e monta 1 mensagem\n// por destinatario (cliente e barbeiro), so quando ha telefone.\nconst entrada = $input.all();\nlet agendamentos = [];\nfor (const it of entrada) {\n  const j = it.json;\n  if (Array.isArray(j)) agendamentos.push(...j);\n  else if (j && Array.isArray(j.data) && j.data[0] && j.data[0].cliente) agendamentos.push(...j.data);\n  else if (j && j.cliente) agendamentos.push(j);\n}\n\nfunction tel(t) {\n  if (!t) return null;\n  const n = String(t).replace(/\\D/g, '');\n  if (n.length < 10) return null;\n  return n.startsWith('55') ? n : ('55' + n);\n}\n\nconst saida = [];\nfor (const a of agendamentos) {\n  const servicos = (a.servicos || []).join(', ');\n  const clienteTel = tel(a.cliente && a.cliente.telefone);\n  if (clienteTel) {\n    saida.push({ json: {\n      number: clienteTel,\n      text: `Ola ${a.cliente.nome || ''}! ⏰ Lembrete: voce tem horario na ${a.barbearia} hoje as ${a.horario}` + (servicos ? ` (${servicos})` : '') + `. Ate ja! ✂️`\n    }});\n  }\n  const barbeiroTel = tel(a.barbeiro && a.barbeiro.telefone);\n  if (barbeiroTel) {\n    saida.push({ json: {\n      number: barbeiroTel,\n      text: `Ola ${(a.barbeiro && a.barbeiro.nome) || ''}! ⏰ Lembrete: ${a.cliente.nome || 'cliente'} tem horario as ${a.horario}` + (servicos ? ` (${servicos})` : '') + `.`\n    }});\n  }\n}\nreturn saida;\n"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000003",
+      "name": "Montar mensagens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_APIKEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.number, text: $json.text }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000004",
+      "name": "Enviar WhatsApp (Evolution)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "A cada 5 min": {
+      "main": [
+        [
+          {
+            "node": "Buscar agendamentos (1h antes)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar agendamentos (1h antes)": {
+      "main": [
+        [
+          {
+            "node": "Montar mensagens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar mensagens": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
