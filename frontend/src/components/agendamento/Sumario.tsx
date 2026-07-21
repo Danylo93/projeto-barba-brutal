@@ -1,16 +1,37 @@
 import { IconCalendar } from '@tabler/icons-react'
 import { useState } from 'react'
 import useAgendamento from '@/data/hooks/useAgendamento'
+import useAPI from '@/data/hooks/useAPI'
+import useUsuario from '@/data/hooks/useUsuario'
+import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useRouter } from 'next/navigation'
 import { Botao } from '@/components/ui/botao'
+
+interface AgendamentoExistente {
+    id: number
+    data: string
+    status?: string
+}
+
+function mesmoDia(a: Date, b: Date) {
+    return (
+        a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate()
+    )
+}
 
 export default function Sumario() {
     const [carregando, setCarregando] = useState(false)
     const [erro, setErro] = useState('')
+    const [conflitos, setConflitos] = useState<AgendamentoExistente[]>([])
     const { data, profissional, servicos, precoTotal, duracaoTotal, agendar } = useAgendamento()
+    const { httpGet, httpDelete } = useAPI()
+    const { usuario } = useUsuario()
     const router = useRouter()
 
-    async function finalizarAgendamento() {
+    // Cria o agendamento de fato e navega para a lista.
+    async function criar() {
         try {
             setErro('')
             setCarregando(true)
@@ -21,6 +42,55 @@ export default function Sumario() {
         } finally {
             setCarregando(false)
         }
+    }
+
+    async function finalizarAgendamento() {
+        // Antes de criar, verifica se o cliente já tem agendamento no mesmo dia.
+        try {
+            if (usuario?.email) {
+                const existentes = (await httpGet(
+                    `agendamentos/${encodeURIComponent(usuario.email)}`
+                )) as AgendamentoExistente[]
+                const noMesmoDia = (Array.isArray(existentes) ? existentes : []).filter(
+                    (a) =>
+                        a.status !== 'cancelado' &&
+                        a.status !== 'concluido' &&
+                        mesmoDia(new Date(a.data), data)
+                )
+                if (noMesmoDia.length > 0) {
+                    setConflitos(noMesmoDia)
+                    return
+                }
+            }
+        } catch {
+            /* se a checagem falhar, segue com a criação normal */
+        }
+        await criar()
+    }
+
+    // Cliente optou por remarcar: cancela o(s) do dia e cria no novo horário.
+    async function confirmarRemarcar() {
+        const paraCancelar = conflitos
+        setConflitos([])
+        try {
+            setCarregando(true)
+            for (const ag of paraCancelar) {
+                await httpDelete(`agendamentos/${ag.id}`)
+            }
+        } catch {
+            /* segue e tenta criar mesmo assim */
+        } finally {
+            setCarregando(false)
+        }
+        await criar()
+    }
+
+    function horaDoConflito() {
+        if (!conflitos.length) return ''
+        return new Date(conflitos[0].data).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+        })
     }
 
     function renderizarServico(nome: string, i: number) {
@@ -107,6 +177,17 @@ export default function Sumario() {
                     Finalizar Agendamento
                 </Botao>
             </div>
+
+            <ConfirmModal
+                aberto={conflitos.length > 0}
+                titulo="Você já tem um horário nesse dia"
+                mensagem={`Você já tem um agendamento nesse dia às ${horaDoConflito()}. Deseja remarcar para ${data
+                    .toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}? O horário anterior será cancelado.`}
+                textoConfirmar="Remarcar para este horário"
+                variante="warning"
+                onConfirmar={confirmarRemarcar}
+                onCancelar={() => setConflitos([])}
+            />
         </div>
     )
 }
