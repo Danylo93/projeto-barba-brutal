@@ -150,20 +150,30 @@ export default async function BarbeariaPublicaPage({
     const [nomePrimario, ...resto] = b.nome.split(' ')
     const nomeSecundario = resto.join(' ')
 
+    // Cor de destaque da barbearia (tenant). Validada para evitar valores estranhos;
+    // fallback para o amarelo padrão do sistema.
+    const brand =
+        b.corSecundaria && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(b.corSecundaria)
+            ? b.corSecundaria
+            : '#facc15'
+
     const Marca = () => (
         <Link href={agendarHref} className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400 text-zinc-900">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand)] text-zinc-900">
                 <Scissors size={18} strokeWidth={2.5} />
             </span>
             <span className="text-lg font-black tracking-tight text-white">
                 {nomePrimario}{' '}
-                {nomeSecundario && <span className="text-yellow-400">{nomeSecundario}</span>}
+                {nomeSecundario && <span className="text-[var(--brand)]">{nomeSecundario}</span>}
             </span>
         </Link>
     )
 
     return (
-        <div className="min-h-screen scroll-smooth bg-zinc-950 text-zinc-100">
+        <div
+            className="min-h-screen scroll-smooth bg-zinc-950 text-zinc-100"
+            style={{ ['--brand' as any]: brand }}
+        >
             {/* Header */}
             <header className="sticky top-0 z-50 border-b border-zinc-800/80 bg-zinc-950/85 backdrop-blur-md">
                 <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -183,7 +193,7 @@ export default async function BarbeariaPublicaPage({
                     </nav>
                     <Link
                         href={agendarHref}
-                        className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-900 transition-all hover:bg-yellow-300 active:scale-95"
+                        className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-bold text-zinc-900 transition-all hover:opacity-90 active:scale-95"
                     >
                         Agendar
                         <ArrowRight size={16} />
@@ -206,13 +216,13 @@ export default async function BarbeariaPublicaPage({
 
                 <div className="relative mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32 text-center">
                     <div className="animate-fade-in mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-1.5">
-                        <Scissors size={14} className="text-yellow-400" />
-                        <span className="text-sm font-medium text-yellow-300">{b.nome}</span>
+                        <Scissors size={14} className="text-[var(--brand)]" />
+                        <span className="text-sm font-medium text-[var(--brand)]">{b.nome}</span>
                     </div>
 
                     <h1 className="animate-slide-up text-4xl font-black leading-tight tracking-tight text-white sm:text-6xl">
                         Seu estilo,{' '}
-                        <span className="bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 bg-clip-text text-transparent">
+                        <span className="text-[var(--brand)]">
                             no capricho.
                         </span>
                     </h1>
@@ -224,7 +234,7 @@ export default async function BarbeariaPublicaPage({
                     <div className="animate-slide-up mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
                         <Link
                             href={agendarHref}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 px-6 py-3.5 font-bold text-zinc-900 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 active:scale-95 sm:w-auto"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-6 py-3.5 font-bold text-zinc-900 shadow-lg shadow-black/30 transition-all hover:opacity-90 active:scale-95 sm:w-auto"
                         >
                             Agendar horário
                             <ArrowRight size={18} />
@@ -242,7 +252,7 @@ export default async function BarbeariaPublicaPage({
             {/* Serviços */}
             <section id="servicos" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
                 <div className="mb-12 text-center">
-                    <span className="text-sm font-semibold uppercase tracking-wider text-yellow-400">
+                    <span className="text-sm font-semibold uppercase tracking-wider text-[var(--brand)]">
                         Serviços
                     </span>
                     <h2 className="mt-2 text-3xl font-black text-white sm:text-4xl">
@@ -274,7 +284,7 @@ export default async function BarbeariaPublicaPage({
                                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                                     />
                                     {servico.ehCombo && (
-                                        <span className="absolute left-3 top-3 rounded-full bg-yellow-400 px-3 py-1 text-xs font-bold uppercase text-zinc-900">
+                                        <span className="absolute left-3 top-3 rounded-full bg-[var(--brand)] px-3 py-1 text-xs font-bold uppercase text-zinc-900">
                                             Combo
                                         </span>
                                     )}
@@ -282,7 +292,7 @@ export default async function BarbeariaPublicaPage({
                                 <div className="flex flex-1 flex-col p-5">
                                     <div className="flex items-start justify-between gap-3">
                                         <h3 className="text-lg font-bold text-white">{servico.nome}</h3>
-                                        <span className="whitespace-nowrap text-lg font-black text-yellow-400">
+                                        <span className="whitespace-nowrap text-lg font-black text-[var(--brand)]">
                                             R$ {servico.preco.toFixed(2).replace('.', ',')}
                                         </span>
                                     </div>
@@ -299,7 +309,7 @@ export default async function BarbeariaPublicaPage({
                                         href={agendarHref}
                                         className={`mt-4 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all active:scale-95 ${
                                             servico.ehCombo
-                                                ? 'bg-yellow-400 text-zinc-900 hover:bg-yellow-300'
+                                                ? 'bg-[var(--brand)] text-zinc-900 hover:opacity-90'
                                                 : 'border border-zinc-700 text-zinc-100 hover:bg-zinc-800'
                                         }`}
                                     >
@@ -318,7 +328,7 @@ export default async function BarbeariaPublicaPage({
                 <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:grid-cols-3 sm:px-6">
                     {diferenciais.map((item) => (
                         <div key={item.titulo} className="text-center sm:text-left">
-                            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-800/80 text-yellow-400 sm:mx-0">
+                            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-800/80 text-[var(--brand)] sm:mx-0">
                                 <item.icone size={22} />
                             </div>
                             <h3 className="text-lg font-bold text-white">{item.titulo}</h3>
@@ -332,7 +342,7 @@ export default async function BarbeariaPublicaPage({
             {b.profissionais.length > 0 && (
                 <section id="equipe" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
                     <div className="mb-12 text-center">
-                        <span className="text-sm font-semibold uppercase tracking-wider text-yellow-400">
+                        <span className="text-sm font-semibold uppercase tracking-wider text-[var(--brand)]">
                             Equipe
                         </span>
                         <h2 className="mt-2 text-3xl font-black text-white sm:text-4xl">
@@ -362,7 +372,7 @@ export default async function BarbeariaPublicaPage({
                                     )}
                                     {typeof prof.avaliacao === 'number' && prof.avaliacao > 0 && (
                                         <div className="mt-1.5 flex items-center gap-1.5 text-sm">
-                                            <Star size={15} className="fill-yellow-400 text-yellow-400" />
+                                            <Star size={15} className="fill-[var(--brand)] text-[var(--brand)]" />
                                             <span className="font-semibold text-white">
                                                 {prof.avaliacao.toFixed(1)}
                                             </span>
@@ -384,7 +394,7 @@ export default async function BarbeariaPublicaPage({
             <section id="contato" className="border-t border-zinc-800/80 bg-zinc-900/30">
                 <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-3">
                     <div>
-                        <div className="mb-4 flex items-center gap-2 text-yellow-400">
+                        <div className="mb-4 flex items-center gap-2 text-[var(--brand)]">
                             <Clock size={20} />
                             <h3 className="text-lg font-bold text-white">Horário</h3>
                         </div>
@@ -396,7 +406,7 @@ export default async function BarbeariaPublicaPage({
 
                     {b.endereco && (
                         <div>
-                            <div className="mb-4 flex items-center gap-2 text-yellow-400">
+                            <div className="mb-4 flex items-center gap-2 text-[var(--brand)]">
                                 <MapPin size={20} />
                                 <h3 className="text-lg font-bold text-white">Onde estamos</h3>
                             </div>
@@ -406,7 +416,7 @@ export default async function BarbeariaPublicaPage({
 
                     {b.telefone && (
                         <div>
-                            <div className="mb-4 flex items-center gap-2 text-yellow-400">
+                            <div className="mb-4 flex items-center gap-2 text-[var(--brand)]">
                                 <Phone size={20} />
                                 <h3 className="text-lg font-bold text-white">Fale com a gente</h3>
                             </div>
@@ -434,7 +444,7 @@ export default async function BarbeariaPublicaPage({
                         </p>
                         <Link
                             href={agendarHref}
-                            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-4 font-bold text-zinc-900 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 active:scale-95"
+                            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-8 py-4 font-bold text-zinc-900 shadow-lg shadow-black/30 transition-all hover:opacity-90 active:scale-95"
                         >
                             Agendar meu horário
                             <ArrowRight size={18} />
