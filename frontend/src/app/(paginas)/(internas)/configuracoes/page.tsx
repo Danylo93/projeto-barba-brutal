@@ -1,22 +1,38 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Save, AlertCircle, Loader2 } from 'lucide-react'
+import { Settings, Save, AlertCircle, Loader2, Copy } from 'lucide-react'
 import { motion } from 'framer-motion'
 import useSessao from '@/data/hooks/useSessao'
 import useAPI from '@/data/hooks/useAPI'
 import Cabecalho from '@/components/shared/Cabecalho'
 import { useToast } from '@/hooks/use-toast'
+import {
+    DiaHorario,
+    horarioDoDia,
+    HORA_ABERTURA_PADRAO,
+    HORA_FECHAMENTO_PADRAO,
+} from '@/lib/agendamento-utils'
 
 const DIAS_SEMANA = [
-    { id: 0, nome: 'Domingo' },
-    { id: 1, nome: 'Segunda-feira' },
-    { id: 2, nome: 'Terça-feira' },
-    { id: 3, nome: 'Quarta-feira' },
-    { id: 4, nome: 'Quinta-feira' },
-    { id: 5, nome: 'Sexta-feira' },
-    { id: 6, nome: 'Sábado' },
+    { id: 0, nome: 'Domingo', curto: 'Dom' },
+    { id: 1, nome: 'Segunda-feira', curto: 'Seg' },
+    { id: 2, nome: 'Terça-feira', curto: 'Ter' },
+    { id: 3, nome: 'Quarta-feira', curto: 'Qua' },
+    { id: 4, nome: 'Quinta-feira', curto: 'Qui' },
+    { id: 5, nome: 'Sexta-feira', curto: 'Sex' },
+    { id: 6, nome: 'Sábado', curto: 'Sáb' },
 ]
+
+// Horário padrão inicial: seg a sáb aberto, domingo fechado.
+function horariosPadrao(): DiaHorario[] {
+    return DIAS_SEMANA.map((d) => ({
+        dia: d.id,
+        aberto: d.id !== 0,
+        abertura: HORA_ABERTURA_PADRAO,
+        fechamento: HORA_FECHAMENTO_PADRAO,
+    }))
+}
 
 export default function ConfiguracoesPage() {
     const { token } = useSessao()
@@ -27,9 +43,7 @@ export default function ConfiguracoesPage() {
     const [error, setError] = useState('')
     const [sucesso, setSucesso] = useState(false)
 
-    const [diasAbertos, setDiasAbertos] = useState<number[]>([1, 2, 3, 4, 5, 6])
-    const [horaAbertura, setHoraAbertura] = useState('08:00')
-    const [horaFechamento, setHoraFechamento] = useState('21:00')
+    const [horarios, setHorarios] = useState<DiaHorario[]>(horariosPadrao())
 
     useEffect(() => {
         if (token) fetchConfiguracoes()
@@ -40,34 +54,59 @@ export default function ConfiguracoesPage() {
         try {
             setLoading(true)
             const response = await httpGet('tenants/me')
-            
-            if (response && response.configuracoes) {
-                const conf = response.configuracoes
-                if (conf.diasAbertos) setDiasAbertos(conf.diasAbertos)
-                if (conf.horaAbertura) setHoraAbertura(conf.horaAbertura)
-                if (conf.horaFechamento) setHoraFechamento(conf.horaFechamento)
-            }
+            const conf = response?.configuracoes
+            // Deriva o horário de cada dia (aceita formato novo e o antigo).
+            setHorarios(DIAS_SEMANA.map((d) => horarioDoDia(conf, d.id)))
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro desconhecido')
+            const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+            setError(msg)
+            toastError('Erro ao carregar', msg)
         } finally {
             setLoading(false)
         }
     }
 
+    const atualizarDia = (dia: number, campo: Partial<DiaHorario>) => {
+        setHorarios((prev) => prev.map((h) => (h.dia === dia ? { ...h, ...campo } : h)))
+    }
+
+    // Copia o horário de um dia para todos os outros dias abertos.
+    const aplicarEmTodos = (origem: DiaHorario) => {
+        setHorarios((prev) =>
+            prev.map((h) =>
+                h.aberto ? { ...h, abertura: origem.abertura, fechamento: origem.fechamento } : h,
+            ),
+        )
+        toastSuccess('Horário aplicado', 'O mesmo horário foi copiado para todos os dias abertos.')
+    }
+
     const salvarConfiguracoes = async () => {
+        // Validação simples: fechamento depois da abertura nos dias abertos.
+        const invalido = horarios.find((h) => h.aberto && h.abertura >= h.fechamento)
+        if (invalido) {
+            const nome = DIAS_SEMANA.find((d) => d.id === invalido.dia)?.nome
+            const msg = `Em ${nome}, o horário de fechamento deve ser depois da abertura.`
+            setError(msg)
+            toastError('Horário inválido', msg)
+            return
+        }
+
         try {
             setSaving(true)
             setError('')
             setSucesso(false)
 
+            const diasAbertos = horarios.filter((h) => h.aberto).map((h) => h.dia)
             const configuracoes = {
+                horarios,
+                // Mantém as chaves antigas por compatibilidade com leitores legados.
                 diasAbertos,
-                horaAbertura,
-                horaFechamento,
+                horaAbertura: (horarios.find((h) => h.aberto) ?? horarios[1]).abertura,
+                horaFechamento: (horarios.find((h) => h.aberto) ?? horarios[1]).fechamento,
             }
 
             const response = await httpPut('tenants/me/configuracoes', configuracoes)
-            
+
             if (response && (response.statusCode >= 400 || response.message)) {
                 throw new Error(response.message || 'Erro ao salvar configurações')
             }
@@ -84,13 +123,7 @@ export default function ConfiguracoesPage() {
         }
     }
 
-    const toggleDia = (id: number) => {
-        if (diasAbertos.includes(id)) {
-            setDiasAbertos(diasAbertos.filter((d) => d !== id))
-        } else {
-            setDiasAbertos([...diasAbertos, id].sort())
-        }
-    }
+    const algumDiaAberto = horarios.some((h) => h.aberto)
 
     if (loading) {
         return (
@@ -102,12 +135,12 @@ export default function ConfiguracoesPage() {
 
     return (
         <div className="flex flex-col bg-zinc-900 min-h-screen pb-16">
-            <Cabecalho 
-                titulo="Configurações da Barbearia" 
-                descricao="Defina seus horários e dias de funcionamento." 
+            <Cabecalho
+                titulo="Configurações da Barbearia"
+                descricao="Defina o horário de funcionamento de cada dia da semana."
             />
             <div className="container max-w-3xl mx-auto py-10 px-4">
-                
+
                 {error && (
                     <motion.div
                         initial={{ opacity: 0, y: -5 }}
@@ -139,67 +172,88 @@ export default function ConfiguracoesPage() {
                         <div className="w-10 h-10 rounded-xl bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center">
                             <Settings size={20} className="text-yellow-400" />
                         </div>
-                        <h2 className="text-xl font-bold text-white tracking-tight">Horário de Funcionamento</h2>
-                    </div>
-
-                    <div className="space-y-8">
-                        {/* Dias da Semana */}
                         <div>
-                            <label className="block text-sm font-semibold text-zinc-300 mb-3 uppercase tracking-wider">
-                                Dias Abertos
-                            </label>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                                {DIAS_SEMANA.map((dia) => {
-                                    const ativo = diasAbertos.includes(dia.id)
-                                    return (
-                                        <button
-                                            key={dia.id}
-                                            onClick={() => toggleDia(dia.id)}
-                                            className={`px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 border
-                                                ${ativo 
-                                                    ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30' 
-                                                    : 'bg-zinc-800/30 text-zinc-400 border-zinc-800/80 hover:bg-zinc-800/50'
-                                                }`}
-                                        >
-                                            {dia.nome}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Horários */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-semibold text-zinc-300 mb-2 uppercase tracking-wider">
-                                    Horário de Abertura
-                                </label>
-                                <input
-                                    type="time"
-                                    value={horaAbertura}
-                                    onChange={(e) => setHoraAbertura(e.target.value)}
-                                    className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-zinc-300 mb-2 uppercase tracking-wider">
-                                    Horário de Fechamento
-                                </label>
-                                <input
-                                    type="time"
-                                    value={horaFechamento}
-                                    onChange={(e) => setHoraFechamento(e.target.value)}
-                                    className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-                                />
-                            </div>
+                            <h2 className="text-xl font-bold text-white tracking-tight">Horário de Funcionamento</h2>
+                            <p className="text-sm text-zinc-500">Cada dia pode ter um horário diferente.</p>
                         </div>
                     </div>
 
-                    <div className="mt-10 pt-6 border-t border-zinc-800/80 flex justify-end">
+                    <div className="flex flex-col divide-y divide-zinc-800/70">
+                        {horarios.map((h) => {
+                            const dia = DIAS_SEMANA.find((d) => d.id === h.dia)!
+                            return (
+                                <div
+                                    key={h.dia}
+                                    className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 py-4"
+                                >
+                                    {/* Toggle aberto/fechado */}
+                                    <button
+                                        type="button"
+                                        onClick={() => atualizarDia(h.dia, { aberto: !h.aberto })}
+                                        className="flex items-center gap-3 sm:w-48 shrink-0 text-left"
+                                    >
+                                        <span
+                                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                                                h.aberto ? 'bg-yellow-400' : 'bg-zinc-700'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                    h.aberto ? 'translate-x-6' : 'translate-x-1'
+                                                }`}
+                                            />
+                                        </span>
+                                        <span className="flex flex-col leading-tight">
+                                            <span className="text-sm font-semibold text-white">{dia.nome}</span>
+                                            <span
+                                                className={`text-xs ${
+                                                    h.aberto ? 'text-yellow-400/80' : 'text-zinc-500'
+                                                }`}
+                                            >
+                                                {h.aberto ? 'Aberto' : 'Fechado'}
+                                            </span>
+                                        </span>
+                                    </button>
+
+                                    {/* Horários do dia */}
+                                    {h.aberto ? (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <input
+                                                type="time"
+                                                value={h.abertura}
+                                                onChange={(e) => atualizarDia(h.dia, { abertura: e.target.value })}
+                                                className="bg-zinc-800/60 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                                            />
+                                            <span className="text-zinc-500 text-sm">até</span>
+                                            <input
+                                                type="time"
+                                                value={h.fechamento}
+                                                onChange={(e) => atualizarDia(h.dia, { fechamento: e.target.value })}
+                                                className="bg-zinc-800/60 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => aplicarEmTodos(h)}
+                                                title="Aplicar este horário a todos os dias abertos"
+                                                className="ml-1 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-yellow-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-zinc-800/60"
+                                            >
+                                                <Copy size={13} />
+                                                <span className="hidden sm:inline">Aplicar a todos</span>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <span className="text-sm text-zinc-600 italic">Sem atendimento</span>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-zinc-800/80 flex justify-end">
                         <button
                             onClick={salvarConfiguracoes}
-                            disabled={saving || diasAbertos.length === 0}
-                            className="inline-flex items-center gap-2 bg-yellow-400 text-zinc-900 px-6 py-3 rounded-xl 
+                            disabled={saving || !algumDiaAberto}
+                            className="inline-flex items-center gap-2 bg-yellow-400 text-zinc-900 px-6 py-3 rounded-xl
                                 font-bold hover:bg-yellow-300 active:scale-[0.98] transition-all duration-200
                                 disabled:opacity-50 disabled:cursor-not-allowed
                                 shadow-[0_0_20px_rgba(250,204,21,0.15)]"
