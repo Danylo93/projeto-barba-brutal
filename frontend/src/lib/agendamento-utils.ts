@@ -25,8 +25,9 @@ export function aplicarHorario(data: Date, horario: string): Date {
 }
 
 export function horariosDoDia(configuracoes?: any) {
-  const abertura = configuracoes?.horaAbertura || '08:00'
-  const fechamento = configuracoes?.horaFechamento || '21:00'
+  // Aceita as duas convenções de chaves já existentes em dados/config.
+  const abertura = configuracoes?.horaAbertura || configuracoes?.horarioAbertura || '08:00'
+  const fechamento = configuracoes?.horaFechamento || configuracoes?.horarioFechamento || '21:00'
 
   const [horaAbertura, minAbertura] = abertura.split(':').map(Number)
   const [horaFechamento, minFechamento] = fechamento.split(':').map(Number)

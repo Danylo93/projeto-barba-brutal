@@ -52,6 +52,10 @@ interface BarbeariaPublica {
         horaAbertura?: string
         horaFechamento?: string
         diasAbertos?: number[]
+        // Convenção alternativa usada em parte dos dados/config.
+        horarioAbertura?: string
+        horarioFechamento?: string
+        diasFuncionamento?: number[]
     } | null
     servicos: ServicoPublico[]
     profissionais: ProfissionalPublico[]
@@ -137,9 +141,12 @@ export default async function BarbeariaPublicaPage({
     // Leva o cliente ao login/cadastro já vinculado a esta barbearia (tenant),
     // e daí para o fluxo de agendamento dela.
     const agendarHref = `/entrar?tenant=${b.id}&destino=${encodeURIComponent('/agendamento')}`
-    const abertura = b.configuracoes?.horaAbertura ?? '08:00'
-    const fechamento = b.configuracoes?.horaFechamento ?? '21:00'
-    const dias = (b.configuracoes?.diasAbertos ?? [1, 2, 3, 4, 5, 6]).map((d) => DIAS[d])
+    const cfg = b.configuracoes
+    const abertura = cfg?.horaAbertura ?? cfg?.horarioAbertura ?? '08:00'
+    const fechamento = cfg?.horaFechamento ?? cfg?.horarioFechamento ?? '21:00'
+    const dias = (cfg?.diasAbertos ?? cfg?.diasFuncionamento ?? [1, 2, 3, 4, 5, 6]).map(
+        (d) => DIAS[d]
+    )
     const [nomePrimario, ...resto] = b.nome.split(' ')
     const nomeSecundario = resto.join(' ')
 
