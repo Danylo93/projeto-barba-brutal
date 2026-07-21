@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Agendamento, RepositorioAgendamento } from '../types';
 import { PrismaService } from 'src/db/prisma.service';
+import { validarServicosDoAgendamento } from './agendamento.validacao';
 
 const MINUTOS_POR_SLOT = 30;
 
@@ -40,8 +41,10 @@ function paraLeitura(agendamento: any) {
 export class AgendamentoRepository implements RepositorioAgendamento {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async salvar(agendamento: Agendamento): Promise<void> {
-    await this.prismaService.agendamento.create({
+  async salvar(agendamento: Agendamento): Promise<number> {
+    await this.validarRegras(agendamento);
+
+    const criado = await this.prismaService.agendamento.create({
       data: {
         data: agendamento.data,
         tenantId: agendamento.tenantId,
@@ -54,6 +57,37 @@ export class AgendamentoRepository implements RepositorioAgendamento {
         observacoes: agendamento.observacoes,
       },
     });
+    return criado.id;
+  }
+
+  /**
+   * Aplica as regras de negócio antes de gravar: serviços válidos do tenant,
+   * profissional válido, combo exclusivo e serviço realizado pelo profissional.
+   */
+  private async validarRegras(agendamento: Agendamento): Promise<void> {
+    const servicos = await this.prismaService.servico.findMany({
+      where: { id: { in: agendamento.servicos }, tenantId: agendamento.tenantId },
+      select: { id: true, ehCombo: true },
+    });
+    if (servicos.length !== agendamento.servicos.length) {
+      throw new BadRequestException('Um ou mais serviços são inválidos.');
+    }
+
+    const profissional = await this.prismaService.profissional.findFirst({
+      where: { id: agendamento.profissionalId, tenantId: agendamento.tenantId },
+      include: { servicos: { select: { id: true } } },
+    });
+    if (!profissional) {
+      throw new BadRequestException('Profissional inválido.');
+    }
+
+    const erro = validarServicosDoAgendamento(
+      servicos,
+      profissional.servicos.map((s) => s.id),
+    );
+    if (erro) {
+      throw new BadRequestException(erro);
+    }
   }
 
   async buscarPorUsuario(usuarioId: number): Promise<Agendamento[]> {

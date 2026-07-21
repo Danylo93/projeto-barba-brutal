@@ -34,7 +34,7 @@ export interface RepositorioUsuario {
 }
 
 export interface RepositorioAgendamento {
-  salvar(agendamento: Agendamento): Promise<void>;
+  salvar(agendamento: Agendamento): Promise<number>;
   buscarPorUsuario(usuarioId: number): Promise<Agendamento[]>;
   buscarPorProfissional(profissionalId: number, data: Date): Promise<Agendamento[]>;
 }

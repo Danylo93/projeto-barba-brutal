@@ -18,13 +18,17 @@ import { LimitsGuard } from '../auth/limits.guard';
 import { CurrentTenant } from '../auth/current-tenant.decorator';
 import { FeatureGuard } from '../auth/feature.guard';
 import { RequiresFeature } from '../auth/feature.decorator';
+import { NotificacaoService } from '../notificacao/notificacao.service';
 
 
 @Controller('agendamentos')
 @RequiresFeature('agendamentos')
 @UseGuards(JwtAuthGuard, SubscriptionGuard, LimitsGuard, FeatureGuard)
 export class AgendamentoController {
-  constructor(private readonly repo: AgendamentoRepository) {}
+  constructor(
+    private readonly repo: AgendamentoRepository,
+    private readonly notificacao: NotificacaoService,
+  ) {}
 
   @Post()
   async criar(
@@ -36,7 +40,9 @@ export class AgendamentoController {
       throw new HttpException('Usuário não autorizado', 401);
     }
     agendamento.tenantId = tenant.id;
-    await this.repo.salvar(agendamento);
+    const id = await this.repo.salvar(agendamento);
+    // Notificação assíncrona (não bloqueia a resposta e nunca derruba o fluxo).
+    this.notificacao.notificarNovoAgendamento(id).catch(() => undefined);
   }
 
   @Get('barbeiro/meus-horarios')
