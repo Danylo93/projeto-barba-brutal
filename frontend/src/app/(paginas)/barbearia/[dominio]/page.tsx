@@ -251,7 +251,7 @@ export default async function BarbeariaPublicaPage({
 
             {/* Serviços */}
             <section id="servicos" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-                <div className="mb-12 text-center">
+                <div className="mb-12 text-center reveal-up">
                     <span className="text-sm font-semibold uppercase tracking-wider text-[var(--brand)]">
                         Serviços
                     </span>
@@ -270,7 +270,7 @@ export default async function BarbeariaPublicaPage({
                         {b.servicos.map((servico) => (
                             <div
                                 key={servico.id}
-                                className={`group flex flex-col overflow-hidden rounded-2xl border bg-zinc-900/60 transition-all hover:-translate-y-1 ${
+                                className={`reveal-up group flex flex-col overflow-hidden rounded-2xl border bg-zinc-900/60 transition-all hover:-translate-y-1 ${
                                     servico.ehCombo
                                         ? 'border-yellow-400/60 shadow-lg shadow-yellow-400/10'
                                         : 'border-zinc-800 hover:border-zinc-700'
@@ -327,7 +327,7 @@ export default async function BarbeariaPublicaPage({
             <section className="border-y border-zinc-800/80 bg-zinc-900/30">
                 <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:grid-cols-3 sm:px-6">
                     {diferenciais.map((item) => (
-                        <div key={item.titulo} className="text-center sm:text-left">
+                        <div key={item.titulo} className="text-center sm:text-left reveal-up">
                             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-800/80 text-[var(--brand)] sm:mx-0">
                                 <item.icone size={22} />
                             </div>
@@ -341,7 +341,7 @@ export default async function BarbeariaPublicaPage({
             {/* Equipe */}
             {b.profissionais.length > 0 && (
                 <section id="equipe" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-                    <div className="mb-12 text-center">
+                    <div className="mb-12 text-center reveal-up">
                         <span className="text-sm font-semibold uppercase tracking-wider text-[var(--brand)]">
                             Equipe
                         </span>
@@ -355,7 +355,7 @@ export default async function BarbeariaPublicaPage({
                         {b.profissionais.map((prof) => (
                             <div
                                 key={prof.id}
-                                className="flex items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:border-zinc-700"
+                                className="flex items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:border-zinc-700 reveal-up"
                             >
                                 <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl">
                                     <Image
@@ -433,7 +433,7 @@ export default async function BarbeariaPublicaPage({
 
             {/* CTA final */}
             <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-                <div className="relative overflow-hidden rounded-3xl border border-yellow-400/30 bg-gradient-to-br from-zinc-900 to-zinc-950 px-6 py-14 text-center">
+                <div className="relative overflow-hidden rounded-3xl border border-yellow-400/30 bg-gradient-to-br from-zinc-900 to-zinc-950 px-6 py-14 text-center reveal-up">
                     <div className="absolute -inset-10 bg-yellow-400/5 blur-3xl" aria-hidden />
                     <div className="relative">
                         <h2 className="text-3xl font-black text-white sm:text-4xl">
