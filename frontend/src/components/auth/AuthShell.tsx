@@ -32,21 +32,43 @@ export default function AuthShell({ children, nome }: AuthShellProps) {
                 </div>
 
                 <div className="relative z-10 flex flex-col gap-4 max-w-md">
-                    <h2 className="text-3xl font-black text-white leading-tight">
-                        Sua barbearia em um{' '}
-                        <span className="text-yellow-400">negócio digital</span>
-                    </h2>
-                    <ul className="flex flex-col gap-2 text-zinc-300 text-sm">
-                        <li className="flex items-center gap-2">
-                            <span className="text-yellow-400">✂</span> Agendamentos online 24h
-                        </li>
-                        <li className="flex items-center gap-2">
-                            <span className="text-yellow-400">✂</span> Gestão de clientes, equipe e serviços
-                        </li>
-                        <li className="flex items-center gap-2">
-                            <span className="text-yellow-400">✂</span> Relatórios e controle do seu plano
-                        </li>
-                    </ul>
+                    {nome ? (
+                        <>
+                            <h2 className="text-3xl font-black text-white leading-tight">
+                                Bem-vindo à{' '}
+                                <span className="text-yellow-400">{nome}</span>
+                            </h2>
+                            <ul className="flex flex-col gap-2 text-zinc-300 text-sm">
+                                <li className="flex items-center gap-2">
+                                    <span className="text-yellow-400">✂</span> Agende seu horário em segundos
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <span className="text-yellow-400">✂</span> Escolha o profissional e o serviço
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <span className="text-yellow-400">✂</span> Seja atendido no horário marcado
+                                </li>
+                            </ul>
+                        </>
+                    ) : (
+                        <>
+                            <h2 className="text-3xl font-black text-white leading-tight">
+                                Sua barbearia em um{' '}
+                                <span className="text-yellow-400">negócio digital</span>
+                            </h2>
+                            <ul className="flex flex-col gap-2 text-zinc-300 text-sm">
+                                <li className="flex items-center gap-2">
+                                    <span className="text-yellow-400">✂</span> Agendamentos online 24h
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <span className="text-yellow-400">✂</span> Gestão de clientes, equipe e serviços
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <span className="text-yellow-400">✂</span> Relatórios e controle do seu plano
+                                </li>
+                            </ul>
+                        </>
+                    )}
                 </div>
             </div>
 

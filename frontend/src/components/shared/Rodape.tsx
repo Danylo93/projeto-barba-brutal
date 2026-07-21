@@ -1,3 +1,4 @@
+'use client'
 import {
     IconBrandFacebook,
     IconBrandInstagram,
@@ -6,13 +7,16 @@ import {
     IconBrandYoutube,
 } from '@tabler/icons-react'
 import Logo from './Logo'
+import useBarbearia from '@/data/hooks/useBarbearia'
 
 export default function Rodape() {
+    const barbearia = useBarbearia()
+    const emailContato = barbearia?.email || 'suporte@barbabrutal.com.br'
     return (
         <footer className="flex items-center bg-black">
             <div className="container flex flex-col gap-7 py-10">
                 <div className="flex flex-col md:flex-row items-center md:items-start md:justify-between gap-5">
-                    <Logo />
+                    <Logo nome={barbearia?.nome} />
                     <div className="flex flex-col gap-1 items-center md:items-start">
                         <span className="text-2xl text-zinc-300 font-bold mb-2.5">Sobre</span>
                         <span className="text-sm text-zinc-400">Nossa História</span>
@@ -21,7 +25,7 @@ export default function Rodape() {
                     </div>
                     <div className="flex flex-col gap-1 items-center md:items-start">
                         <span className="text-2xl text-zinc-300 font-bold mb-2.5">Contato</span>
-                        <span className="text-sm text-zinc-400">suporte@barbabrutal.com.br</span>
+                        <span className="text-sm text-zinc-400">{emailContato}</span>
                         <div className="flex items-center gap-2 text-sm text-zinc-400">
                             <IconBrandWhatsapp size={20} className="text-green-500" />
                             <span>Whatsapp</span>
