@@ -7,6 +7,7 @@ import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useRouter } from 'next/navigation'
 import { Botao } from '@/components/ui/botao'
 import { useToast } from '@/hooks/use-toast'
+import { horarioDoDia } from '@/lib/agendamento-utils'
 
 interface AgendamentoExistente {
     id: number
@@ -26,7 +27,7 @@ export default function Sumario() {
     const [carregando, setCarregando] = useState(false)
     const [erro, setErro] = useState('')
     const [conflitos, setConflitos] = useState<AgendamentoExistente[]>([])
-    const { data, profissional, servicos, precoTotal, duracaoTotal, agendar } = useAgendamento()
+    const { data, profissional, servicos, precoTotal, duracaoTotal, agendar, configuracoes } = useAgendamento()
     const { httpGet, httpDelete } = useAPI()
     const { usuario } = useUsuario()
     const { error: toastError } = useToast()
@@ -112,7 +113,13 @@ export default function Sumario() {
         if (!profissional) return false
         if (!servicos.length) return false
         if (!data || data.getTime() < Date.now()) return false // nada no passado
-        return data.getHours() >= 8 && data.getHours() <= 21
+        // Respeita o horário configurado para aquele dia da semana.
+        const h = horarioDoDia(configuracoes, data.getDay())
+        if (!h.aberto) return false
+        const minutos = data.getHours() * 60 + data.getMinutes()
+        const [aH, aM] = h.abertura.split(':').map(Number)
+        const [fH, fM] = h.fechamento.split(':').map(Number)
+        return minutos >= aH * 60 + aM && minutos <= fH * 60 + fM
     }
 
     return (

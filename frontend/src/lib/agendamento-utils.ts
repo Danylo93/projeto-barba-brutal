@@ -24,10 +24,69 @@ export function aplicarHorario(data: Date, horario: string): Date {
   return novaData
 }
 
-export function horariosDoDia(configuracoes?: any) {
-  // Aceita as duas convenções de chaves já existentes em dados/config.
-  const abertura = configuracoes?.horaAbertura || configuracoes?.horarioAbertura || '08:00'
-  const fechamento = configuracoes?.horaFechamento || configuracoes?.horarioFechamento || '21:00'
+export const HORA_ABERTURA_PADRAO = '08:00'
+export const HORA_FECHAMENTO_PADRAO = '21:00'
+export const DIAS_ABERTOS_PADRAO = [1, 2, 3, 4, 5, 6]
+
+export interface DiaHorario {
+  dia: number // 0=domingo ... 6=sábado
+  aberto: boolean
+  abertura: string
+  fechamento: string
+}
+
+/**
+ * Resolve o horário de um dia da semana (0-6) a partir das configurações,
+ * aceitando tanto o formato NOVO (`horarios[]`, com horário por dia) quanto o
+ * ANTIGO (`diasAbertos` + `horaAbertura`/`horaFechamento` únicos).
+ */
+export function horarioDoDia(configuracoes: any, dia: number): DiaHorario {
+  const horarios = configuracoes?.horarios
+  if (Array.isArray(horarios)) {
+    const h = horarios.find((x: any) => Number(x?.dia) === dia)
+    return {
+      dia,
+      aberto: !!h?.aberto,
+      abertura: h?.abertura || HORA_ABERTURA_PADRAO,
+      fechamento: h?.fechamento || HORA_FECHAMENTO_PADRAO,
+    }
+  }
+  // Formato antigo: um único horário para todos os dias abertos.
+  const diasAbertos = configuracoes?.diasAbertos || configuracoes?.diasFuncionamento || DIAS_ABERTOS_PADRAO
+  return {
+    dia,
+    aberto: diasAbertos.includes(dia),
+    abertura: configuracoes?.horaAbertura || configuracoes?.horarioAbertura || HORA_ABERTURA_PADRAO,
+    fechamento: configuracoes?.horaFechamento || configuracoes?.horarioFechamento || HORA_FECHAMENTO_PADRAO,
+  }
+}
+
+/** Lista de dias (0-6) em que a barbearia está aberta, nos dois formatos. */
+export function diasAbertosDaConfig(configuracoes: any): number[] {
+  const horarios = configuracoes?.horarios
+  if (Array.isArray(horarios)) {
+    return horarios.filter((h: any) => h?.aberto).map((h: any) => Number(h.dia))
+  }
+  return configuracoes?.diasAbertos || configuracoes?.diasFuncionamento || DIAS_ABERTOS_PADRAO
+}
+
+/**
+ * Gera os horários disponíveis (manhã/tarde/noite) de slots de 30 min.
+ * Quando `referencia` (Data ou dia da semana 0-6) é informada, usa o horário
+ * específico daquele dia; se o dia estiver fechado, devolve listas vazias.
+ * Sem `referencia`, mantém o comportamento antigo (horário único).
+ */
+export function horariosDoDia(configuracoes?: any, referencia?: Date | number) {
+  let abertura = configuracoes?.horaAbertura || configuracoes?.horarioAbertura || HORA_ABERTURA_PADRAO
+  let fechamento = configuracoes?.horaFechamento || configuracoes?.horarioFechamento || HORA_FECHAMENTO_PADRAO
+
+  if (referencia !== undefined && referencia !== null) {
+    const dia = referencia instanceof Date ? referencia.getDay() : Number(referencia)
+    const h = horarioDoDia(configuracoes, dia)
+    if (!h.aberto) return { manha: [], tarde: [], noite: [] }
+    abertura = h.abertura
+    fechamento = h.fechamento
+  }
 
   const [horaAbertura, minAbertura] = abertura.split(':').map(Number)
   const [horaFechamento, minFechamento] = fechamento.split(':').map(Number)

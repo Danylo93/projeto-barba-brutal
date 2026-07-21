@@ -17,6 +17,7 @@ import {
     imagemDoServico,
     imagemDoProfissional,
     formatarTelefone,
+    horarioDoDia,
 } from '@/lib/agendamento-utils'
 
 export const revalidate = 60
@@ -142,11 +143,9 @@ export default async function BarbeariaPublicaPage({
     // e daí para o fluxo de agendamento dela.
     const agendarHref = `/entrar?tenant=${b.id}&destino=${encodeURIComponent('/agendamento')}`
     const cfg = b.configuracoes
-    const abertura = cfg?.horaAbertura ?? cfg?.horarioAbertura ?? '08:00'
-    const fechamento = cfg?.horaFechamento ?? cfg?.horarioFechamento ?? '21:00'
-    const dias = (cfg?.diasAbertos ?? cfg?.diasFuncionamento ?? [1, 2, 3, 4, 5, 6]).map(
-        (d) => DIAS[d]
-    )
+    // Horário de cada dia da semana (0-6), aceitando formato novo e antigo.
+    const grade = DIAS.map((rotulo, i) => ({ rotulo, ...horarioDoDia(cfg, i) }))
+    const diasAbertos = grade.filter((g) => g.aberto)
     const [nomePrimario, ...resto] = b.nome.split(' ')
     const nomeSecundario = resto.join(' ')
 
@@ -398,10 +397,25 @@ export default async function BarbeariaPublicaPage({
                             <Clock size={20} />
                             <h3 className="text-lg font-bold text-white">Horário</h3>
                         </div>
-                        <p className="text-sm text-zinc-300">
-                            {abertura} — {fechamento}
-                        </p>
-                        <p className="mt-1 text-sm text-zinc-400">{dias.join(' · ')}</p>
+                        {diasAbertos.length > 0 ? (
+                            <ul className="flex flex-col gap-1">
+                                {grade.map((g) => (
+                                    <li
+                                        key={g.dia}
+                                        className="flex items-center justify-between gap-6 text-sm"
+                                    >
+                                        <span className={g.aberto ? 'text-zinc-300' : 'text-zinc-600'}>
+                                            {g.rotulo}
+                                        </span>
+                                        <span className={g.aberto ? 'text-zinc-400' : 'text-zinc-600'}>
+                                            {g.aberto ? `${g.abertura} — ${g.fechamento}` : 'Fechado'}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-zinc-400">Horários a definir</p>
+                        )}
                     </div>
 
                     {b.endereco && (
