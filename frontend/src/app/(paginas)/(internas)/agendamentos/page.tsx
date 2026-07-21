@@ -35,6 +35,9 @@ export default function AgendamentosPage() {
   const isTenant = usuario?.tipo === 'tenant'
   const isBarbeiro = !!usuario?.barbeiro
   const isEmployeeBarber = isBarbeiro && !isTenant
+  // Cliente comum: vê os PRÓPRIOS agendamentos, então destacamos com quem
+  // (o profissional) e não a própria identidade.
+  const isCliente = !isTenant && !isEmployeeBarber
 
   const carregar = useCallback(async () => {
     if (!usuario) return
@@ -164,12 +167,23 @@ export default function AgendamentosPage() {
                           minute: '2-digit',
                         })}
                       </p>
-                      <p className="mt-1 text-sm text-zinc-300 truncate">
-                        {agendamento.usuario?.nome ?? '-'}
-                      </p>
-                      <p className="text-xs text-zinc-500 truncate">
-                        {agendamento.usuario?.email ?? ''}
-                      </p>
+                      {isCliente ? (
+                        <p className="mt-1 text-sm text-zinc-300 truncate">
+                          Com{' '}
+                          <span className="text-white font-medium">
+                            {agendamento.profissional?.nome ?? '-'}
+                          </span>
+                        </p>
+                      ) : (
+                        <>
+                          <p className="mt-1 text-sm text-zinc-300 truncate">
+                            {agendamento.usuario?.nome ?? '-'}
+                          </p>
+                          <p className="text-xs text-zinc-500 truncate">
+                            {agendamento.usuario?.email ?? ''}
+                          </p>
+                        </>
+                      )}
                     </div>
                     <span
                       className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium ${
@@ -184,7 +198,7 @@ export default function AgendamentosPage() {
                     </span>
                   </div>
 
-                  {!isEmployeeBarber && (
+                  {isTenant && (
                     <p className="text-xs text-zinc-500">
                       Profissional:{' '}
                       <span className="text-zinc-300">
@@ -234,8 +248,8 @@ export default function AgendamentosPage() {
                 <thead className="border-b border-zinc-800">
                   <tr className="text-left text-sm font-semibold text-zinc-400">
                     <th className="px-6 py-3">Data/Hora</th>
-                    <th className="px-6 py-3">Cliente</th>
-                    {!isEmployeeBarber && <th className="px-6 py-3">Profissional</th>}
+                    <th className="px-6 py-3">{isCliente ? 'Profissional' : 'Cliente'}</th>
+                    {isTenant && <th className="px-6 py-3">Profissional</th>}
                     <th className="px-6 py-3">Serviços</th>
                     <th className="px-6 py-3">Status</th>
                     <th className="px-6 py-3">Ações</th>
@@ -254,10 +268,16 @@ export default function AgendamentosPage() {
                         })}
                       </td>
                       <td className="px-6 py-4 text-sm text-white">
-                        <p className="font-medium">{agendamento.usuario?.nome ?? '-'}</p>
-                        <p className="text-zinc-500">{agendamento.usuario?.email ?? ''}</p>
+                        {isCliente ? (
+                          <p className="font-medium">{agendamento.profissional?.nome ?? '-'}</p>
+                        ) : (
+                          <>
+                            <p className="font-medium">{agendamento.usuario?.nome ?? '-'}</p>
+                            <p className="text-zinc-500">{agendamento.usuario?.email ?? ''}</p>
+                          </>
+                        )}
                       </td>
-                      {!isEmployeeBarber && (
+                      {isTenant && (
                         <td className="px-6 py-4 text-sm text-zinc-300">
                           {agendamento.profissional?.nome ?? '-'}
                         </td>

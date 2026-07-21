@@ -25,6 +25,7 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
         <div className="flex flex-col sm:flex-row sm:items-center gap-6 bg-zinc-800 rounded-md p-7">
             <IconCalendar size={60} stroke={1} className={isConcluido ? 'text-green-500' : isConfirmado ? 'text-blue-500' : 'text-zinc-400'} />
             <div className="flex-1 flex flex-col">
+                <span className="text-[11px] uppercase tracking-wide text-zinc-500">Cliente</span>
                 <span className="text-xl font-bold flex items-center gap-2">
                     {agendamento.usuario?.nome ?? 'Cliente'}
                     {isConcluido && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full uppercase">Concluído</span>}
@@ -34,6 +35,18 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
                     <IconClock size={16} />
                     {formatarDataEHora(dtInicio).split(' ')[1]} às {dtFim.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
+                {(agendamento.servicos ?? []).length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                        {(agendamento.servicos ?? []).map((servico, idx) => (
+                            <span
+                                key={idx}
+                                className="bg-yellow-400/15 text-yellow-300 px-2 py-0.5 rounded text-xs"
+                            >
+                                {servico.nome}
+                            </span>
+                        ))}
+                    </div>
+                )}
             </div>
             <div className="flex flex-col items-end sm:items-center min-w-[120px]">
                 <span className="text-xl font-black">
