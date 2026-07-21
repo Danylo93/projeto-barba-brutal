@@ -1,5 +1,7 @@
 import { useProfissionais } from '@/hooks/use-profissionais'
 import { Profissional } from '@/lib/agendamento-utils'
+import { cn } from '@/lib/utils'
+import { Check } from 'lucide-react'
 import Image from 'next/image'
 
 export interface ProfissionalInputProps {
@@ -13,29 +15,41 @@ function Opcao(props: {
     selecionado?: boolean
 }) {
     return (
-        <div
-            className={`
-                flex flex-col items-center cursor-pointer select-none rounded-lg border w-full
-                ${props.selecionado ? 'border-green-400' : 'border-zinc-700'} overflow-hidden
-            `}
+        <button
+            type="button"
             onClick={() => props.onClick(props.profissional)}
+            className={cn(
+                'group relative flex w-full select-none flex-col items-center overflow-hidden rounded-xl border transition-all hover:-translate-y-0.5',
+                props.selecionado
+                    ? 'border-green-400 shadow-lg shadow-green-500/10 ring-2 ring-green-400/50'
+                    : 'border-zinc-700 hover:border-zinc-600'
+            )}
         >
-            <Image
-                src={props.profissional.imagemUrl}
-                alt={props.profissional.nome}
-                width={150}
-                height={150}
-                className="w-full h-auto object-cover aspect-square"
-            />
+            {props.selecionado && (
+                <span className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-green-400 text-zinc-900 shadow">
+                    <Check size={15} strokeWidth={3} />
+                </span>
+            )}
+            <div className="w-full overflow-hidden">
+                <Image
+                    src={props.profissional.imagemUrl}
+                    alt={props.profissional.nome}
+                    width={150}
+                    height={150}
+                    className="aspect-square h-auto w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+            </div>
             <div
-                className={`
-                    py-2 w-full h-full text-center text-xs
-                    ${props.selecionado ? 'text-black bg-green-400 font-semibold' : 'text-zinc-400 font-light bg-zinc-900 '}
-                `}
+                className={cn(
+                    'w-full py-2 text-center text-xs',
+                    props.selecionado
+                        ? 'bg-green-400 font-semibold text-zinc-900'
+                        : 'bg-zinc-900 font-light text-zinc-300'
+                )}
             >
                 {props.profissional.nome.split(' ')[0]}
             </div>
-        </div>
+        </button>
     )
 }
 
