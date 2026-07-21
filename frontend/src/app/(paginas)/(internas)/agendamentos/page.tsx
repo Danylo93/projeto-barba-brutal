@@ -149,7 +149,87 @@ export default function AgendamentosPage() {
 
         {!loading && agendamentos.length > 0 && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Mobile: cards empilhados (a tabela é ruim em telas estreitas) */}
+            <div className="divide-y divide-zinc-800 md:hidden">
+              {agendamentos.map((agendamento) => (
+                <div key={agendamento.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">
+                        {new Date(agendamento.data).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-300 truncate">
+                        {agendamento.usuario?.nome ?? '-'}
+                      </p>
+                      <p className="text-xs text-zinc-500 truncate">
+                        {agendamento.usuario?.email ?? ''}
+                      </p>
+                    </div>
+                    <span
+                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium ${
+                        agendamento.status === 'confirmado'
+                          ? 'bg-green-500/15 text-green-400'
+                          : agendamento.status === 'cancelado'
+                            ? 'bg-red-500/15 text-red-400'
+                            : 'bg-yellow-500/15 text-yellow-400'
+                      }`}
+                    >
+                      {agendamento.status ?? 'agendado'}
+                    </span>
+                  </div>
+
+                  {!isEmployeeBarber && (
+                    <p className="text-xs text-zinc-500">
+                      Profissional:{' '}
+                      <span className="text-zinc-300">
+                        {agendamento.profissional?.nome ?? '-'}
+                      </span>
+                    </p>
+                  )}
+
+                  {(agendamento.servicos ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {(agendamento.servicos ?? []).map((servico, idx) => (
+                        <span
+                          key={idx}
+                          className="bg-yellow-400/15 text-yellow-300 px-2 py-1 rounded text-xs"
+                        >
+                          {servico.nome}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {agendamento.status !== 'concluido' && (
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => setConfirmarRemarcar(agendamento.id)}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700 py-2 text-sm text-yellow-400 hover:bg-zinc-800"
+                      >
+                        <RotateCw size={16} />
+                        Remarcar
+                      </button>
+                      <button
+                        onClick={() => setConfirmarExclusao(agendamento.id)}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700 py-2 text-sm text-red-400 hover:bg-zinc-800"
+                      >
+                        <Trash2 size={16} />
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: tabela */}
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full">
                 <thead className="border-b border-zinc-800">
                   <tr className="text-left text-sm font-semibold text-zinc-400">
