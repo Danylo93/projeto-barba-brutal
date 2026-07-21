@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,10 +37,14 @@ export function Header() {
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
           >
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">BB</span>
-              </div>
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/logo.png"
+                alt="Barbearia Brutal"
+                width={40}
+                height={40}
+                className="h-10 w-10 object-contain"
+              />
               <span className="text-xl font-bold text-white">Barbearia Brutal</span>
             </Link>
           </motion.div>
@@ -59,18 +64,11 @@ export function Header() {
               Preços
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full"></span>
             </Link>
-            <Link 
-              href="#testimonials" 
+            <Link
+              href="#testimonials"
               className="text-zinc-300 hover:text-white transition-colors duration-200 relative group"
             >
               Depoimentos
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full"></span>
-            </Link>
-            <Link 
-              href="/login" 
-              className="text-zinc-300 hover:text-white transition-colors duration-200 relative group"
-            >
-              Login
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full"></span>
             </Link>
           </nav>
@@ -148,13 +146,6 @@ export function Header() {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Depoimentos
-                  </Link>
-                  <Link
-                    href="/login"
-                    className="text-zinc-300 hover:text-white hover:bg-zinc-800/60 rounded-lg px-3 py-3 transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Login
                   </Link>
                   <div className="flex flex-col space-y-2 pt-4 px-3">
                     <Button variant="outline" asChild>
