@@ -70,12 +70,12 @@ async function seed() {
       update: {},
       create: {
         id: 1,
-        nome: 'Barbearia Brutal',
-        email: 'contato@barbabrutal.app',
+        nome: 'Barbearia do Marcão',
+        email: 'contato@barbeariadomarcao.app',
         telefone: '11999999999',
         endereco: 'Rua das Flores, 123 - São Paulo/SP',
         cnpj: '12.345.678/0001-90',
-        dominio: 'barbabrutal',
+        dominio: 'barbeariadomarcao',
         logo: 'https://example.com/logo-brutal.png',
         corPrimaria: '#1a1a1a',
         corSecundaria: '#ffd700',
@@ -142,11 +142,11 @@ async function seed() {
     // 5. Criar dados para cada tenant
     console.log('👥 Criando usuários, profissionais e serviços...');
 
-    // Tenant 1 - Barbearia Brutal
+    // Tenant 1 - Barbearia do Marcão
     const usuarios1 = [
       {
         nome: 'Marcão Machadada',
-        email: 'marcao@barbabrutal.app',
+        email: 'marcao@barbeariadomarcao.app',
         senha: '$2b$10$9LQTRK3LRzIddKYW2C4MTelydFzk5Ys4JoROPajNqvYshhrn1PRa6', // #Senha123
         telefone: '11999999999',
         barbeiro: true,
@@ -154,7 +154,7 @@ async function seed() {
       },
       {
         nome: 'João Silva',
-        email: 'joao@barbabrutal.app',
+        email: 'joao@barbeariadomarcao.app',
         senha: '$2b$10$9LQTRK3LRzIddKYW2C4MTelydFzk5Ys4JoROPajNqvYshhrn1PRa6',
         telefone: '11988888888',
         barbeiro: false,
