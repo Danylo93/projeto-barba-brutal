@@ -26,7 +26,7 @@ const testimonials = [
     content:
       'A integração com WhatsApp é fantástica. Os clientes recebem lembretes automáticos e isso reduziu muito as faltas.',
     rating: 5,
-    cor: 'from-sky-400 to-blue-500',
+    cor: 'from-amber-400 to-orange-500',
   },
 ];
 
