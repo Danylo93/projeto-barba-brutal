@@ -49,7 +49,9 @@ export default function Passos(props: PassosProps) {
     return (
         <div className="flex flex-col gap-10 items-center lg:items-stretch w-full lg:w-auto max-w-xl lg:max-w-none">
             <div className="w-full">{renderizarPassos()}</div>
-            <div className="w-full">{props.children?.[passoAtual] ?? props.children}</div>
+            <div key={passoAtual} className="w-full animate-slide-up">
+                {props.children?.[passoAtual] ?? props.children}
+            </div>
             <div className="flex gap-3 select-none">
                 <button
                     onClick={passoAnterior}

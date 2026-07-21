@@ -82,6 +82,25 @@
   [data-numeric], .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+  /* Micro-interações padrão em elementos clicáveis e campos. Fica na camada
+     `base`, então qualquer utilitário Tailwind (ex.: transition-all, active:*)
+     continua sobrescrevendo. O prefers-reduced-motion abaixo neutraliza tudo. */
+  button:not(:disabled),
+  a,
+  [role='button'],
+  input,
+  textarea,
+  select {
+    transition-property: color, background-color, border-color, box-shadow,
+      transform, opacity;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 180ms;
+  }
+  button:not(:disabled):active,
+  [role='button']:active {
+    transform: scale(0.98);
+  }
+
   /* Foco visível consistente (teclado) em todo o sistema */
   :focus-visible {
     outline: 2px solid rgb(250 204 21 / 0.9);
