@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import useSessao from '@/data/hooks/useSessao'
 import AuthShell from '@/components/auth/AuthShell'
 import { formatarTelefone, formatarTelefoneInput } from '@/lib/agendamento-utils'
+import { useToast } from '@/hooks/use-toast'
 
 const inputClasses =
     'w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 ' +
@@ -14,6 +15,7 @@ const inputClasses =
 export default function RegisterPage() {
     const router = useRouter()
     const { criarSessao } = useSessao()
+    const { error: toastError } = useToast()
     const [formData, setFormData] = useState({
         nome: '',
         email: '',
@@ -41,10 +43,12 @@ export default function RegisterPage() {
 
         if (formData.senha !== formData.confirmarSenha) {
             setError('As senhas não coincidem')
+            toastError('Verifique os dados', 'As senhas não coincidem.')
             return
         }
         if (!formData.aceitoTermos) {
             setError('Você deve aceitar os termos de uso')
+            toastError('Verifique os dados', 'Você deve aceitar os termos de uso.')
             return
         }
 
@@ -65,7 +69,9 @@ export default function RegisterPage() {
             const data = await response.json().catch(() => ({}))
 
             if (!response.ok || !data.access_token) {
-                setError(data.message || 'Erro ao criar conta')
+                const msg = data.message || 'Erro ao criar conta'
+                setError(msg)
+                toastError('Não foi possível criar a conta', msg)
                 return
             }
 
@@ -75,6 +81,7 @@ export default function RegisterPage() {
             setTimeout(() => router.push('/planos'), 100)
         } catch (err) {
             setError('Erro de conexão. Tente novamente.')
+            toastError('Erro de conexão', 'Tente novamente em instantes.')
         } finally {
             setLoading(false)
         }

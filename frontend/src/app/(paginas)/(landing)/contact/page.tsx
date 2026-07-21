@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useToast } from '@/hooks/use-toast'
 
 export default function ContactPage() {
+    const { error: toastError } = useToast()
     const [formData, setFormData] = useState({
         nome: '',
         email: '',
@@ -44,11 +46,21 @@ export default function ContactPage() {
                     assunto: '',
                     mensagem: ''
                 })
+            } else {
+                const data = await response.json().catch(() => ({}))
+                toastError(
+                    'Não foi possível enviar',
+                    data.message || 'Tente novamente em instantes.',
+                )
             }
         } catch (err) {
             if (process.env.NODE_ENV === 'development') {
                 console.error('Erro ao enviar mensagem:', err)
             }
+            toastError(
+                'Erro de conexão',
+                'Não foi possível enviar sua mensagem. Tente novamente.',
+            )
         } finally {
             setLoading(false)
         }

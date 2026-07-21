@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import useSessao from '@/data/hooks/useSessao'
 import useAPI from '@/data/hooks/useAPI'
 import Cabecalho from '@/components/shared/Cabecalho'
+import { useToast } from '@/hooks/use-toast'
 
 const DIAS_SEMANA = [
     { id: 0, nome: 'Domingo' },
@@ -20,6 +21,7 @@ const DIAS_SEMANA = [
 export default function ConfiguracoesPage() {
     const { token } = useSessao()
     const { httpGet, httpPut } = useAPI()
+    const { success: toastSuccess, error: toastError } = useToast()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
@@ -71,9 +73,12 @@ export default function ConfiguracoesPage() {
             }
 
             setSucesso(true)
+            toastSuccess('Configurações salvas', 'Seus horários foram atualizados.')
             setTimeout(() => setSucesso(false), 3000)
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro desconhecido')
+            const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+            setError(msg)
+            toastError('Erro ao salvar', msg)
         } finally {
             setSaving(false)
         }

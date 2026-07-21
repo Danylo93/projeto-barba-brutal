@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useToast } from '@/hooks/use-toast'
 
 interface Assinatura {
   id: number
@@ -21,6 +22,7 @@ export default function SubscriptionPage() {
   const [assinatura, setAssinatura] = useState<Assinatura | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { success: toastSuccess, error: toastError } = useToast()
   const router = useRouter()
 
   useEffect(() => {
@@ -67,11 +69,11 @@ export default function SubscriptionPage() {
         throw new Error('Erro ao cancelar assinatura')
       }
 
-      alert('Assinatura cancelada com sucesso!')
+      toastSuccess('Assinatura cancelada', 'Sua assinatura foi cancelada com sucesso.')
       // Recarregar dados
-      window.location.reload()
+      setTimeout(() => window.location.reload(), 800)
     } catch (err: any) {
-      alert('Erro ao cancelar assinatura: ' + err.message)
+      toastError('Erro ao cancelar assinatura', err.message || 'Tente novamente.')
     }
   }
 
