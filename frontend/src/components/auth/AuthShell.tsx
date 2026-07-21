@@ -4,6 +4,8 @@ import Logo from '@/components/shared/Logo'
 
 export interface AuthShellProps {
     children: React.ReactNode
+    /** Nome da barbearia (quando o cliente chega por uma barbearia específica). */
+    nome?: string | null
 }
 
 /**
@@ -11,7 +13,7 @@ export interface AuthShellProps {
  * Split-screen: painel de marca à esquerda (desktop) e formulário à direita,
  * seguindo a identidade dark do Barbearia Brutal.
  */
-export default function AuthShell({ children }: AuthShellProps) {
+export default function AuthShell({ children, nome }: AuthShellProps) {
     return (
         <div className="min-h-screen grid lg:grid-cols-2 bg-zinc-950">
             {/* Painel de marca (só desktop) */}
@@ -26,7 +28,7 @@ export default function AuthShell({ children }: AuthShellProps) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/40" />
 
                 <div className="relative z-10">
-                    <Logo />
+                    <Logo nome={nome} />
                 </div>
 
                 <div className="relative z-10 flex flex-col gap-4 max-w-md">
@@ -52,7 +54,7 @@ export default function AuthShell({ children }: AuthShellProps) {
             <div className="flex flex-col items-center justify-center px-4 py-10 sm:px-8">
                 <div className="w-full max-w-sm flex flex-col gap-6 animate-slide-up">
                     <div className="flex justify-center lg:hidden">
-                        <Logo />
+                        <Logo nome={nome} />
                     </div>
                     {children}
                     <p className="text-center text-xs text-zinc-500">
