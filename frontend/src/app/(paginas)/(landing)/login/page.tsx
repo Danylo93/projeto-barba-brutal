@@ -8,7 +8,6 @@ import AuthShell from '@/components/auth/AuthShell'
 import { API_BASE } from '@/lib/api-base'
 import { formatarTelefone, formatarTelefoneInput } from '@/lib/agendamento-utils'
 import { useToast } from '@/hooks/use-toast'
-import { ToastContainer } from '@/components/ui/toast'
 
 type Modo = 'entrar' | 'cadastrar'
 
@@ -20,7 +19,7 @@ function LoginContent() {
     const router = useRouter()
     const params = useSearchParams()
     const { criarSessao } = useSessao()
-    const { toasts, error: toastErro, warning: toastAviso, removeToast } = useToast()
+    const { error: toastErro, warning: toastAviso } = useToast()
 
     const [modo, setModo] = useState<Modo>('entrar')
     const [nome, setNome] = useState('')
@@ -285,7 +284,6 @@ function LoginContent() {
                 </div>
             )}
         </div>
-        <ToastContainer toasts={toasts} onClose={removeToast} />
         </AuthShell>
     )
 }

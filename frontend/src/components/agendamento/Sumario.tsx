@@ -6,6 +6,7 @@ import useUsuario from '@/data/hooks/useUsuario'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useRouter } from 'next/navigation'
 import { Botao } from '@/components/ui/botao'
+import { useToast } from '@/hooks/use-toast'
 
 interface AgendamentoExistente {
     id: number
@@ -28,6 +29,7 @@ export default function Sumario() {
     const { data, profissional, servicos, precoTotal, duracaoTotal, agendar } = useAgendamento()
     const { httpGet, httpDelete } = useAPI()
     const { usuario } = useUsuario()
+    const { error: toastError } = useToast()
     const router = useRouter()
 
     // Cria o agendamento de fato e navega para a lista.
@@ -38,7 +40,9 @@ export default function Sumario() {
             await agendar()
             router.push('/agendamentos')
         } catch (e) {
-            setErro(e instanceof Error ? e.message : 'Não foi possível concluir o agendamento.')
+            const msg = e instanceof Error ? e.message : 'Não foi possível concluir o agendamento.'
+            setErro(msg)
+            toastError('Não foi possível agendar', msg)
         } finally {
             setCarregando(false)
         }

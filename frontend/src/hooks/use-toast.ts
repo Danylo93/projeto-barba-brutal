@@ -1,58 +1,28 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { ToastProps } from '@/components/ui/toast';
+import { useToastContext } from '@/components/ui/toast-provider';
 
+/**
+ * Acesso aos toasts globais. O estado e o container vivem no `ToastProvider`
+ * (montado no layout raiz), então qualquer tela pode simplesmente chamar
+ * `const { error } = useToast()` e a mensagem aparece.
+ */
 export function useToast() {
-  const [toasts, setToasts] = useState<ToastProps[]>([]);
+  const ctx = useToastContext();
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, []);
-
-  const addToast = useCallback((toast: Omit<ToastProps, 'id' | 'onClose'>) => {
-    const id = Math.random().toString(36).substr(2, 9);
-    const newToast: ToastProps = {
-      ...toast,
-      id,
-      onClose: removeToast,
+  if (!ctx) {
+    // Fallback defensivo: fora do provider, os toasts viram no-op (não quebram a tela).
+    const noop = () => '';
+    return {
+      toasts: [],
+      addToast: noop,
+      removeToast: () => {},
+      success: noop,
+      error: noop,
+      warning: noop,
+      info: noop,
     };
+  }
 
-    setToasts((prev) => [...prev, newToast]);
-
-    // Auto remove after duration
-    if (toast.duration !== 0) {
-      setTimeout(() => {
-        removeToast(id);
-      }, toast.duration || 5000);
-    }
-
-    return id;
-  }, [removeToast]);
-
-  const success = useCallback((title: string, description?: string) => {
-    return addToast({ type: 'success', title, description });
-  }, [addToast]);
-
-  const error = useCallback((title: string, description?: string) => {
-    return addToast({ type: 'error', title, description });
-  }, [addToast]);
-
-  const warning = useCallback((title: string, description?: string) => {
-    return addToast({ type: 'warning', title, description });
-  }, [addToast]);
-
-  const info = useCallback((title: string, description?: string) => {
-    return addToast({ type: 'info', title, description });
-  }, [addToast]);
-
-  return {
-    toasts,
-    addToast,
-    removeToast,
-    success,
-    error,
-    warning,
-    info,
-  };
+  return ctx;
 }

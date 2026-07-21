@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Outfit } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/ui/theme-provider'
+import { ToastProvider } from '@/components/ui/toast-provider'
 
 const inter = Inter({
     subsets: ['latin'],
@@ -40,7 +41,9 @@ export default function RootLayout({
                     defaultTheme="dark"
                     storageKey="barba-brutal-theme"
                 >
-                    {children}
+                    <ToastProvider>
+                        {children}
+                    </ToastProvider>
                 </ThemeProvider>
             </body>
         </html>

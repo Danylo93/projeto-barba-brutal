@@ -5,6 +5,7 @@ import { CheckCircle, AlertCircle, Crown, QrCode, Copy, RefreshCw } from 'lucide
 import useAPI from '@/data/hooks/useAPI'
 import useUsuario from '@/data/hooks/useUsuario'
 import Modal from '@/components/painel/Modal'
+import { useToast } from '@/hooks/use-toast'
 
 interface Plano {
   id: number
@@ -30,6 +31,7 @@ interface PixData {
 export default function PlanosPage() {
   const { httpGet, httpPost } = useAPI()
   const { usuario } = useUsuario()
+  const { success: toastSuccess, error: toastError } = useToast()
   const isTenant = usuario?.tipo === 'tenant'
 
   const [planos, setPlanos] = useState<Plano[]>([])
@@ -85,9 +87,12 @@ export default function PlanosPage() {
       const resposta = await httpPost('/assinaturas/me/change-plan', { planoId: plano.id })
       if (resposta?.statusCode >= 400) throw new Error(resposta.message || 'Erro ao ativar o plano')
       setSucesso(`Teste de 30 dias do plano ${plano.nome} ativado!`)
+      toastSuccess('Plano ativado', `Teste de 30 dias do plano ${plano.nome} ativado!`)
       await carregar()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao ativar o plano')
+      const msg = err instanceof Error ? err.message : 'Erro ao ativar o plano'
+      setError(msg)
+      toastError('Erro ao ativar o plano', msg)
     } finally {
       setSalvandoId(null)
     }
