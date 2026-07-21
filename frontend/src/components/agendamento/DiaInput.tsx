@@ -7,7 +7,10 @@ export interface DiaInputProps {
 }
 
 export default function DiaInput(props: DiaInputProps) {
-    const diasAbertos = props.configuracoes?.diasAbertos || [1, 2, 3, 4, 5, 6]
+    const diasAbertos =
+        props.configuracoes?.diasAbertos ||
+        props.configuracoes?.diasFuncionamento ||
+        [1, 2, 3, 4, 5, 6]
 
     function mesmoDia(a: Date, b: Date) {
         return (
