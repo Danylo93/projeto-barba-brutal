@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import useSessao from '@/data/hooks/useSessao'
 import AuthShell from '@/components/auth/AuthShell'
+import { API_BASE } from '@/lib/api-base'
 import { formatarTelefone, formatarTelefoneInput } from '@/lib/agendamento-utils'
 
 type Modo = 'entrar' | 'cadastrar'
@@ -34,6 +35,17 @@ function LoginContent() {
         Number.isFinite(tenantParam) && tenantParam > 0
             ? tenantParam
             : Number(process.env.NEXT_PUBLIC_TENANT_DEFAULT_ID || 1)
+
+    // Quando o cliente chega por uma barbearia específica (?tenant=), mostramos
+    // o nome dela na tela de login em vez da marca do sistema.
+    const [barbeariaNome, setBarbeariaNome] = useState<string | undefined>()
+    useEffect(() => {
+        if (!(tenantParam > 0)) return
+        fetch(`${API_BASE}/tenants/publico/${tenantParam}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => d?.nome && setBarbeariaNome(d.nome))
+            .catch(() => {})
+    }, [tenantParam])
 
     function irPara(padraoDoPapel: string, honrarDestino: boolean) {
         // Só o cliente/barbeiro volta para a página que tentou acessar (destino).
@@ -123,6 +135,7 @@ function LoginContent() {
     }
 
     return (
+        <AuthShell nome={barbeariaNome}>
         <div className="flex flex-col gap-6">
             <div className="text-center">
                 <h1 className="text-2xl font-bold text-white">
@@ -234,19 +247,20 @@ function LoginContent() {
                 </p>
             </div>
         </div>
+        </AuthShell>
     )
 }
 
 export default function LoginPage() {
     return (
-        <AuthShell>
-            <Suspense fallback={
+        <Suspense fallback={
+            <AuthShell>
                 <div className="flex flex-col justify-center items-center py-10">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-800 border-t-yellow-400"></div>
                 </div>
-            }>
-                <LoginContent />
-            </Suspense>
-        </AuthShell>
+            </AuthShell>
+        }>
+            <LoginContent />
+        </Suspense>
     )
 }
