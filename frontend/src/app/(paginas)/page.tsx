@@ -1,5 +1,4 @@
 import { Metadata } from 'next';
-import { Hero } from '@/components/landing/Hero';
 import { HowItWorks } from '@/components/landing/HowItWorks';
 import { Features } from '@/components/landing/Features';
 import { Pricing } from '@/components/landing/Pricing';
@@ -8,6 +7,7 @@ import { FAQ } from '@/components/landing/FAQ';
 import { CTA } from '@/components/landing/CTA';
 import { Header } from '@/components/landing/Header';
 import { Footer } from '@/components/landing/Footer';
+import HomeFilme from './HomeFilme';
 
 export const metadata: Metadata = {
   title: 'Barbearia Brutal SaaS - Sistema de Gestão para Barbearias',
@@ -22,10 +22,11 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <Header />
       <main>
-        <Hero />
+        {/* Filme de abertura controlado pela rolagem (motor FilmeScroll) */}
+        <HomeFilme />
         <HowItWorks />
         <Features />
         <Pricing />
