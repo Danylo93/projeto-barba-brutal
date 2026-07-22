@@ -389,10 +389,6 @@ function FilmeCinematico({ cenas, hero, ctaFinal, alturaPorCenaVh = 110 }: Filme
                     aria-hidden
                 />
 
-                {/* letterbox */}
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-[5vh] bg-black/90" aria-hidden />
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[5vh] bg-black/90" aria-hidden />
-
                 {/* hero (cena 1) */}
                 <div
                     ref={heroRef}

@@ -9,7 +9,7 @@
 
 import Link from 'next/link'
 import FilmeScroll, { CenaFilme } from '@/components/filme/FilmeScroll'
-import { ArrowRight, ArrowDown, CalendarClock, Scissors } from 'lucide-react'
+import { ArrowRight, ArrowDown, Scissors } from 'lucide-react'
 
 const CENAS: CenaFilme[] = [
     {
@@ -100,13 +100,6 @@ function HeroSaas() {
                 >
                     Começar grátis por 30 dias
                     <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Link>
-                <Link
-                    href="/login?destino=/agendamento"
-                    className="inline-flex items-center gap-1.5 text-sm text-zinc-400 transition-colors hover:text-yellow-400"
-                >
-                    <CalendarClock size={15} />
-                    Sou cliente — quero agendar um horário
                 </Link>
             </div>
             <div className="mt-10 flex flex-col items-center gap-2 text-zinc-500">
