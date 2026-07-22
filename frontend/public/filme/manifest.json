@@ -1,4 +1,30 @@
 {
-  "fps": 12,
-  "cenas": []
+  "fps": 10,
+  "cenas": [
+    {
+      "cena": 1,
+      "pasta": "/filme/cena-1",
+      "quadros": 60
+    },
+    {
+      "cena": 2,
+      "pasta": "/filme/cena-2",
+      "quadros": 60
+    },
+    {
+      "cena": 3,
+      "pasta": "/filme/cena-3",
+      "quadros": 60
+    },
+    {
+      "cena": 4,
+      "pasta": "/filme/cena-4",
+      "quadros": 60
+    },
+    {
+      "cena": 5,
+      "pasta": "/filme/cena-5",
+      "quadros": 60
+    }
+  ]
 }
