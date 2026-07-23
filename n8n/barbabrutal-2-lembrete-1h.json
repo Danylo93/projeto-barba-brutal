@@ -1,0 +1,250 @@
+{
+  "name": "Barbearia Brutal — Lembrete 1h antes (WhatsApp)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "a-cada-5-min",
+      "name": "A cada 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.id,\n  to_char(a.data AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY') AS data_br,\n  to_char(a.data AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI')    AS hora_br,\n  cli.nome AS cliente_nome, cli.telefone AS cliente_tel,\n  p.nome   AS barbeiro_nome, bu.telefone AS barbeiro_tel,\n  t.nome   AS barbearia,\n  COALESCE(string_agg(DISTINCT s.nome, ', '), 'Serviço') AS servicos\nFROM agendamento a\nJOIN usuario cli        ON cli.id = a.\"usuarioId\"\nJOIN profissional p     ON p.id  = a.\"profissionalId\"\nLEFT JOIN usuario bu    ON bu.id = p.\"usuarioId\"\nJOIN tenant t           ON t.id  = a.\"tenantId\"\nLEFT JOIN \"_AgendamentoToServico\" ags ON ags.\"A\" = a.id\nLEFT JOIN servico s     ON s.id  = ags.\"B\"\nWHERE a.\"tenantId\" = 1\n  AND a.status IN ('agendado','confirmado')\n  AND a.data >= now() + interval '60 minutes'\n  AND a.data <  now() + interval '65 minutes'\nGROUP BY a.id, a.data, cli.nome, cli.telefone, p.nome, bu.telefone, t.nome\nORDER BY a.data ASC",
+        "options": {}
+      },
+      "id": "buscar-próximos-(60-65-min)",
+      "name": "Buscar próximos (60-65 min)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        460,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "bb-postgres",
+          "name": "Postgres Barbearia Brutal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "jaLembrado",
+        "key": "=bb:lembrete:{{ $json.id }}",
+        "keyType": "string",
+        "options": {}
+      },
+      "id": "já-lembrado?-(redis-get)",
+      "name": "Já lembrado? (Redis get)",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        700,
+        300
+      ],
+      "credentials": {
+        "redis": {
+          "id": "bb-redis",
+          "name": "Redis Barbearia Brutal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.jaLembrado }}",
+              "rightValue": ""
+            }
+          ]
+        }
+      },
+      "id": "ainda-não-lembrado",
+      "name": "Ainda não lembrado",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        940,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=bb:lembrete:{{ $json.id }}",
+        "keyType": "string",
+        "value": "1",
+        "expire": true,
+        "ttl": 7200,
+        "valueIsJSON": false,
+        "options": {}
+      },
+      "id": "marcar-lembrete-(redis-set)",
+      "name": "Marcar lembrete (Redis set)",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        180
+      ],
+      "credentials": {
+        "redis": {
+          "id": "bb-redis",
+          "name": "Redis Barbearia Brutal"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "\n// Monta o lembrete (1h antes) para cliente e barbeiro.\nconst norm = (t) => {\n  let n = String(t || '').replace(/\\D/g, '');\n  if (!n) return '';\n  if (!n.startsWith('55')) n = '55' + n;\n  return n;\n};\nconst saida = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const cliente = norm(a.cliente_tel);\n  const barbeiro = norm(a.barbeiro_tel);\n  if (cliente) {\n    saida.push({ json: { numero: cliente, tipo: 'cliente', mensagem:\n      `⏰ *Lembrete do seu horário*\\n\\n` +\n      `Olá, ${a.cliente_nome}! Falta 1 hora para o seu horário na *${a.barbearia}*:\\n\\n` +\n      `✂️ ${a.servicos}\\n` +\n      `👤 ${a.barbeiro_nome}\\n` +\n      `🕐 Hoje às ${a.hora_br}\\n\\n` +\n      `Te esperamos! 🪒` } });\n  }\n  if (barbeiro) {\n    saida.push({ json: { numero: barbeiro, tipo: 'barbeiro', mensagem:\n      `⏰ *Lembrete de atendimento*\\n\\n` +\n      `${a.barbeiro_nome}, daqui a 1 hora:\\n\\n` +\n      `👤 Cliente: ${a.cliente_nome}\\n` +\n      `✂️ ${a.servicos}\\n` +\n      `🕐 ${a.hora_br}` } });\n  }\n}\nreturn saida;\n"
+      },
+      "id": "montar-lembretes",
+      "name": "Montar lembretes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.EVOLUTION_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.EVOLUTION_APIKEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json.numero, \"text\": $json.mensagem } }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1200
+            }
+          }
+        }
+      },
+      "id": "enviar-whatsapp-(evolution)",
+      "name": "Enviar WhatsApp (Evolution)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1420,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "A cada 5 min": {
+      "main": [
+        [
+          {
+            "node": "Buscar próximos (60-65 min)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar próximos (60-65 min)": {
+      "main": [
+        [
+          {
+            "node": "Já lembrado? (Redis get)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Já lembrado? (Redis get)": {
+      "main": [
+        [
+          {
+            "node": "Ainda não lembrado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ainda não lembrado": {
+      "main": [
+        [
+          {
+            "node": "Marcar lembrete (Redis set)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Montar lembretes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar lembretes": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp (Evolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": [
+    {
+      "name": "barbearia-brutal"
+    }
+  ]
+}

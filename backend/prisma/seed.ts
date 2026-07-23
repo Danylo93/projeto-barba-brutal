@@ -148,7 +148,7 @@ async function seed() {
         nome: 'Marcão Machadada',
         email: 'marcao@barbeariadomarcao.app',
         senha: '$2b$10$9LQTRK3LRzIddKYW2C4MTelydFzk5Ys4JoROPajNqvYshhrn1PRa6', // #Senha123
-        telefone: '11999999999',
+        telefone: '5511915036789', // com DDI 55 para o WhatsApp (Evolution/n8n)
         barbeiro: true,
         tenantId: 1,
       },
@@ -156,7 +156,7 @@ async function seed() {
         nome: 'João Silva',
         email: 'joao@barbeariadomarcao.app',
         senha: '$2b$10$9LQTRK3LRzIddKYW2C4MTelydFzk5Ys4JoROPajNqvYshhrn1PRa6',
-        telefone: '11988888888',
+        telefone: '5511964891128', // com DDI 55 para o WhatsApp (Evolution/n8n)
         barbeiro: false,
         tenantId: 1,
       },
@@ -291,6 +291,18 @@ async function seed() {
       data: servicos1,
       skipDuplicates: true,
     });
+
+    // Liga o profissional Marcão ao usuário Marcão (para o telefone do barbeiro
+    // resolver no fluxo de WhatsApp: profissional -> usuario -> telefone).
+    const marcaoUsuario = await prisma.usuario.findFirst({
+      where: { tenantId: 1, email: 'marcao@barbeariadomarcao.app' },
+    });
+    if (marcaoUsuario) {
+      await prisma.profissional.updateMany({
+        where: { tenantId: 1, nome: 'Marcão Machadada', usuarioId: null },
+        data: { usuarioId: marcaoUsuario.id },
+      });
+    }
 
     // Criar dados para tenant 2
     await prisma.usuario.createMany({
