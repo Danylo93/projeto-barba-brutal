@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { Users, Plus, Trash2, Edit2, Star } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
+import { imagemDoProfissional } from '@/lib/agendamento-utils'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
 import { Skeleton } from '@/components/ui/skeleton'
 import ConfirmModal from '@/components/shared/ConfirmModal'
@@ -17,6 +19,12 @@ interface Profissional {
   quantidadeAvaliacoes: number
   ativo: boolean
   createdAt: string
+  servicos?: { id: number; nome?: string }[]
+}
+
+interface ServicoResumo {
+  id: number
+  nome: string
 }
 
 const formVazio = { nome: '', descricao: '', imagemUrl: '', email: '', senha: '', telefone: '' }
@@ -26,6 +34,8 @@ export default function ProfissionaisPage() {
   const { success, error: toastError } = useToast()
   
   const [profissionais, setProfissionais] = useState<Profissional[]>([])
+  const [servicosDisponiveis, setServicosDisponiveis] = useState<ServicoResumo[]>([])
+  const [servicoIdsSelecionados, setServicoIdsSelecionados] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -38,6 +48,7 @@ export default function ProfissionaisPage() {
 
   useEffect(() => {
     fetchProfissionais()
+    fetchServicos()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -53,23 +64,42 @@ export default function ProfissionaisPage() {
     }
   }
 
+  const fetchServicos = async () => {
+    try {
+      const data = await httpGet('servicos')
+      setServicosDisponiveis(
+        Array.isArray(data) ? data.map((s: any) => ({ id: s.id, nome: s.nome })) : []
+      )
+    } catch {
+      setServicosDisponiveis([])
+    }
+  }
+
+  const alternarServico = (id: number) => {
+    setServicoIdsSelecionados((atual) =>
+      atual.includes(id) ? atual.filter((s) => s !== id) : [...atual, id]
+    )
+  }
+
   const abrirNovo = () => {
     setEditando(null)
     setForm(formVazio)
+    setServicoIdsSelecionados([])
     setError('')
     setModalAberto(true)
   }
 
   const abrirEdicao = (p: Profissional) => {
     setEditando(p)
-    setForm({ 
-      nome: p.nome, 
-      descricao: p.descricao, 
+    setForm({
+      nome: p.nome,
+      descricao: p.descricao,
       imagemUrl: p.imagemUrl || '',
       email: '',
       senha: '',
       telefone: ''
     })
+    setServicoIdsSelecionados((p.servicos ?? []).map((s) => s.id))
     setError('')
     setModalAberto(true)
   }
@@ -83,6 +113,7 @@ export default function ProfissionaisPage() {
         nome: form.nome,
         descricao: form.descricao,
         imagemUrl: form.imagemUrl,
+        servicoIds: servicoIdsSelecionados,
       }
       if (form.email) payload.email = form.email
       if (form.senha) payload.senha = form.senha
@@ -176,8 +207,13 @@ export default function ProfissionaisPage() {
                 key={profissional.id}
                 className="bg-zinc-900 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors overflow-hidden"
               >
-                <div className="relative h-40 bg-zinc-800 flex items-center justify-center">
-                  <Users size={48} className="text-zinc-600" />
+                <div className="relative h-40 bg-zinc-800">
+                  <Image
+                    src={imagemDoProfissional(profissional.id, profissional.imagemUrl)}
+                    alt={profissional.nome}
+                    fill
+                    className="object-cover"
+                  />
                 </div>
 
                 <div className="p-6">
@@ -287,6 +323,34 @@ export default function ProfissionaisPage() {
               placeholder="https://..."
               className={inputModalClasses}
             />
+          </div>
+          <div>
+            <label className="block text-sm text-zinc-400 mb-1">Serviços que realiza</label>
+            {servicosDisponiveis.length === 0 ? (
+              <p className="text-xs text-zinc-500">
+                Nenhum serviço cadastrado ainda. Cadastre serviços para vinculá-los aos profissionais.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {servicosDisponiveis.map((s) => {
+                  const marcado = servicoIdsSelecionados.includes(s.id)
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => alternarServico(s.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        marcado
+                          ? 'bg-yellow-400 border-yellow-400 text-zinc-900 font-semibold'
+                          : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:border-zinc-600'
+                      }`}
+                    >
+                      {s.nome}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
           <hr className="border-zinc-800 my-2" />
           <h4 className="text-sm font-semibold text-white">Criar/Atualizar Acesso (Opcional)</h4>

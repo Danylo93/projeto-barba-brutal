@@ -7,6 +7,7 @@ import { Menu, X, LogOut, Clock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Logo from '@/components/shared/Logo'
 import useUsuario from '@/data/hooks/useUsuario'
+import useAPI from '@/data/hooks/useAPI'
 import useTrialStatus from '@/hooks/useTrialStatus'
 
 interface LinkNav {
@@ -21,23 +22,38 @@ interface LinkNav {
  */
 export default function PainelNav() {
     const { usuario, sair } = useUsuario()
+    const { httpGet } = useAPI()
     const pathname = usePathname()
     const [aberto, setAberto] = useState(false)
+    const [barbeariaNome, setBarbeariaNome] = useState<string | undefined>()
     const trial = useTrialStatus()
-
-    useEffect(() => {
-        if (usuario) {
-            if (usuario.tipo === 'tenant' || usuario.tipo === 'admin') {
-                document.title = 'Painel | Barba Brutal'
-            } else {
-                document.title = 'Agendamento | Barbearia'
-            }
-        }
-    }, [usuario])
 
     const isTenant = usuario?.tipo === 'tenant'
     const isAdmin = usuario?.tipo === 'admin'
     const isBarbeiro = !!usuario?.barbeiro
+
+    // Nome da barbearia (tenant) para exibir na marca — o admin do SaaS mantém a marca do sistema.
+    useEffect(() => {
+        if (!usuario?.tenantId || isAdmin) {
+            setBarbeariaNome(undefined)
+            return
+        }
+        httpGet(`tenants/${usuario.tenantId}`)
+            .then((t) => t?.nome && setBarbeariaNome(t.nome))
+            .catch(() => {})
+    }, [usuario?.tenantId, isAdmin, httpGet])
+
+    useEffect(() => {
+        if (!usuario) return
+        const marca = barbeariaNome || 'Barbearia Brutal'
+        if (isAdmin) {
+            document.title = 'Painel | Barbearia Brutal'
+        } else if (usuario.tipo === 'tenant') {
+            document.title = `Painel | ${marca}`
+        } else {
+            document.title = `Agendamento | ${marca}`
+        }
+    }, [usuario, isAdmin, barbeariaNome])
     const isEmployeeBarber = isBarbeiro && !isTenant
 
     let links: LinkNav[] = []
@@ -93,7 +109,7 @@ export default function PainelNav() {
         <header className="sticky top-0 z-40 bg-zinc-900/95 backdrop-blur-xl border-b border-zinc-800/80">
             <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
                 <div className="flex items-center gap-8">
-                    <Logo href={logoHref} />
+                    <Logo href={logoHref} nome={isAdmin ? undefined : barbeariaNome} />
                     <div className="hidden md:flex items-center gap-1">
                         {links.map((l) => (
                             <Link

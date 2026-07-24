@@ -38,6 +38,7 @@ export class ServicoController {
       preco: number;
       qtdeSlots: number;
       imagemURL?: string;
+      ehCombo?: boolean;
     },
     @CurrentTenant() tenant: any,
   ) {
@@ -48,6 +49,7 @@ export class ServicoController {
         preco: data.preco,
         qtdeSlots: data.qtdeSlots,
         imagemURL: data.imagemURL || '',
+        ehCombo: data.ehCombo ?? false,
         tenantId: tenant.id,
       },
     });
@@ -64,6 +66,7 @@ export class ServicoController {
       qtdeSlots: number;
       imagemURL: string;
       ativo: boolean;
+      ehCombo: boolean;
     }>,
     @CurrentTenant() tenant: any,
   ) {

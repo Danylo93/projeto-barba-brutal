@@ -4,9 +4,10 @@ import { AgendamentoRepository } from './agendamento.repository';
 import { DbModule } from 'src/db/db.module';
 import { UsuarioModule } from 'src/usuario/usuario.module';
 import { UsuarioMiddleware } from 'src/usuario/usuario.middleware';
+import { NotificacaoModule } from 'src/notificacao/notificacao.module';
 
 @Module({
-  imports: [DbModule, UsuarioModule],
+  imports: [DbModule, UsuarioModule, NotificacaoModule],
   controllers: [AgendamentoController],
   providers: [AgendamentoRepository],
 })

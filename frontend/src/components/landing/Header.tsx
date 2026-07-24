@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,8 +25,8 @@ export function Header() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled 
-          ? 'glass-effect shadow-lg' 
+        isScrolled || isMenuOpen
+          ? 'bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/80 shadow-lg shadow-black/40'
           : 'bg-transparent'
       }`}
     >
@@ -37,47 +37,43 @@ export function Header() {
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
           >
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">BB</span>
-              </div>
-              <span className="text-xl font-bold text-foreground">Barba Brutal</span>
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/logo.png"
+                alt="Barbearia Brutal"
+                width={40}
+                height={40}
+                className="h-10 w-10 object-contain"
+              />
+              <span className="text-xl font-bold text-white">Barbearia Brutal</span>
             </Link>
           </motion.div>
 
           <nav className="hidden md:flex items-center space-x-8">
             <Link 
               href="#features" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-200 relative group"
+              className="text-zinc-300 hover:text-white transition-colors duration-200 relative group"
             >
               Recursos
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full"></span>
             </Link>
             <Link 
               href="#pricing" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-200 relative group"
+              className="text-zinc-300 hover:text-white transition-colors duration-200 relative group"
             >
               Preços
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full"></span>
             </Link>
-            <Link 
-              href="#testimonials" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-200 relative group"
+            <Link
+              href="#testimonials"
+              className="text-zinc-300 hover:text-white transition-colors duration-200 relative group"
             >
               Depoimentos
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full"></span>
-            </Link>
-            <Link 
-              href="/login" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-200 relative group"
-            >
-              Login
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full"></span>
             </Link>
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
-            <ThemeToggle />
             <Button variant="outline" asChild>
               <Link href="/login">Entrar</Link>
             </Button>
@@ -87,9 +83,9 @@ export function Header() {
           </div>
 
           <div className="md:hidden flex items-center space-x-2">
-            <ThemeToggle />
             <button
-              className="p-2"
+              className="p-2 text-white"
+              aria-label="Abrir menu"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               <AnimatePresence mode="wait">
@@ -128,37 +124,30 @@ export function Header() {
               transition={{ duration: 0.3 }}
               className="md:hidden overflow-hidden"
             >
-              <div className="py-4 border-t border-border">
-                <nav className="flex flex-col space-y-4">
-                  <Link 
-                    href="#features" 
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+              <div className="py-4 border-t border-zinc-800">
+                <nav className="flex flex-col space-y-1">
+                  <Link
+                    href="#features"
+                    className="text-zinc-300 hover:text-white hover:bg-zinc-800/60 rounded-lg px-3 py-3 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Recursos
                   </Link>
-                  <Link 
-                    href="#pricing" 
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  <Link
+                    href="#pricing"
+                    className="text-zinc-300 hover:text-white hover:bg-zinc-800/60 rounded-lg px-3 py-3 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Preços
                   </Link>
-                  <Link 
-                    href="#testimonials" 
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  <Link
+                    href="#testimonials"
+                    className="text-zinc-300 hover:text-white hover:bg-zinc-800/60 rounded-lg px-3 py-3 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Depoimentos
                   </Link>
-                  <Link 
-                    href="/login" 
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Login
-                  </Link>
-                  <div className="flex flex-col space-y-2 pt-4">
+                  <div className="flex flex-col space-y-2 pt-4 px-3">
                     <Button variant="outline" asChild>
                       <Link href="/login" onClick={() => setIsMenuOpen(false)}>
                         Entrar

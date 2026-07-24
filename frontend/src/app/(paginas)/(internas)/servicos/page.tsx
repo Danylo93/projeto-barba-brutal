@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Scissors, Plus, Trash2, Edit2, Clock, DollarSign } from 'lucide-react'
 import Image from 'next/image'
 import useAPI from '@/data/hooks/useAPI'
+import { imagemDoServico } from '@/lib/agendamento-utils'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useToast } from '@/hooks/use-toast'
@@ -15,12 +16,13 @@ interface Servico {
   preco: number
   qtdeSlots: number
   imagemURL?: string
+  ehCombo?: boolean
   ativo: boolean
   createdAt: string
 }
 
 const MIN_POR_SLOT = 30
-const formVazio = { nome: '', descricao: '', preco: '', duracao: '30', imagemURL: '' }
+const formVazio = { nome: '', descricao: '', preco: '', duracao: '30', imagemURL: '', ehCombo: false }
 
 export default function ServicosPage() {
   const { httpGet, httpPost, httpPut, httpDelete } = useAPI()
@@ -69,6 +71,7 @@ export default function ServicosPage() {
       preco: String(s.preco),
       duracao: String((s.qtdeSlots ?? 1) * MIN_POR_SLOT),
       imagemURL: s.imagemURL || '',
+      ehCombo: !!s.ehCombo,
     })
     setError('')
     setModalAberto(true)
@@ -86,6 +89,7 @@ export default function ServicosPage() {
         preco: parseFloat(form.preco.replace(',', '.')) || 0,
         qtdeSlots: Math.max(1, Math.ceil(minutos / MIN_POR_SLOT)),
         imagemURL: form.imagemURL,
+        ehCombo: form.ehCombo,
       }
       const resposta = editando
         ? await httpPut(`servicos/${editando.id}`, payload)
@@ -171,13 +175,12 @@ export default function ServicosPage() {
                 className="bg-zinc-900 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors overflow-hidden"
               >
                 <div className="relative h-40 bg-zinc-800">
-                  {servico.imagemURL ? (
-                    <Image src={servico.imagemURL} alt={servico.nome} fill className="object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                      <Scissors size={48} className="text-zinc-600" />
-                    </div>
-                  )}
+                  <Image
+                    src={imagemDoServico(servico.nome, servico.imagemURL)}
+                    alt={servico.nome}
+                    fill
+                    className="object-cover"
+                  />
                 </div>
 
                 <div className="p-6">
@@ -305,6 +308,21 @@ export default function ServicosPage() {
               className={inputModalClasses}
             />
           </div>
+          <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+            <input
+              type="checkbox"
+              checked={form.ehCombo}
+              onChange={(e) => setForm({ ...form, ehCombo: e.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-yellow-400"
+            />
+            <span className="text-sm text-zinc-300">
+              É um combo
+              <span className="block text-xs text-zinc-500">
+                Combos (ex: barba + cabelo) já incluem os serviços individuais. No agendamento
+                eles são selecionados sozinhos, sem precisar marcar barba ou cabelo à parte.
+              </span>
+            </span>
+          </label>
           <div className="flex gap-3 pt-2">
             <button
               type="button"

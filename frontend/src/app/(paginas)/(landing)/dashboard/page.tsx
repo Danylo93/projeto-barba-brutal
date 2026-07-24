@@ -27,6 +27,7 @@ import {
     StatCard,
 } from '@/components/painel/Painel'
 import PainelNav from '@/components/painel/PainelNav'
+import PaginaPublicaCard from '@/components/painel/PaginaPublicaCard'
 import TrialBanner from '@/components/shared/TrialBanner'
 
 interface Tenant {
@@ -36,6 +37,7 @@ interface Tenant {
     telefone: string
     endereco?: string
     cnpj?: string
+    dominio?: string | null
     ativo: boolean
     createdAt: string
 }
@@ -164,6 +166,9 @@ export default function DashboardPage() {
                         cor="text-yellow-400"
                     />
                 </motion.div>
+
+                {/* Link da página pública da barbearia */}
+                <PaginaPublicaCard dominio={tenant.dominio} id={tenant.id} />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                     {/* Card de Trial (se em teste) */}

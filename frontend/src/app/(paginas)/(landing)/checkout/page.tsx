@@ -3,11 +3,13 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Plano } from '@/types'
+import { useToast } from '@/hooks/use-toast'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 function CheckoutForm({ plano, tenantId }: { plano: Plano; tenantId: number }) {
   const router = useRouter()
+  const { error: toastError } = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,10 +48,14 @@ function CheckoutForm({ plano, tenantId }: { plano: Plano; tenantId: number }) {
       const { error } = await stripe.redirectToCheckout({ sessionId })
 
       if (error) {
-        setError(error.message || 'Erro no checkout')
+        const msg = error.message || 'Erro no checkout'
+        setError(msg)
+        toastError('Erro no checkout', msg)
       }
     } catch (err: any) {
-      setError(err.message || 'Erro interno')
+      const msg = err.message || 'Erro interno'
+      setError(msg)
+      toastError('Não foi possível finalizar', msg)
     } finally {
       setLoading(false)
     }

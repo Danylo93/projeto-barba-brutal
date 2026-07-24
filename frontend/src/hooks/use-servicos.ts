@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import useSessao from '@/data/hooks/useSessao'
 import { API_BASE } from '@/lib/api-base'
+import { imagemDoServico } from '@/lib/agendamento-utils'
 
 export interface Servico {
   id: number
@@ -9,6 +10,7 @@ export interface Servico {
   duracao: number
   qtdeSlots: number
   imagemURL: string
+  ehCombo: boolean
 }
 
 const URL_BASE = API_BASE
@@ -43,7 +45,8 @@ export function useServicos() {
             preco: s.preco,
             qtdeSlots: s.qtdeSlots ?? 1,
             duracao: (s.qtdeSlots ?? 1) * MINUTOS_POR_SLOT,
-            imagemURL: s.imagemURL || '/servicos/corte-de-cabelo.jpg',
+            imagemURL: imagemDoServico(s.nome, s.imagemURL),
+            ehCombo: !!s.ehCombo,
           }))
         )
       })

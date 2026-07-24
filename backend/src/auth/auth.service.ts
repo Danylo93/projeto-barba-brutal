@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../db/prisma.service';
 import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
+import { escolherCorMarca, COR_PRIMARIA_PADRAO } from '../tenant/cores-marca';
 import * as bcrypt from 'bcrypt';
 
 /** Valida formato de e-mail. */
@@ -107,6 +108,13 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    // A barbearia (tenant) precisa estar ativa para o cliente/barbeiro acessar.
+    if (!usuario.tenant?.ativo) {
+      throw new UnauthorizedException(
+        'Esta barbearia está indisponível no momento. Fale com a barbearia.',
+      );
+    }
+
     // ✅ VALIDAR ASSINATURA ATIVA DO TENANT
     // O barbeiro só pode logar se o owner/tenant tiver um plano ativo
     await this.subscriptionValidation.validateTenantSubscription(tenantId);
@@ -172,10 +180,21 @@ export class AuthService {
 
     const senhaHash = await bcrypt.hash(data.senha, 10);
 
+    // Cada barbearia nova recebe uma cor de marca diferente das já existentes.
+    const existentes = await this.prisma.tenant.findMany({
+      select: { corSecundaria: true },
+    });
+    const corSecundaria = escolherCorMarca(
+      existentes.map((t) => t.corSecundaria),
+      existentes.length,
+    );
+
     const tenant = await this.prisma.tenant.create({
       data: {
         ...data,
         senha: senhaHash,
+        corPrimaria: COR_PRIMARIA_PADRAO,
+        corSecundaria,
       },
     });
 
@@ -206,6 +225,18 @@ export class AuthService {
     if (!validarTelefone(data.telefone)) {
       throw new BadRequestException('Telefone inválido. Informe o DDD + número (ex: 11999990000)');
     }
+
+    // Não permite cadastro de cliente em barbearia inexistente/inativa.
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: data.tenantId },
+      select: { ativo: true },
+    });
+    if (!tenant || !tenant.ativo) {
+      throw new UnauthorizedException(
+        'Esta barbearia está indisponível no momento. Fale com a barbearia.',
+      );
+    }
+
 
     const senhaHash = await bcrypt.hash(data.senha, 10);
 

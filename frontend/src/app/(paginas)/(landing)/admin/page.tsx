@@ -13,6 +13,7 @@ import {
   StatCard,
 } from '@/components/painel/Painel'
 import PainelNav from '@/components/painel/PainelNav'
+import { useToast } from '@/hooks/use-toast'
 
 interface DashboardStats {
   totalTenants: number
@@ -71,6 +72,7 @@ function Badge({ ativo }: { ativo: boolean }) {
 export default function AdminPage() {
   const { token, criarSessao } = useSessao()
   const { usuario } = useUsuario()
+  const { error: toastError } = useToast()
   const isAdmin = usuario?.tipo === 'admin'
 
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -183,12 +185,15 @@ export default function AdminPage() {
       })
       const data = await response.json()
       if (!response.ok) {
-        setLoginError(data.message || 'Credenciais inválidas')
+        const msg = data.message || 'Credenciais inválidas'
+        setLoginError(msg)
+        toastError('Não foi possível entrar', msg)
         return
       }
       criarSessao(data.access_token)
     } catch (err) {
       setLoginError('Erro de conexão. Tente novamente.')
+      toastError('Erro de conexão', 'Tente novamente em instantes.')
     } finally {
       setLoginLoading(false)
     }
@@ -271,7 +276,7 @@ export default function AdminPage() {
       <PainelNav />
       <PainelHeader
         titulo="Painel do Administrador"
-        descricao="Visão geral do sistema SaaS Barba Brutal"
+        descricao="Visão geral do sistema SaaS Barbearia Brutal"
         acao={
           <a
             href="/"

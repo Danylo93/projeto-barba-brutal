@@ -1,4 +1,4 @@
-import { hoje } from '@/lib/agendamento-utils'
+import { hoje, diasAbertosDaConfig } from '@/lib/agendamento-utils'
 
 export interface DiaInputProps {
     data: Date
@@ -7,45 +7,68 @@ export interface DiaInputProps {
 }
 
 export default function DiaInput(props: DiaInputProps) {
-    const diasAbertos = props.configuracoes?.diasAbertos || [1, 2, 3, 4, 5, 6]
+    const diasAbertos = diasAbertosDaConfig(props.configuracoes)
+
+    function mesmoDia(a: Date, b: Date) {
+        return (
+            a.getDate() === b.getDate() &&
+            a.getMonth() === b.getMonth() &&
+            a.getFullYear() === b.getFullYear()
+        )
+    }
 
     function renderizarDia(data: Date) {
-        const selecionado = data.getDate() === props.data.getDate()
+        const selecionado = mesmoDia(data, props.data)
+        const ehHoje = mesmoDia(data, hoje())
         return (
-            <div
+            <button
+                type="button"
+                key={data.toISOString()}
                 onClick={() => props.dataMudou(data)}
                 className={`
-                    flex-1 flex flex-col items-center gap-2 py-4 cursor-pointer
-                    ${selecionado ? 'bg-yellow-400 text-black' : 'text-zinc-400'}
+                    snap-start shrink-0 w-[3.75rem] sm:w-16
+                    flex flex-col items-center gap-1.5 py-3 rounded-xl border
+                    transition-all duration-200 active:scale-95
+                    ${
+                        selecionado
+                            ? 'bg-yellow-400 border-yellow-400 text-black shadow-lg shadow-yellow-400/20'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-800/70'
+                    }
                 `}
             >
-                <div className="flex items-center gap-1">
-                    <span className="text-2xl font-black">{data.getDate()}</span>
-                    <span className="text-xs font-light uppercase">
+                <div className="flex flex-col items-center leading-none">
+                    <span className="text-xl sm:text-2xl font-black tabular-nums">
+                        {data.getDate()}
+                    </span>
+                    <span className="text-[10px] font-medium uppercase tracking-wide mt-0.5">
                         {data.toLocaleDateString('pt-BR', { month: 'short' }).slice(0, 3)}
                     </span>
                 </div>
-                <div
+                <span
                     className={`
-                        text-center text-xs font-light uppercase 
-                        ${selecionado ? 'bg-black/10' : 'bg-white/10'}
-                        py-0.5 px-3 rounded-full
+                        text-[10px] font-semibold uppercase tracking-wide
+                        ${selecionado ? 'text-black/60' : ehHoje ? 'text-yellow-400' : 'text-zinc-500'}
                     `}
                 >
-                    {data.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3)}
-                </div>
-            </div>
+                    {ehHoje ? 'Hoje' : data.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3)}
+                </span>
+            </button>
         )
     }
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 w-full">
             <span className="text-sm uppercase text-zinc-400">Dias Disponíveis</span>
-            <div className="flex gap-5 bg-zinc-950 rounded-lg overflow-hidden">
-                {Array.from({ length: 14 })
+            <div
+                className="
+                    flex gap-2 w-full overflow-x-auto pb-1 snap-x snap-mandatory
+                    [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+                "
+            >
+                {Array.from({ length: 21 })
                     .map((_, i) => new Date(hoje().getTime() + 86400000 * i))
                     .filter((date) => diasAbertos.includes(date.getDay()))
-                    .slice(0, 7)
+                    .slice(0, 10)
                     .map((date) => renderizarDia(date))}
             </div>
         </div>

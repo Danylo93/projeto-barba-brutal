@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Outfit } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/ui/theme-provider'
+import { ToastProvider } from '@/components/ui/toast-provider'
 
 const inter = Inter({
     subsets: ['latin'],
@@ -17,12 +18,12 @@ const outfit = Outfit({
 })
 
 export const metadata: Metadata = {
-    title: 'Barba Brutal SaaS - Sistema de Gestão para Barbearias',
+    title: 'Barbearia Brutal SaaS - Sistema de Gestão para Barbearias',
     description: 'Transforme sua barbearia com nosso sistema completo de agendamentos, gestão de clientes e muito mais.',
     keywords: ['barbearia', 'agendamento', 'gestão', 'saas', 'sistema'],
     authors: [{ name: 'Danylo Oliveira' }],
     openGraph: {
-        title: 'Barba Brutal SaaS',
+        title: 'Barbearia Brutal SaaS',
         description: 'Sistema completo de gestão para barbearias',
         type: 'website',
     },
@@ -40,7 +41,9 @@ export default function RootLayout({
                     defaultTheme="dark"
                     storageKey="barba-brutal-theme"
                 >
-                    {children}
+                    <ToastProvider>
+                        {children}
+                    </ToastProvider>
                 </ThemeProvider>
             </body>
         </html>

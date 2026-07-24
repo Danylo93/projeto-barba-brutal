@@ -16,8 +16,8 @@ export default function Cabecalho(props: CabecalhoProps) {
                     bg-black/80 md:bg-transparent md:bg-gradient-to-r from-black/30 via-black/90 to-black/30
                 "
             >
-                <div className="container flex-1 flex flex-col justify-center items-center">
-                    <h1 className="text-3xl font-black text-white/70">{props.titulo}</h1>
+                <div className="container flex-1 flex flex-col justify-center items-center px-4 text-center">
+                    <h1 className="text-2xl sm:text-3xl font-black text-white/70">{props.titulo}</h1>
                     <p className="text-xs font-light text-white/60">{props.descricao}</p>
                 </div>
             </div>
