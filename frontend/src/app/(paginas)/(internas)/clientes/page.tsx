@@ -7,7 +7,7 @@ import useUsuario from '@/data/hooks/useUsuario'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useToast } from '@/hooks/use-toast'
-import { formatarTelefone, formatarTelefoneInput } from '@/lib/agendamento-utils'
+import { formatarTelefone, formatarTelefoneInput, validarEmail, validarTelefone } from '@/lib/agendamento-utils'
 
 interface Cliente {
   id: number
@@ -34,6 +34,7 @@ export default function ClientesPage() {
   const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null)
   const [form, setForm] = useState(formVazio)
   const [salvando, setSalvando] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; telefone?: string }>({})
 
   useEffect(() => {
     fetchClientes()
@@ -55,13 +56,24 @@ export default function ClientesPage() {
   const abrirNovo = () => {
     setForm(formVazio)
     setError('')
+    setFieldErrors({})
     setModalAberto(true)
   }
 
   const salvar = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSalvando(true)
     setError('')
+    setFieldErrors({})
+
+    // Validação de email e telefone
+    const erroEmail = validarEmail(form.email)
+    const erroTelefone = validarTelefone(form.telefone)
+    if (erroEmail || erroTelefone) {
+      setFieldErrors({ email: erroEmail || undefined, telefone: erroTelefone || undefined })
+      return
+    }
+
+    setSalvando(true)
     try {
       const response = await fetch('/api/auth/usuario/register', {
         method: 'POST',
@@ -243,19 +255,25 @@ export default function ClientesPage() {
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="email@exemplo.com"
-              className={inputModalClasses}
+              className={`${inputModalClasses} ${fieldErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
             />
+            {fieldErrors.email && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
+            )}
           </div>
           <div>
-            <label className="block text-sm text-zinc-400 mb-1">Telefone</label>
+            <label className="block text-sm text-zinc-400 mb-1">WhatsApp</label>
             <input
               required
               type="tel"
               value={formatarTelefone(form.telefone)}
               onChange={(e) => setForm({ ...form, telefone: formatarTelefoneInput(e.target.value) })}
-              placeholder="(11) 90000-0000"
-              className={inputModalClasses}
+              placeholder="(11) 99999-0000"
+              className={`${inputModalClasses} ${fieldErrors.telefone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
             />
+            {fieldErrors.telefone && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.telefone}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm text-zinc-400 mb-1">Senha inicial</label>

@@ -116,6 +116,28 @@ export function formatarTelefoneInput(telefone: string): string {
   return telefone
 }
 
+/** Valida formato de e-mail. */
+export function validarEmail(email: string): string | null {
+  if (!email || !email.trim()) return 'Informe o e-mail'
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!regex.test(email.trim())) return 'E-mail inválido. Informe um e-mail válido (ex: nome@email.com)'
+  return null
+}
+
+/**
+ * Valida telefone brasileiro (WhatsApp).
+ * Aceita DDD (2 dígitos) + número (8 ou 9 dígitos) = 10 ou 11 dígitos.
+ */
+export function validarTelefone(telefone: string): string | null {
+  if (!telefone || !telefone.trim()) return 'Informe o telefone'
+  const numeros = telefone.replace(/\D/g, '')
+  if (numeros.length < 10 || numeros.length > 11) {
+    return 'Telefone inválido. Informe DDD + número (ex: 11 99999-0000)'
+  }
+  return null
+}
+
+
 // Data Utilities - export as object for compatibility
 export const DataUtils = {
   hoje,

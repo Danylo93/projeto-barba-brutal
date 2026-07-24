@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import useSessao from '@/data/hooks/useSessao'
 import AuthShell from '@/components/auth/AuthShell'
-import { formatarTelefone, formatarTelefoneInput } from '@/lib/agendamento-utils'
+import { formatarTelefone, formatarTelefoneInput, validarEmail, validarTelefone } from '@/lib/agendamento-utils'
 
 type Modo = 'entrar' | 'cadastrar'
 
@@ -25,6 +25,7 @@ function LoginContent() {
     const [senha, setSenha] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [fieldErrors, setFieldErrors] = useState<{ email?: string; telefone?: string }>({})
 
     const destino = params.get('destino')
     const tenantIdPadrao = Number(process.env.NEXT_PUBLIC_TENANT_DEFAULT_ID || 1)
@@ -73,6 +74,14 @@ function LoginContent() {
 
     // Cadastro de cliente na barbearia (para agendar serviços).
     async function cadastrar() {
+        // Validação de email e telefone
+        const erroEmail = validarEmail(email)
+        const erroTelefone = validarTelefone(telefone)
+        if (erroEmail || erroTelefone) {
+            setFieldErrors({ email: erroEmail || undefined, telefone: erroTelefone || undefined })
+            return
+        }
+
         const response = await fetch('/api/auth/usuario/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -97,6 +106,7 @@ function LoginContent() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
+        setFieldErrors({})
         setLoading(true)
         try {
             if (modo === 'entrar') {
@@ -114,6 +124,7 @@ function LoginContent() {
     function trocarModo(novo: Modo) {
         setModo(novo)
         setError('')
+        setFieldErrors({})
     }
 
     return (
@@ -173,14 +184,19 @@ function LoginContent() {
                     />
                 )}
 
-                <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="E-mail"
-                    className={inputClasses}
-                />
+                <div>
+                    <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="E-mail"
+                        className={`${inputClasses} ${fieldErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                    />
+                    {fieldErrors.email && (
+                        <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
+                    )}
+                </div>
 
                 <input
                     type="password"
@@ -193,14 +209,19 @@ function LoginContent() {
                 />
 
                 {modo === 'cadastrar' && (
-                    <input
-                        type="tel"
-                        required
-                        value={formatarTelefone(telefone)}
-                        onChange={(e) => setTelefone(formatarTelefoneInput(e.target.value))}
-                        placeholder="Telefone"
-                        className={inputClasses}
-                    />
+                    <div>
+                        <input
+                            type="tel"
+                            required
+                            value={formatarTelefone(telefone)}
+                            onChange={(e) => setTelefone(formatarTelefoneInput(e.target.value))}
+                            placeholder="WhatsApp (DDD + número)"
+                            className={`${inputClasses} ${fieldErrors.telefone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                        />
+                        {fieldErrors.telefone && (
+                            <p className="text-red-400 text-xs mt-1">{fieldErrors.telefone}</p>
+                        )}
+                    </div>
                 )}
 
                 <button

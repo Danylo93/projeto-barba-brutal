@@ -4,6 +4,21 @@ import { PrismaService } from '../db/prisma.service';
 import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
 import * as bcrypt from 'bcrypt';
 
+/** Valida formato de e-mail. */
+function validarEmail(email: string): boolean {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(email);
+}
+
+/**
+ * Valida telefone brasileiro (WhatsApp).
+ * Aceita somente dígitos, com DDD (2 dígitos) + número (8 ou 9 dígitos) = 10 ou 11 dígitos.
+ */
+function validarTelefone(telefone: string): boolean {
+  const numeros = telefone.replace(/\D/g, '');
+  return numeros.length === 10 || numeros.length === 11;
+}
+
 /** Remove o campo `senha` de um objeto (shallow), evitando vazar o hash em respostas. */
 function semSenha<T extends { senha?: any } | null | undefined>(obj: T): T {
   if (!obj) return obj;
@@ -148,6 +163,13 @@ export class AuthService {
     endereco?: string;
     cnpj?: string;
   }) {
+    if (!validarEmail(data.email)) {
+      throw new BadRequestException('E-mail inválido. Informe um e-mail válido (ex: nome@email.com)');
+    }
+    if (!validarTelefone(data.telefone)) {
+      throw new BadRequestException('Telefone inválido. Informe o DDD + número (ex: 11999990000)');
+    }
+
     const senhaHash = await bcrypt.hash(data.senha, 10);
 
     const tenant = await this.prisma.tenant.create({
@@ -178,6 +200,13 @@ export class AuthService {
     barbeiro: boolean;
     tenantId: number;
   }) {
+    if (!validarEmail(data.email)) {
+      throw new BadRequestException('E-mail inválido. Informe um e-mail válido (ex: nome@email.com)');
+    }
+    if (!validarTelefone(data.telefone)) {
+      throw new BadRequestException('Telefone inválido. Informe o DDD + número (ex: 11999990000)');
+    }
+
     const senhaHash = await bcrypt.hash(data.senha, 10);
 
     const usuario = await this.prisma.usuario.create({

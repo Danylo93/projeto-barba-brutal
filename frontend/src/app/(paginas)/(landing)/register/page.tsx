@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import useSessao from '@/data/hooks/useSessao'
 import AuthShell from '@/components/auth/AuthShell'
-import { formatarTelefone, formatarTelefoneInput } from '@/lib/agendamento-utils'
+import { formatarTelefone, formatarTelefoneInput, validarEmail, validarTelefone } from '@/lib/agendamento-utils'
 
 const inputClasses =
     'w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 ' +
@@ -26,6 +26,7 @@ export default function RegisterPage() {
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [fieldErrors, setFieldErrors] = useState<{ email?: string; telefone?: string }>({})
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target
@@ -38,6 +39,15 @@ export default function RegisterPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
+        setFieldErrors({})
+
+        // Validação de email e telefone
+        const erroEmail = validarEmail(formData.email)
+        const erroTelefone = validarTelefone(formData.telefone)
+        if (erroEmail || erroTelefone) {
+            setFieldErrors({ email: erroEmail || undefined, telefone: erroTelefone || undefined })
+            return
+        }
 
         if (formData.senha !== formData.confirmarSenha) {
             setError('As senhas não coincidem')
@@ -106,29 +116,39 @@ export default function RegisterPage() {
                         placeholder="Nome da barbearia"
                         className={inputClasses}
                     />
-                    <input
-                        type="email"
-                        name="email"
-                        required
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="E-mail"
-                        className={inputClasses}
-                    />
-                    <input
-                        type="tel"
-                        name="telefone"
-                        required
-                        value={formatarTelefone(formData.telefone)}
-                        onChange={(e) =>
-                            setFormData((prev) => ({
-                                ...prev,
-                                telefone: formatarTelefoneInput(e.target.value),
-                            }))
-                        }
-                        placeholder="Telefone"
-                        className={inputClasses}
-                    />
+                    <div>
+                        <input
+                            type="email"
+                            name="email"
+                            required
+                            value={formData.email}
+                            onChange={handleChange}
+                            placeholder="E-mail"
+                            className={`${inputClasses} ${fieldErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                        />
+                        {fieldErrors.email && (
+                            <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
+                        )}
+                    </div>
+                    <div>
+                        <input
+                            type="tel"
+                            name="telefone"
+                            required
+                            value={formatarTelefone(formData.telefone)}
+                            onChange={(e) =>
+                                setFormData((prev) => ({
+                                    ...prev,
+                                    telefone: formatarTelefoneInput(e.target.value),
+                                }))
+                            }
+                            placeholder="WhatsApp (DDD + número)"
+                            className={`${inputClasses} ${fieldErrors.telefone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                        />
+                        {fieldErrors.telefone && (
+                            <p className="text-red-400 text-xs mt-1">{fieldErrors.telefone}</p>
+                        )}
+                    </div>
                     <input
                         type="text"
                         name="endereco"
