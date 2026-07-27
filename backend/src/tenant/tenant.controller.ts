@@ -44,6 +44,13 @@ export class TenantController {
     return this.tenantService.update(user.id, { configuracoes });
   }
 
+  /** Relatório de comissões da equipe (?mes=2026-07; padrão: mês atual). */
+  @Get('me/comissoes')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  getMinhasComissoes(@CurrentUser() user: any, @Query('mes') mes?: string) {
+    return this.tenantService.getComissoes(user.id, mes);
+  }
+
   @Get('me/agendamentos')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   getMyAgendamentos(@CurrentUser() user: any) {
