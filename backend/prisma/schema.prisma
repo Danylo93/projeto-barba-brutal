@@ -146,6 +146,8 @@ model Profissional {
   tenantId             Int
   usuarioId            Int?          @unique
   ativo                Boolean       @default(true)
+  /// % do valor do serviço que fica com o profissional (0 a 100).
+  comissaoPercent      Float         @default(0)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   agendamentos         Agendamento[]

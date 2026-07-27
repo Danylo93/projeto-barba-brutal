@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, IsEmail, MinLength, IsArray, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, Max, IsEmail, MinLength, IsArray, IsInt } from 'class-validator';
 
 export class CreateProfissionalDto {
   @IsString()
@@ -40,4 +40,11 @@ export class CreateProfissionalDto {
   @IsInt({ each: true })
   @IsOptional()
   servicoIds?: number[];
+
+  /** Percentual de comissão do profissional (0 a 100). */
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  comissaoPercent?: number;
 }

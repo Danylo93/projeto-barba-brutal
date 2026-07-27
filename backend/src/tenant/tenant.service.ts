@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
+import { calcularComissoes, intervaloDoMes } from './comissao';
 import { escolherCorMarca, COR_PRIMARIA_PADRAO } from './cores-marca';
 
 @Injectable()
@@ -180,6 +181,32 @@ export class TenantService {
         valor: p.servicos.reduce((s, sv) => s + sv.preco, 0),
       })),
     };
+  }
+
+  /**
+   * Relatório de comissões da equipe no mês de referência ("2026-07").
+   * Considera apenas atendimentos não cancelados.
+   */
+  async getComissoes(tenantId: number, mes?: string) {
+    const { inicio, fim, ref } = intervaloDoMes(mes);
+
+    const [profissionais, atendimentos] = await Promise.all([
+      this.prisma.profissional.findMany({
+        where: { tenantId, ativo: true },
+        select: { id: true, nome: true, comissaoPercent: true },
+        orderBy: { nome: 'asc' },
+      }),
+      this.prisma.agendamento.findMany({
+        where: { tenantId, data: { gte: inicio, lt: fim } },
+        select: {
+          profissionalId: true,
+          status: true,
+          servicos: { select: { preco: true } },
+        },
+      }),
+    ]);
+
+    return { mes: ref, ...calcularComissoes(profissionais, atendimentos) };
   }
 
   async findByEmail(email: string) {

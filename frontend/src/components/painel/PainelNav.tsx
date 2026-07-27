@@ -66,6 +66,7 @@ export default function PainelNav() {
             { href: '/clientes', rotulo: 'Clientes' },
             { href: '/profissionais', rotulo: 'Profissionais' },
             { href: '/servicos', rotulo: 'Serviços' },
+            { href: '/financas', rotulo: 'Financeiro' },
             { href: '/assinatura', rotulo: 'Meu Plano' },
             { href: '/configuracoes', rotulo: 'Configurações' },
         ]

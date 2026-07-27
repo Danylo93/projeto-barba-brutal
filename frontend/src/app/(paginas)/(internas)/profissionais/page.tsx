@@ -17,6 +17,7 @@ interface Profissional {
   imagemUrl: string
   avaliacao: number
   quantidadeAvaliacoes: number
+  comissaoPercent?: number
   ativo: boolean
   createdAt: string
   servicos?: { id: number; nome?: string }[]
@@ -27,7 +28,7 @@ interface ServicoResumo {
   nome: string
 }
 
-const formVazio = { nome: '', descricao: '', imagemUrl: '', email: '', senha: '', telefone: '' }
+const formVazio = { nome: '', descricao: '', imagemUrl: '', email: '', senha: '', telefone: '', comissaoPercent: '' }
 
 export default function ProfissionaisPage() {
   const { httpGet, httpPost, httpPut, httpDelete } = useAPI()
@@ -97,7 +98,9 @@ export default function ProfissionaisPage() {
       imagemUrl: p.imagemUrl || '',
       email: '',
       senha: '',
-      telefone: ''
+      telefone: '',
+      comissaoPercent:
+        typeof p.comissaoPercent === 'number' ? String(p.comissaoPercent) : '',
     })
     setServicoIdsSelecionados((p.servicos ?? []).map((s) => s.id))
     setError('')
@@ -118,6 +121,8 @@ export default function ProfissionaisPage() {
       if (form.email) payload.email = form.email
       if (form.senha) payload.senha = form.senha
       if (form.telefone) payload.telefone = form.telefone
+      // Comissão: envia como número; vazio = 0 (sem comissão).
+      payload.comissaoPercent = form.comissaoPercent === '' ? 0 : Number(form.comissaoPercent)
       const resposta = editando
         ? await httpPut(`profissionais/${editando.id}`, payload)
         : await httpPost('profissionais', payload)
@@ -249,6 +254,14 @@ export default function ProfissionaisPage() {
                     <span className="text-sm text-zinc-400">
                       {profissional.avaliacao.toFixed(1)} ({profissional.quantidadeAvaliacoes})
                     </span>
+                    {!!profissional.comissaoPercent && (
+                      <span
+                        className="ml-auto rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs font-semibold text-green-400"
+                        title="Comissão do profissional"
+                      >
+                        {profissional.comissaoPercent}% comissão
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex gap-2 pt-4 border-t border-zinc-800">
@@ -323,6 +336,29 @@ export default function ProfissionaisPage() {
               placeholder="https://..."
               className={inputModalClasses}
             />
+          </div>
+          <div>
+            <label className="block text-sm text-zinc-400 mb-1">Comissão (%)</label>
+            <div className="relative">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                inputMode="numeric"
+                value={form.comissaoPercent}
+                onChange={(e) => setForm({ ...form, comissaoPercent: e.target.value })}
+                placeholder="0"
+                className={`${inputModalClasses} pr-9`}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">
+                %
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-zinc-500">
+              Percentual do valor do serviço que fica com o profissional. Deixe 0 se não houver
+              comissão.
+            </p>
           </div>
           <div>
             <label className="block text-sm text-zinc-400 mb-1">Serviços que realiza</label>
