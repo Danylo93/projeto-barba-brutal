@@ -1,4 +1,10 @@
-import { validarServicosDoAgendamento } from './agendamento.validacao';
+import {
+  validarServicosDoAgendamento,
+  validarDataDoAgendamento,
+  normalizarIdsDeServico,
+  duracaoEmMinutos,
+  haConflito,
+} from './agendamento.validacao';
 
 describe('validarServicosDoAgendamento', () => {
   const corte = { id: 1, ehCombo: false };
@@ -37,5 +43,104 @@ describe('validarServicosDoAgendamento', () => {
 
   it('sem vínculo do profissional (lista vazia), aceita qualquer serviço', () => {
     expect(validarServicosDoAgendamento([corte, barba], [])).toBeNull();
+  });
+});
+
+describe('validarDataDoAgendamento', () => {
+  const agora = new Date('2026-07-27T12:00:00.000Z');
+
+  it('aceita horário no futuro', () => {
+    expect(
+      validarDataDoAgendamento(new Date('2026-07-28T12:00:00.000Z'), agora),
+    ).toBeNull();
+  });
+
+  it('rejeita horário no passado', () => {
+    expect(
+      validarDataDoAgendamento(new Date('2026-07-26T12:00:00.000Z'), agora),
+    ).toMatch(/passou/i);
+  });
+
+  it('tolera pequena diferença de relógio', () => {
+    expect(
+      validarDataDoAgendamento(new Date('2026-07-27T11:59:00.000Z'), agora),
+    ).toBeNull();
+  });
+
+  it('rejeita data ausente ou inválida', () => {
+    expect(validarDataDoAgendamento(null, agora)).toMatch(/informe/i);
+    expect(validarDataDoAgendamento('não é data', agora)).toMatch(/inválida/i);
+  });
+});
+
+describe('normalizarIdsDeServico', () => {
+  it('aceita lista de ids', () => {
+    expect(normalizarIdsDeServico([1, 2])).toEqual([1, 2]);
+  });
+
+  it('aceita ids em texto', () => {
+    expect(normalizarIdsDeServico(['1', '3'])).toEqual([1, 3]);
+  });
+
+  it('rejeita objetos (payload malformado) em vez de derrubar o servidor', () => {
+    expect(normalizarIdsDeServico([{ id: 1 }])).toBeNull();
+  });
+
+  it('rejeita lista vazia, nulo e ids inválidos', () => {
+    expect(normalizarIdsDeServico([])).toBeNull();
+    expect(normalizarIdsDeServico(null)).toBeNull();
+    expect(normalizarIdsDeServico([0])).toBeNull();
+    expect(normalizarIdsDeServico([1.5])).toBeNull();
+  });
+});
+
+describe('duracaoEmMinutos', () => {
+  it('soma os slots dos serviços', () => {
+    expect(duracaoEmMinutos([{ qtdeSlots: 1 }, { qtdeSlots: 2 }])).toBe(90);
+  });
+
+  it('assume um slot quando não informado', () => {
+    expect(duracaoEmMinutos([{}])).toBe(30);
+    expect(duracaoEmMinutos([])).toBe(30);
+  });
+});
+
+describe('haConflito', () => {
+  const em = (hora: string) => new Date(`2026-07-28T${hora}:00.000Z`);
+
+  it('detecta sobreposição total', () => {
+    expect(
+      haConflito(
+        { inicio: em('14:00'), duracaoMin: 30 },
+        { inicio: em('14:00'), duracaoMin: 30 },
+      ),
+    ).toBe(true);
+  });
+
+  it('detecta sobreposição parcial (serviço longo invade o próximo)', () => {
+    expect(
+      haConflito(
+        { inicio: em('14:00'), duracaoMin: 60 },
+        { inicio: em('14:30'), duracaoMin: 30 },
+      ),
+    ).toBe(true);
+  });
+
+  it('não acusa conflito quando um termina e o outro começa', () => {
+    expect(
+      haConflito(
+        { inicio: em('14:00'), duracaoMin: 30 },
+        { inicio: em('14:30'), duracaoMin: 30 },
+      ),
+    ).toBe(false);
+  });
+
+  it('não acusa conflito em horários distantes', () => {
+    expect(
+      haConflito(
+        { inicio: em('09:00'), duracaoMin: 30 },
+        { inicio: em('17:00'), duracaoMin: 30 },
+      ),
+    ).toBe(false);
   });
 });

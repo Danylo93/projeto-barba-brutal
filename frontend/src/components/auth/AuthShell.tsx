@@ -80,7 +80,10 @@ export default function AuthShell({ children, nome }: AuthShellProps) {
                     </div>
                     {children}
                     <p className="text-center text-xs text-zinc-500">
-                        <Link href="/" className="hover:text-zinc-300 transition-colors">
+                        <Link
+                            href="/"
+                            className="inline-flex min-h-11 items-center px-3 transition-colors hover:text-zinc-300"
+                        >
                             ← Voltar para o site
                         </Link>
                     </p>
