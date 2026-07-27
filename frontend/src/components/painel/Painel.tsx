@@ -75,11 +75,14 @@ export function StatCard({
     valor,
     icone,
     cor = 'text-yellow-400',
+    variacao = null,
 }: {
     rotulo: string
     valor: React.ReactNode
     icone?: React.ReactNode
     cor?: string
+    /** Variação percentual vs. período anterior (ex.: +12.5). `null` esconde. */
+    variacao?: number | null
 }) {
     return (
         <Card className="p-5 sm:p-6 group hover:border-zinc-700/80 hover:bg-zinc-800/50 hover:shadow-lg hover:-translate-y-0.5">
@@ -100,6 +103,16 @@ export function StatCard({
                     <p className="text-2xl sm:text-3xl font-black text-white mt-0.5 tracking-tight tabular-nums">
                         {valor}
                     </p>
+                    {typeof variacao === 'number' && Number.isFinite(variacao) && (
+                        <p
+                            className={`mt-1 text-xs font-semibold ${
+                                variacao >= 0 ? 'text-green-400' : 'text-red-400'
+                            }`}
+                        >
+                            {variacao >= 0 ? '▲' : '▼'} {Math.abs(variacao).toFixed(1)}%
+                            <span className="ml-1 font-normal text-zinc-500">vs. mês anterior</span>
+                        </p>
+                    )}
                 </div>
             </div>
         </Card>
@@ -135,5 +148,39 @@ export function BotaoPrimario({
         <button type={type} onClick={onClick} className={classes}>
             {children}
         </button>
+    )
+}
+
+/**
+ * Indicador compacto de gestão (ticket médio, taxa de cancelamento, etc.).
+ * Pensado para caber 2 por linha no mobile e 4 no desktop.
+ */
+export function MiniCard({
+    rotulo,
+    valor,
+    alerta = false,
+    pequeno = false,
+}: {
+    rotulo: string
+    valor: string
+    /** Destaca em vermelho quando o número é ruim (ex.: cancelamento alto). */
+    alerta?: boolean
+    /** Para valores textuais longos (ex.: nome de serviço). */
+    pequeno?: boolean
+}) {
+    return (
+        <Card className="p-4">
+            <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-zinc-500 truncate">
+                {rotulo}
+            </p>
+            <p
+                className={`mt-1 font-black tracking-tight tabular-nums ${
+                    pequeno ? 'text-sm sm:text-base' : 'text-lg sm:text-xl'
+                } ${alerta ? 'text-red-400' : 'text-white'}`}
+                title={valor}
+            >
+                <span className={pequeno ? 'line-clamp-2' : 'truncate block'}>{valor}</span>
+            </p>
+        </Card>
     )
 }

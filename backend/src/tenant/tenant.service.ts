@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { escolherCorMarca, COR_PRIMARIA_PADRAO } from './cores-marca';
 
@@ -103,12 +103,83 @@ export class TenantService {
       }),
     ]);
 
-    const receitaMes = agsMes.reduce(
-      (acc, ag) => acc + ag.servicos.reduce((s, sv) => s + sv.preco, 0),
-      0,
-    );
+    const valorDe = (ag: { servicos: { preco: number }[] }) =>
+      ag.servicos.reduce((s, sv) => s + sv.preco, 0);
 
-    return { clientesAtivos, agendamentosHoje, receitaMes };
+    const receitaMes = agsMes.reduce((acc, ag) => acc + valorDe(ag), 0);
+
+    // ---- Indicadores de gestão (referência: relatórios dos concorrentes) ----
+    const cancelados = agsMes.filter((a) => a.status === 'cancelado');
+    const efetivos = agsMes.filter((a) => a.status !== 'cancelado');
+    const ticketMedio = efetivos.length ? receitaMes / efetivos.length : 0;
+    const taxaCancelamento = agsMes.length
+      ? (cancelados.length / agsMes.length) * 100
+      : 0;
+
+    // Mês anterior, para mostrar crescimento
+    const inicioMesPassado = new Date(inicioMes);
+    inicioMesPassado.setMonth(inicioMesPassado.getMonth() - 1);
+    const agsMesPassado = await this.prisma.agendamento.findMany({
+      where: { tenantId, data: { gte: inicioMesPassado, lt: inicioMes } },
+      include: { servicos: true },
+    });
+    const receitaMesPassado = agsMesPassado
+      .filter((a) => a.status !== 'cancelado')
+      .reduce((acc, ag) => acc + valorDe(ag), 0);
+    const crescimentoReceita = receitaMesPassado
+      ? ((receitaMes - receitaMesPassado) / receitaMesPassado) * 100
+      : null;
+
+    // Serviços mais vendidos no mês
+    const contagem = new Map<string, { nome: string; qtde: number; receita: number }>();
+    for (const ag of efetivos) {
+      for (const sv of ag.servicos) {
+        const atual = contagem.get(sv.nome) ?? { nome: sv.nome, qtde: 0, receita: 0 };
+        atual.qtde += 1;
+        atual.receita += sv.preco;
+        contagem.set(sv.nome, atual);
+      }
+    }
+    const topServicos = [...contagem.values()]
+      .sort((a, b) => b.qtde - a.qtde)
+      .slice(0, 5);
+
+    // Próximos atendimentos (agenda do dia a diante)
+    const proximos = await this.prisma.agendamento.findMany({
+      where: {
+        tenantId,
+        data: { gte: new Date() },
+        status: { in: ['agendado', 'confirmado'] },
+      },
+      include: {
+        servicos: { select: { nome: true, preco: true } },
+        usuario: { select: { nome: true } },
+        profissional: { select: { nome: true } },
+      },
+      orderBy: { data: 'asc' },
+      take: 5,
+    });
+
+    return {
+      clientesAtivos,
+      agendamentosHoje,
+      receitaMes,
+      // novos indicadores
+      agendamentosMes: agsMes.length,
+      ticketMedio,
+      taxaCancelamento,
+      receitaMesPassado,
+      crescimentoReceita,
+      topServicos,
+      proximosAtendimentos: proximos.map((p) => ({
+        id: p.id,
+        data: p.data,
+        cliente: p.usuario?.nome ?? 'Cliente',
+        profissional: p.profissional?.nome ?? '',
+        servicos: p.servicos.map((s) => s.nome),
+        valor: p.servicos.reduce((s, sv) => s + sv.preco, 0),
+      })),
+    };
   }
 
   async findByEmail(email: string) {
@@ -177,7 +248,11 @@ export class TenantService {
       },
     });
 
-    if (!tenant) return null;
+    // Barbearia inexistente ou inativa: 404 explícito (em vez de 200 com corpo
+    // vazio), para o front conseguir mostrar a página de "não encontrada".
+    if (!tenant) {
+      throw new NotFoundException('Barbearia não encontrada.');
+    }
 
     return {
       id: tenant.id,

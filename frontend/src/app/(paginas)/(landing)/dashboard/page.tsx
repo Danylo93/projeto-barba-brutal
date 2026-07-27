@@ -25,6 +25,7 @@ import {
     PainelMain,
     Card,
     StatCard,
+    MiniCard,
 } from '@/components/painel/Painel'
 import PainelNav from '@/components/painel/PainelNav'
 import PaginaPublicaCard from '@/components/painel/PaginaPublicaCard'
@@ -46,6 +47,20 @@ interface Stats {
     agendamentosHoje: number
     clientesAtivos: number
     receitaMes: number
+    // Indicadores de gestão
+    agendamentosMes?: number
+    ticketMedio?: number
+    taxaCancelamento?: number
+    crescimentoReceita?: number | null
+    topServicos?: { nome: string; qtde: number; receita: number }[]
+    proximosAtendimentos?: {
+        id: number
+        data: string
+        cliente: string
+        profissional: string
+        servicos: string[]
+        valor: number
+    }[]
 }
 
 const acoesRapidas = [
@@ -164,11 +179,117 @@ export default function DashboardPage() {
                         }
                         icone={<DollarSign size={22} />}
                         cor="text-yellow-400"
+                        // Crescimento em relação ao mês anterior
+                        variacao={stats?.crescimentoReceita ?? null}
                     />
                 </motion.div>
 
+                {/* Indicadores de gestão */}
+                {stats && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.05 }}
+                        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8"
+                    >
+                        <MiniCard
+                            rotulo="Ticket médio"
+                            valor={`R$ ${(stats.ticketMedio ?? 0).toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                            })}`}
+                        />
+                        <MiniCard rotulo="Atendimentos no mês" valor={String(stats.agendamentosMes ?? 0)} />
+                        <MiniCard
+                            rotulo="Taxa de cancelamento"
+                            valor={`${(stats.taxaCancelamento ?? 0).toFixed(1)}%`}
+                            alerta={(stats.taxaCancelamento ?? 0) > 15}
+                        />
+                        <MiniCard
+                            rotulo="Serviço mais vendido"
+                            valor={stats.topServicos?.[0]?.nome ?? '—'}
+                            pequeno
+                        />
+                    </motion.div>
+                )}
+
                 {/* Link da página pública da barbearia */}
                 <PaginaPublicaCard dominio={tenant.dominio} id={tenant.id} />
+
+                {/* Próximos atendimentos + serviços mais vendidos */}
+                {stats && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                        <Card className="p-5 sm:p-6">
+                            <h3 className="text-base font-bold text-white mb-4">Próximos atendimentos</h3>
+                            {stats.proximosAtendimentos?.length ? (
+                                <ul className="flex flex-col divide-y divide-zinc-800/70">
+                                    {stats.proximosAtendimentos.map((a) => (
+                                        <li key={a.id} className="flex items-center gap-3 py-3">
+                                            <span className="flex h-11 w-14 shrink-0 flex-col items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400">
+                                                <span className="text-sm font-bold leading-none">
+                                                    {new Date(a.data).toLocaleTimeString('pt-BR', {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                    })}
+                                                </span>
+                                                <span className="text-[10px] leading-none mt-0.5 opacity-80">
+                                                    {new Date(a.data).toLocaleDateString('pt-BR', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                    })}
+                                                </span>
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-semibold text-white">
+                                                    {a.cliente}
+                                                </p>
+                                                <p className="truncate text-xs text-zinc-500">
+                                                    {a.servicos.join(', ')}
+                                                    {a.profissional ? ` · ${a.profissional}` : ''}
+                                                </p>
+                                            </div>
+                                            <span className="shrink-0 text-sm font-bold text-zinc-300">
+                                                R$ {a.valor.toLocaleString('pt-BR')}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-sm text-zinc-500">Nenhum horário marcado por enquanto.</p>
+                            )}
+                        </Card>
+
+                        <Card className="p-5 sm:p-6">
+                            <h3 className="text-base font-bold text-white mb-4">Serviços mais vendidos no mês</h3>
+                            {stats.topServicos?.length ? (
+                                <ul className="flex flex-col gap-3">
+                                    {stats.topServicos.map((s) => {
+                                        const maior = stats.topServicos![0].qtde || 1
+                                        return (
+                                            <li key={s.nome}>
+                                                <div className="flex items-baseline justify-between gap-3 mb-1">
+                                                    <span className="truncate text-sm text-zinc-300">{s.nome}</span>
+                                                    <span className="shrink-0 text-xs text-zinc-500">
+                                                        {s.qtde}× · R$ {s.receita.toLocaleString('pt-BR')}
+                                                    </span>
+                                                </div>
+                                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                                                    <div
+                                                        className="h-full rounded-full bg-yellow-400"
+                                                        style={{ width: `${Math.max(6, (s.qtde / maior) * 100)}%` }}
+                                                    />
+                                                </div>
+                                            </li>
+                                        )
+                                    })}
+                                </ul>
+                            ) : (
+                                <p className="text-sm text-zinc-500">
+                                    Ainda sem dados este mês — os serviços aparecem aqui conforme os atendimentos.
+                                </p>
+                            )}
+                        </Card>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                     {/* Card de Trial (se em teste) */}
