@@ -128,7 +128,7 @@ export class NotificacaoService {
       }
   }
 
-  private async enviarEmail(to: string, subject: string, text: string): Promise<void> {
+  async enviarEmail(to: string, subject: string, text: string): Promise<void> {
     if (!this.transporter) {
       this.logger.log(`[e-mail desativado] Para ${to}: ${subject}`);
       return;

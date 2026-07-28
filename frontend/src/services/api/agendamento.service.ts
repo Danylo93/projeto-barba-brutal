@@ -1,137 +1,44 @@
-/**
- * Serviço de Agendamentos
- * Centraliza toda a lógica de requisições relacionadas a agendamentos
- */
-
 import apiClient from './client';
 import { API_ENDPOINTS } from './endpoints';
 import {
   Agendamento,
   CreateAgendamentoDto,
-  ApiResponse,
-  PaginatedResponse,
-  PaginationParams,
-  FilterParams,
 } from '@/types';
 
 class AgendamentoService {
-  /**
-   * Listar agendamentos com filtros e paginação
-   */
-  async list(
-    params?: PaginationParams & FilterParams
-  ): Promise<PaginatedResponse<Agendamento>> {
-    const response = await apiClient.get<ApiResponse<PaginatedResponse<Agendamento>>>(
-      API_ENDPOINTS.AGENDAMENTOS.LIST,
+  async list(params?: any): Promise<any> {
+    const response = await apiClient.get(
+      API_ENDPOINTS.AGENDAMENTOS.BARBEIRO_MEUS_HORARIOS,
       { params }
     );
-    return response.data.data!;
+    return { data: response.data };
   }
 
-  /**
-   * Obter agendamento por ID
-   */
-  async getById(id: number): Promise<Agendamento> {
-    const response = await apiClient.get<ApiResponse<Agendamento>>(
-      API_ENDPOINTS.AGENDAMENTOS.GET(id)
-    );
-    return response.data.data!;
-  }
-
-  /**
-   * Criar novo agendamento
-   */
   async create(data: CreateAgendamentoDto): Promise<Agendamento> {
-    const response = await apiClient.post<ApiResponse<Agendamento>>(
+    const response = await apiClient.post(
       API_ENDPOINTS.AGENDAMENTOS.CREATE,
       data
     );
-    return response.data.data!;
+    return response.data;
   }
 
-  /**
-   * Atualizar agendamento
-   */
-  async update(id: number, data: Partial<CreateAgendamentoDto>): Promise<Agendamento> {
-    const response = await apiClient.put<ApiResponse<Agendamento>>(
-      API_ENDPOINTS.AGENDAMENTOS.UPDATE(id),
-      data
-    );
-    return response.data.data!;
-  }
-
-  /**
-   * Deletar agendamento
-   */
   async delete(id: number): Promise<void> {
     await apiClient.delete(API_ENDPOINTS.AGENDAMENTOS.DELETE(id));
   }
 
-  /**
-   * Cancelar agendamento
-   */
-  async cancel(id: number, motivo?: string): Promise<Agendamento> {
-    const response = await apiClient.post<ApiResponse<Agendamento>>(
-      API_ENDPOINTS.AGENDAMENTOS.CANCEL(id),
-      { motivo }
+  async atualizarStatus(id: number, status: string): Promise<any> {
+    const response = await apiClient.patch(
+      API_ENDPOINTS.AGENDAMENTOS.ATUALIZAR_STATUS(id),
+      { status }
     );
-    return response.data.data!;
+    return response.data;
   }
 
-  /**
-   * Confirmar agendamento
-   */
-  async confirm(id: number): Promise<Agendamento> {
-    const response = await apiClient.post<ApiResponse<Agendamento>>(
-      API_ENDPOINTS.AGENDAMENTOS.CONFIRM(id)
+  async reagendar(id: number, data: string): Promise<void> {
+    await apiClient.patch(
+      API_ENDPOINTS.AGENDAMENTOS.REAGENDAR(id),
+      { data }
     );
-    return response.data.data!;
-  }
-
-  /**
-   * Obter agendamentos do dia
-   */
-  async getAgendamentosDoDia(data: string): Promise<Agendamento[]> {
-    const response = await apiClient.get<ApiResponse<Agendamento[]>>(
-      API_ENDPOINTS.AGENDAMENTOS.LIST,
-      {
-        params: {
-          dataInicio: data,
-          dataFim: data,
-        },
-      }
-    );
-    return response.data.data!;
-  }
-
-  /**
-   * Obter agendamentos por cliente
-   */
-  async getAgendamentosCliente(clienteId: number): Promise<Agendamento[]> {
-    const response = await apiClient.get<ApiResponse<Agendamento[]>>(
-      API_ENDPOINTS.AGENDAMENTOS.LIST,
-      {
-        params: {
-          clienteId,
-        },
-      }
-    );
-    return response.data.data!;
-  }
-
-  /**
-   * Obter agendamentos por profissional
-   */
-  async getAgendamentosProfissional(profissionalId: number): Promise<Agendamento[]> {
-    const response = await apiClient.get<ApiResponse<Agendamento[]>>(
-      API_ENDPOINTS.AGENDAMENTOS.LIST,
-      {
-        params: {
-          profissionalId,
-        },
-      }
-    );
-    return response.data.data!;
   }
 }
 

@@ -276,6 +276,17 @@ function LoginContent() {
                     className={inputClasses}
                 />
 
+                {modo === 'entrar' && (
+                    <div className="text-right -mt-2">
+                        <a
+                            href={contextoBarbearia ? `/esqueci-senha?tenant=${tenantParam}` : '/esqueci-senha'}
+                            className="text-xs text-zinc-500 hover:text-yellow-400 transition-colors"
+                        >
+                            Esqueci minha senha
+                        </a>
+                    </div>
+                )}
+
                 {modo === 'cadastrar' && (
                     <div>
                         <input

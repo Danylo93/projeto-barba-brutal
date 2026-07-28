@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { DbModule } from '../db/db.module';
 import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
+import { NotificacaoModule } from '../notificacao/notificacao.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { SubscriptionValidationService } from '../common/services/subscription-v
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '15d' },
     }),
+    NotificacaoModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, SubscriptionValidationService],

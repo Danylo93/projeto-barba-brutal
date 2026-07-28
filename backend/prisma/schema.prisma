@@ -352,6 +352,20 @@ model AssinaturaClube {
   @@map("assinatura_clube")
 }
 
+/// Token de recuperação de senha enviado por e-mail.
+/// Válido por 1 hora. Usado para tenant (dono), cliente e barbeiro.
+model TokenRecuperacaoSenha {
+  id        Int      @id @default(autoincrement())
+  email     String
+  token     String   @unique
+  expiracao DateTime
+  usado     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@map("token_recuperacao_senha")
+}
+
 /// Cupons de Desconto (Módulo de Marketing)
 model Cupom {
   id          Int       @id @default(autoincrement())

@@ -51,6 +51,16 @@ export class AuthController {
     return this.authService.loginAdmin(data.email, data.senha);
   }
 
+  @Post('recuperar-senha')
+  recuperarSenha(@Body() data: { email: string; tenantId?: number }) {
+    return this.authService.recuperarSenha(data.email, data.tenantId);
+  }
+
+  @Post('redefinir-senha')
+  redefinirSenha(@Body() data: { token: string; novaSenha: string; tenantId?: number }) {
+    return this.authService.redefinirSenha(data.token, data.novaSenha, data.tenantId);
+  }
+
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   getProfile(@CurrentUser() user: any) {

@@ -14,13 +14,9 @@ class AuthService {
    * Login de usuário (funcionário)
    */
   async loginUsuario(email: string, senha: string, tenantId: number): Promise<AuthResponse> {
-    const url = API_ENDPOINTS.AUTH.LOGIN_USUARIO;
-    const config = url.startsWith('/api/') ? { baseURL: '' } : undefined;
-
     const response = await apiClient.post<AuthResponse>(
-      url,
-      { email, senha, tenantId },
-      config
+      API_ENDPOINTS.AUTH.LOGIN_USUARIO,
+      { email, senha, tenantId }
     );
 
     const data = response.data;
@@ -92,34 +88,17 @@ class AuthService {
    */
   logout(): void {
     removeAuthToken();
-    // Opcional: chamar endpoint de logout no backend
-    apiClient.post(API_ENDPOINTS.AUTH.LOGOUT).catch(() => {
-      // Ignorar erros de logout
-    });
   }
 
-  /**
-   * Obter dados do usuário atual
-   */
   async getCurrentUser(): Promise<Usuario | Tenant> {
-    const response = await apiClient.get<{ data: Usuario | Tenant }>(
-      API_ENDPOINTS.AUTH.ME
+    const response = await apiClient.get<Usuario | Tenant>(
+      API_ENDPOINTS.AUTH.PROFILE
     );
-    return response.data.data;
+    return response.data;
   }
 
-  /**
-   * Renovar token
-   */
   async refreshToken(): Promise<string> {
-    const response = await apiClient.post<{ access_token: string }>(
-      API_ENDPOINTS.AUTH.REFRESH_TOKEN
-    );
-    const token = response.data.access_token;
-    if (token) {
-      setAuthToken(token, 'usuario'); // Tipo padrão, deveria ser recuperado
-    }
-    return token;
+    throw new Error('Refresh token não implementado no backend');
   }
 
   /**
