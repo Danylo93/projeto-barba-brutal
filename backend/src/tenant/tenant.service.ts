@@ -309,18 +309,6 @@ export class TenantService {
     ativo: boolean;
     configuracoes: any;
   }>) {
-    if (data.corSecundaria) {
-      const existingColor = await this.prisma.tenant.findFirst({
-        where: {
-          corSecundaria: data.corSecundaria,
-          id: { not: id },
-        },
-      });
-      if (existingColor) {
-        throw new BadRequestException('Esta cor já está sendo usada por outra barbearia. Escolha uma cor diferente.');
-      }
-    }
-
     return this.prisma.tenant.update({
       where: { id },
       data,

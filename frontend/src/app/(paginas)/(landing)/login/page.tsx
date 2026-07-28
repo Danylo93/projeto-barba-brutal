@@ -51,7 +51,11 @@ function LoginContent() {
         if (!(tenantParam > 0)) return
         fetch(`${API_BASE}/tenants/publico/${tenantParam}`)
             .then((r) => (r.ok ? r.json() : null))
-            .then((d) => d?.nome && setBarbeariaNome(d.nome))
+            .then((d) => {
+                if (d?.nome) setBarbeariaNome(d.nome)
+                if (d?.corPrimaria) document.documentElement.style.setProperty('--tenant-primary', d.corPrimaria)
+                if (d?.corSecundaria) document.documentElement.style.setProperty('--tenant-secondary', d.corSecundaria)
+            })
             .catch(() => {})
     }, [tenantParam])
 

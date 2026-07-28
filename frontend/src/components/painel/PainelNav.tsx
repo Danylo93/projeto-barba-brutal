@@ -45,7 +45,11 @@ export default function PainelNav() {
             return
         }
         httpGet(`tenants/${usuario.tenantId}`)
-            .then((t) => t?.nome && setBarbeariaNome(t.nome))
+            .then((t) => {
+                if (t?.nome) setBarbeariaNome(t.nome)
+                if (t?.corPrimaria) document.documentElement.style.setProperty('--tenant-primary', t.corPrimaria)
+                if (t?.corSecundaria) document.documentElement.style.setProperty('--tenant-secondary', t.corSecundaria)
+            })
             .catch(() => {})
     }, [usuario?.tenantId, isAdmin, httpGet])
 

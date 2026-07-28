@@ -15,7 +15,7 @@ export interface AuthShellProps {
  */
 export default function AuthShell({ children, nome }: AuthShellProps) {
     return (
-        <div className="min-h-screen grid lg:grid-cols-2 bg-zinc-950">
+        <div className="min-h-screen grid lg:grid-cols-2 bg-tenant-primary">
             {/* Painel de marca (só desktop) */}
             <div className="relative hidden lg:flex flex-col justify-between p-10 overflow-hidden">
                 <Image
@@ -36,17 +36,17 @@ export default function AuthShell({ children, nome }: AuthShellProps) {
                         <>
                             <h2 className="text-3xl font-black text-white leading-tight">
                                 Bem-vindo à{' '}
-                                <span className="text-yellow-400">{nome}</span>
+                                <span className="text-tenant-secondary">{nome}</span>
                             </h2>
                             <ul className="flex flex-col gap-2 text-zinc-300 text-sm">
                                 <li className="flex items-center gap-2">
-                                    <span className="text-yellow-400">✂</span> Agende seu horário em segundos
+                                    <span className="text-tenant-secondary">✂</span> Agende seu horário em segundos
                                 </li>
                                 <li className="flex items-center gap-2">
-                                    <span className="text-yellow-400">✂</span> Escolha o profissional e o serviço
+                                    <span className="text-tenant-secondary">✂</span> Escolha o profissional e o serviço
                                 </li>
                                 <li className="flex items-center gap-2">
-                                    <span className="text-yellow-400">✂</span> Seja atendido no horário marcado
+                                    <span className="text-tenant-secondary">✂</span> Seja atendido no horário marcado
                                 </li>
                             </ul>
                         </>
@@ -54,17 +54,17 @@ export default function AuthShell({ children, nome }: AuthShellProps) {
                         <>
                             <h2 className="text-3xl font-black text-white leading-tight">
                                 Sua barbearia em um{' '}
-                                <span className="text-yellow-400">negócio digital</span>
+                                <span className="text-tenant-secondary">negócio digital</span>
                             </h2>
                             <ul className="flex flex-col gap-2 text-zinc-300 text-sm">
                                 <li className="flex items-center gap-2">
-                                    <span className="text-yellow-400">✂</span> Agendamentos online 24h
+                                    <span className="text-tenant-secondary">✂</span> Agendamentos online 24h
                                 </li>
                                 <li className="flex items-center gap-2">
-                                    <span className="text-yellow-400">✂</span> Gestão de clientes, equipe e serviços
+                                    <span className="text-tenant-secondary">✂</span> Gestão de clientes, equipe e serviços
                                 </li>
                                 <li className="flex items-center gap-2">
-                                    <span className="text-yellow-400">✂</span> Relatórios e controle do seu plano
+                                    <span className="text-tenant-secondary">✂</span> Relatórios e controle do seu plano
                                 </li>
                             </ul>
                         </>

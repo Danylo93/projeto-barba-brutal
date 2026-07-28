@@ -56,6 +56,10 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        tenant: {
+          primary: "var(--tenant-primary, #09090b)", // Fallback to zinc-950
+          secondary: "var(--tenant-secondary, #facc15)", // Fallback to yellow-400
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

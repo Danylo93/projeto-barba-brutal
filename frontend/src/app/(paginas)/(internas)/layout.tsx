@@ -9,7 +9,7 @@ export default function Layout(props: any) {
     return (
         <ForcarUsuario>
             <ProvedorAgendamento>
-                <div className="bg-zinc-950">
+                <div className="min-h-screen bg-tenant-primary text-zinc-100">
                     <PainelNav />
                     <TrialBanner />
                     <Pagina>{props.children}</Pagina>

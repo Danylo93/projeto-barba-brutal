@@ -149,8 +149,12 @@ export default async function BarbeariaPublicaPage({
     const [nomePrimario, ...resto] = b.nome.split(' ')
     const nomeSecundario = resto.join(' ')
 
-    // Cor de destaque da barbearia (tenant). Validada para evitar valores estranhos;
-    // fallback para o amarelo padrão do sistema.
+    // Cores da barbearia (tenant).
+    const bgPrimary =
+        b.corPrimaria && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(b.corPrimaria)
+            ? b.corPrimaria
+            : '#09090b'
+
     const brand =
         b.corSecundaria && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(b.corSecundaria)
             ? b.corSecundaria
@@ -158,23 +162,23 @@ export default async function BarbeariaPublicaPage({
 
     const Marca = () => (
         <Link href={agendarHref} className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand)] text-zinc-900">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-tenant-secondary text-tenant-primary">
                 <Scissors size={18} strokeWidth={2.5} />
             </span>
             <span className="text-lg font-black tracking-tight text-white">
                 {nomePrimario}{' '}
-                {nomeSecundario && <span className="text-[var(--brand)]">{nomeSecundario}</span>}
+                {nomeSecundario && <span className="text-tenant-secondary">{nomeSecundario}</span>}
             </span>
         </Link>
     )
 
     return (
         <div
-            className="min-h-screen scroll-smooth bg-zinc-950 text-zinc-100"
-            style={{ ['--brand' as any]: brand }}
+            className="min-h-screen scroll-smooth bg-tenant-primary text-zinc-100"
+            style={{ ['--tenant-secondary' as any]: brand, ['--tenant-primary' as any]: bgPrimary }}
         >
             {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-zinc-800/80 bg-zinc-950/85 backdrop-blur-md">
+            <header className="sticky top-0 z-50 border-b border-zinc-800/80 bg-tenant-primary/85 backdrop-blur-md">
                 <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
                     <Marca />
                     <nav className="hidden items-center gap-8 md:flex">
@@ -192,7 +196,7 @@ export default async function BarbeariaPublicaPage({
                     </nav>
                     <Link
                         href={agendarHref}
-                        className="inline-flex items-center gap-2 rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-bold text-zinc-900 transition-all hover:opacity-90 active:scale-95"
+                        className="inline-flex items-center gap-2 rounded-xl bg-tenant-secondary px-4 py-2 text-sm font-bold text-tenant-primary transition-all hover:opacity-90 active:scale-95"
                     >
                         Agendar
                         <ArrowRight size={16} />
@@ -210,18 +214,18 @@ export default async function BarbeariaPublicaPage({
                         priority
                         className="object-cover opacity-30"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/70 via-zinc-950/85 to-zinc-950" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-tenant-primary/70 via-tenant-primary/85 to-tenant-primary" />
                 </div>
 
                 <div className="relative mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32 text-center">
-                    <div className="animate-fade-in mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-1.5">
-                        <Scissors size={14} className="text-[var(--brand)]" />
-                        <span className="text-sm font-medium text-[var(--brand)]">{b.nome}</span>
+                    <div className="animate-fade-in mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-tenant-secondary/30 bg-tenant-secondary/10 px-4 py-1.5">
+                        <Scissors size={14} className="text-tenant-secondary" />
+                        <span className="text-sm font-medium text-tenant-secondary">{b.nome}</span>
                     </div>
 
                     <h1 className="animate-slide-up text-4xl font-black leading-tight tracking-tight text-white sm:text-6xl">
                         Seu estilo,{' '}
-                        <span className="text-[var(--brand)]">
+                        <span className="text-tenant-secondary">
                             no capricho.
                         </span>
                     </h1>
@@ -233,7 +237,7 @@ export default async function BarbeariaPublicaPage({
                     <div className="animate-slide-up mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
                         <Link
                             href={agendarHref}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-6 py-3.5 font-bold text-zinc-900 shadow-lg shadow-black/30 transition-all hover:opacity-90 active:scale-95 sm:w-auto"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-tenant-secondary px-6 py-3.5 font-bold text-tenant-primary shadow-lg shadow-black/30 transition-all hover:opacity-90 active:scale-95 sm:w-auto"
                         >
                             Agendar horário
                             <ArrowRight size={18} />
@@ -248,10 +252,9 @@ export default async function BarbeariaPublicaPage({
                 </div>
             </section>
 
-            {/* Serviços */}
             <section id="servicos" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
                 <div className="mb-12 text-center reveal-up">
-                    <span className="text-sm font-semibold uppercase tracking-wider text-[var(--brand)]">
+                    <span className="text-sm font-semibold uppercase tracking-wider text-tenant-secondary">
                         Serviços
                     </span>
                     <h2 className="mt-2 text-3xl font-black text-white sm:text-4xl">
@@ -271,7 +274,7 @@ export default async function BarbeariaPublicaPage({
                                 key={servico.id}
                                 className={`reveal-up group flex flex-col overflow-hidden rounded-2xl border bg-zinc-900/60 transition-all hover:-translate-y-1 ${
                                     servico.ehCombo
-                                        ? 'border-yellow-400/60 shadow-lg shadow-yellow-400/10'
+                                        ? 'border-tenant-secondary/60 shadow-lg shadow-tenant-secondary/10'
                                         : 'border-zinc-800 hover:border-zinc-700'
                                 }`}
                             >
@@ -283,7 +286,7 @@ export default async function BarbeariaPublicaPage({
                                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                                     />
                                     {servico.ehCombo && (
-                                        <span className="absolute left-3 top-3 rounded-full bg-[var(--brand)] px-3 py-1 text-xs font-bold uppercase text-zinc-900">
+                                        <span className="absolute left-3 top-3 rounded-full bg-tenant-secondary px-3 py-1 text-xs font-bold uppercase text-tenant-primary">
                                             Combo
                                         </span>
                                     )}
@@ -291,7 +294,7 @@ export default async function BarbeariaPublicaPage({
                                 <div className="flex flex-1 flex-col p-5">
                                     <div className="flex items-start justify-between gap-3">
                                         <h3 className="text-lg font-bold text-white">{servico.nome}</h3>
-                                        <span className="whitespace-nowrap text-lg font-black text-[var(--brand)]">
+                                        <span className="whitespace-nowrap text-lg font-black text-tenant-secondary">
                                             R$ {servico.preco.toFixed(2).replace('.', ',')}
                                         </span>
                                     </div>
@@ -308,7 +311,7 @@ export default async function BarbeariaPublicaPage({
                                         href={agendarHref}
                                         className={`mt-4 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all active:scale-95 ${
                                             servico.ehCombo
-                                                ? 'bg-[var(--brand)] text-zinc-900 hover:opacity-90'
+                                                ? 'bg-tenant-secondary text-tenant-primary hover:opacity-90'
                                                 : 'border border-zinc-700 text-zinc-100 hover:bg-zinc-800'
                                         }`}
                                     >

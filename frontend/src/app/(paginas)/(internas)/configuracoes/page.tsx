@@ -44,6 +44,7 @@ export default function ConfiguracoesPage() {
     const [sucesso, setSucesso] = useState(false)
 
     const [horarios, setHorarios] = useState<DiaHorario[]>(horariosPadrao())
+    const [corPrimaria, setCorPrimaria] = useState('#09090b')
     const [corSecundaria, setCorSecundaria] = useState('#f59e0b')
 
     useEffect(() => {
@@ -56,6 +57,7 @@ export default function ConfiguracoesPage() {
             setLoading(true)
             const response = await httpGet('tenants/me')
             const conf = response?.configuracoes
+            if (response?.corPrimaria) setCorPrimaria(response.corPrimaria)
             if (response?.corSecundaria) setCorSecundaria(response.corSecundaria)
             // Deriva o horário de cada dia (aceita formato novo e o antigo).
             setHorarios(DIAS_SEMANA.map((d) => horarioDoDia(conf, d.id)))
@@ -107,7 +109,7 @@ export default function ConfiguracoesPage() {
                 horaFechamento: (horarios.find((h) => h.aberto) ?? horarios[1]).fechamento,
             }
 
-            const response = await httpPut('tenants/me/configuracoes', { configuracoes, corSecundaria })
+            const response = await httpPut('tenants/me/configuracoes', { configuracoes, corPrimaria, corSecundaria })
 
             if (response && (response.statusCode >= 400 || response.message)) {
                 throw new Error(response.message || 'Erro ao salvar configurações')
@@ -265,14 +267,30 @@ export default function ConfiguracoesPage() {
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-white tracking-tight">Identidade Visual</h2>
-                            <p className="text-sm text-zinc-500">Escolha a cor de destaque da sua página.</p>
+                            <p className="text-sm text-zinc-500">Escolha as cores da sua plataforma.</p>
                         </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
+                    <div className="flex flex-col sm:flex-row gap-6 items-start">
+                        <div className="flex-1">
+                            <label className="block text-sm font-semibold text-white mb-2">Cor Primária (Fundo)</label>
+                            <p className="text-sm text-zinc-400 mb-4">A cor de fundo principal das suas páginas (recomendado tons escuros).</p>
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="color"
+                                    value={corPrimaria}
+                                    onChange={(e) => setCorPrimaria(e.target.value)}
+                                    className="h-12 w-24 rounded cursor-pointer bg-zinc-800 border-none"
+                                />
+                                <span className="text-sm text-zinc-300 uppercase bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700 font-mono">
+                                    {corPrimaria}
+                                </span>
+                            </div>
+                        </div>
+
                         <div className="flex-1">
                             <label className="block text-sm font-semibold text-white mb-2">Cor Secundária (Destaque)</label>
-                            <p className="text-sm text-zinc-400 mb-4">Esta cor será usada nos botões e destaques da sua página pública. Não pode ser igual à de outra barbearia.</p>
+                            <p className="text-sm text-zinc-400 mb-4">Cor usada nos botões e destaques. Escolha uma que contraste com o fundo.</p>
                             <div className="flex items-center gap-4">
                                 <input
                                     type="color"
