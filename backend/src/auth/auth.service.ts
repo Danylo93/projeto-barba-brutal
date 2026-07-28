@@ -433,11 +433,14 @@ export class AuthService {
     const params = tipo === 'usuario' && tenantId ? `?token=${token}&tenant=${tenantId}` : `?token=${token}`
     const link = `${frontendUrl}/redefinir-senha${params}`
 
-    await this.notificacao.enviarEmail(
+    this.notificacao.enviarEmail(
       email,
       'Recuperação de senha — Barba Brutal',
       `Olá ${conta.nome},\n\nRecebemos um pedido de recuperação de senha.\n\nClique no link abaixo para redefinir sua senha:\n${link}\n\nEste link é válido por 1 hora.\n\nSe não foi você quem pediu, ignore este e-mail.\n\n— Equipe Barba Brutal`,
-    )
+    ).catch(() => {
+      // Falha no e-mail não impede a resposta — o token foi gerado e pode ser
+      // reenviado manualmente se necessário.
+    })
 
     return { message: 'Se o e-mail estiver cadastrado, você receberá as instruções em breve.' }
   }
