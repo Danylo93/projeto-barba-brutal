@@ -35,8 +35,8 @@ export function CTA() {
         </h2>
 
         <p className="text-lg sm:text-xl text-zinc-400 mb-10 max-w-2xl mx-auto">
-          Junte-se a centenas de barbearias que organizaram a gestão e não perdem
-          mais nenhum horário.
+          Organize sua agenda, pare de perder horário por esquecimento e deixe
+          de responder cliente no WhatsApp fora do expediente.
         </p>
 
         <div className="flex justify-center mb-14">
