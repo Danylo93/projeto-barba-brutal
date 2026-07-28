@@ -285,7 +285,9 @@ export default function PainelNav() {
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.25, ease: 'easeInOut' }}
-                        className={`${soMobile} border-t border-zinc-800 bg-zinc-900/98 backdrop-blur-xl overflow-hidden`}
+                        // 98 não existe na escala de opacidade do Tailwind: a classe era
+                        // descartada e a gaveta ficava sem fundo nenhum.
+                        className={`${soMobile} border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-xl overflow-hidden`}
                     >
                         <nav className="flex flex-col px-4 py-3 gap-1">
                             {usuario && (

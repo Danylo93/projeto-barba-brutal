@@ -73,7 +73,9 @@ export default function BannerConsentimento({ tenantId = null }: Props) {
                     aria-labelledby="titulo-cookies"
                     className="fixed inset-x-0 bottom-0 z-[90] p-3 sm:p-4"
                 >
-                    <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900/98 shadow-2xl shadow-black/60 backdrop-blur-xl">
+                    {/* Fundo opaco de propósito: aviso legal precisa ser legível
+                        sobre qualquer página, inclusive as de fundo claro ou com foto. */}
+                    <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl shadow-black/60">
                         <div className="flex items-start gap-3 p-5">
                             <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400 sm:flex">
                                 <Cookie size={20} />
