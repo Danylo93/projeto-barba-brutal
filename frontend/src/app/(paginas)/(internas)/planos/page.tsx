@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckCircle, AlertCircle, Crown, QrCode, Copy, RefreshCw } from 'lucide-react'
+import { CheckCircle, AlertCircle, Crown, QrCode, Copy, RefreshCw, CreditCard } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import useUsuario from '@/data/hooks/useUsuario'
 import Modal from '@/components/painel/Modal'
@@ -94,6 +94,28 @@ export default function PlanosPage() {
       setError(msg)
       toastError('Erro ao ativar o plano', msg)
     } finally {
+      setSalvandoId(null)
+    }
+  }
+
+  /**
+   * Assinatura recorrente: o Mercado Pago mostra a tela onde o barbeiro
+   * escolhe cartão ou Pix, e passa a cobrar sozinho todo mês.
+   */
+  const assinarRecorrente = async (plano: Plano) => {
+    if (!isTenant) return
+    try {
+      setSalvandoId(plano.id)
+      const r = await httpPost('/assinaturas/me/recorrente', { planoId: plano.id })
+      if (r?.statusCode >= 400 || !r?.initPoint) {
+        throw new Error(r?.message || 'Não foi possível abrir o pagamento')
+      }
+      // Sai do nosso site para o checkout do Mercado Pago.
+      window.location.href = r.initPoint
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível abrir o pagamento'
+      setError(msg)
+      toastError('Erro ao iniciar a assinatura', msg)
       setSalvandoId(null)
     }
   }
@@ -246,12 +268,22 @@ export default function PlanosPage() {
                   <div className="flex flex-col gap-2">
                     {atual ? (
                       emTeste ? (
-                        <button
-                          onClick={() => abrirPix(plano)}
-                          className="w-full py-2.5 rounded-lg bg-yellow-400 text-zinc-900 font-semibold hover:bg-yellow-300 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                        >
-                          <QrCode size={18} /> Pagar com Pix
-                        </button>
+                        <>
+                          <button
+                            onClick={() => assinarRecorrente(plano)}
+                            disabled={salvandoId !== null}
+                            className="w-full py-2.5 rounded-lg bg-yellow-400 text-zinc-900 font-semibold hover:bg-yellow-300 disabled:opacity-60 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                          >
+                            <CreditCard size={18} />
+                            {salvandoId === plano.id ? 'Abrindo...' : 'Assinar com cartão ou Pix'}
+                          </button>
+                          <button
+                            onClick={() => abrirPix(plano)}
+                            className="w-full py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 text-sm"
+                          >
+                            <QrCode size={16} /> Pagar um mês por Pix
+                          </button>
+                        </>
                       ) : (
                         <button
                           disabled
@@ -270,10 +302,17 @@ export default function PlanosPage() {
                           {salvandoId === plano.id ? 'Ativando...' : 'Testar 30 dias grátis'}
                         </button>
                         <button
-                          onClick={() => abrirPix(plano)}
-                          className="w-full py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 text-sm"
+                          onClick={() => assinarRecorrente(plano)}
+                          disabled={salvandoId !== null}
+                          className="w-full py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-60 transition-colors flex items-center justify-center gap-2 text-sm"
                         >
-                          <QrCode size={16} /> Pagar com Pix
+                          <CreditCard size={16} /> Assinar com cartão ou Pix
+                        </button>
+                        <button
+                          onClick={() => abrirPix(plano)}
+                          className="w-full py-2 rounded-lg border border-zinc-800 text-zinc-400 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 text-xs"
+                        >
+                          <QrCode size={14} /> Pagar um mês por Pix
                         </button>
                       </>
                     )}

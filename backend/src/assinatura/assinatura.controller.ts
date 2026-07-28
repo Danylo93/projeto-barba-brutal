@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
   Headers,
   RawBodyRequest,
   Req,
@@ -58,6 +59,24 @@ export class AssinaturaController {
 
   // ── Pagamento via Pix (Mercado Pago) ──
 
+  /**
+   * Começa a assinatura recorrente e devolve o link do checkout do Mercado
+   * Pago, onde o barbeiro escolhe cartão ou Pix.
+   */
+  @Post('me/recorrente')
+  @UseGuards(JwtAuthGuard)
+  iniciarRecorrente(@CurrentUser() user: any, @Body() body: { planoId: number }) {
+    const tenantId = exigirTenant(user);
+    return this.assinaturaService.iniciarAssinaturaRecorrente(tenantId, body?.planoId);
+  }
+
+  /** Admin do SaaS: publica/atualiza os planos no Mercado Pago. */
+  @Post('planos/sincronizar')
+  @UseGuards(JwtAuthGuard, AdminAuthGuard)
+  sincronizarPlanos() {
+    return this.assinaturaService.sincronizarTodosOsPlanos();
+  }
+
   @Post('me/pix')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   criarPix(@CurrentUser() user: any, @Body() data: { planoId?: number }) {
@@ -85,9 +104,11 @@ export class AssinaturaController {
   }
 
   // Webhook do Mercado Pago (público — validado pelo id do pagamento).
+  // O Mercado Pago manda o tópico ora no corpo, ora na query — o serviço lê
+  // os dois para não perder notificação por causa do formato.
   @Post('webhook/mercadopago')
-  handleMercadoPago(@Body() body: any) {
-    return this.assinaturaService.handleWebhookMercadoPago(body);
+  handleMercadoPago(@Body() body: any, @Query() query: any) {
+    return this.assinaturaService.handleWebhookMercadoPago(body, query);
   }
 
   // ── Endpoints por tenantId: restritos ao próprio tenant ou admin ──
