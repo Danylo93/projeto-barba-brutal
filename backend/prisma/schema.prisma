@@ -57,9 +57,12 @@ model Tenant {
   usuarios      Usuario[]
   profissionais Profissional[]
   servicos      Servico[]
+  chavePix      String?   // chave Pix da barbearia (recebe o clube de assinatura)
   agendamentos  Agendamento[]
   pagamentos    Pagamento[]
   bloqueios     Bloqueio[]
+  planosClube   PlanoClube[]
+  assinaturasClube AssinaturaClube[]
 
   @@map("tenant")
 }
@@ -130,6 +133,7 @@ model Usuario {
   updatedAt    DateTime      @updatedAt
   agendamentos Agendamento[]
   profissional Profissional?
+  assinaturasClube AssinaturaClube[]
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
@@ -232,4 +236,51 @@ model Bloqueio {
   @@index([tenantId, inicio])
   @@index([profissionalId, inicio])
   @@map("bloqueio")
+}
+
+/// Plano do clube de assinatura que a barbearia oferece aos seus clientes.
+model PlanoClube {
+  id          Int      @id @default(autoincrement())
+  tenantId    Int
+  nome        String
+  descricao   String?
+  preco       Float
+  /// Benefícios listados na página do clube (ex.: "2 cortes por mês").
+  beneficios  String[]
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assinaturas AssinaturaClube[]
+
+  @@unique([nome, tenantId])
+  @@map("plano_clube")
+}
+
+/// Assinatura de um cliente no clube da barbearia. Pagamento via Pix
+/// direto para a barbearia; o dono confirma o recebimento no painel.
+model AssinaturaClube {
+  id            Int       @id @default(autoincrement())
+  tenantId      Int
+  usuarioId     Int
+  planoClubeId  Int
+  /// pendente (aguardando Pix), ativa, cancelada
+  status        String    @default("pendente")
+  valor         Float
+  /// Pix copia e cola gerado na contratação.
+  pixCopiaECola String?
+  inicio        DateTime?
+  fim           DateTime?
+  confirmadoEm  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuario       Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  plano         PlanoClube @relation(fields: [planoClubeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([usuarioId])
+  @@map("assinatura_clube")
 }
