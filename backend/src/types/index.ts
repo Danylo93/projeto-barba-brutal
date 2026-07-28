@@ -36,9 +36,9 @@ export interface RepositorioUsuario {
 export interface RepositorioAgendamento {
   salvar(agendamento: Agendamento): Promise<number>;
   buscarPorUsuario(usuarioId: number): Promise<Agendamento[]>;
-  buscarPorProfissional(profissionalId: number, data: Date): Promise<Agendamento[]>;
+  buscarPorProfissional(profissionalId: number, data: Date, tenantId: number): Promise<Agendamento[]>;
   /** Bloqueios (folga/almoço/férias) que afetam o profissional no dia. */
-  buscarBloqueios?(profissionalId: number, data: Date): Promise<{ inicio: Date; fim: Date }[]>;
+  buscarBloqueios?(profissionalId: number, data: Date, tenantId: number): Promise<{ inicio: Date; fim: Date }[]>;
 }
 
 // Interface para provedor de criptografia
@@ -91,8 +91,8 @@ export class RegistrarUsuario {
 export class ObterHorariosOcupados {
   constructor(private repo: RepositorioAgendamento) {}
 
-  async executar(profissionalId: number, data: Date): Promise<string[]> {
-    const agendamentos = await this.repo.buscarPorProfissional(profissionalId, data);
+  async executar(profissionalId: number, data: Date, tenantId: number): Promise<string[]> {
+    const agendamentos = await this.repo.buscarPorProfissional(profissionalId, data, tenantId);
     
     // Filtra agendamentos cancelados
     const ativos = agendamentos.filter((a: any) => a.status !== 'cancelado');
@@ -120,7 +120,7 @@ export class ObterHorariosOcupados {
     }
 
     // Slots cobertos por bloqueios (folga, almoço, férias) também ficam indisponíveis.
-    const bloqueios = (await this.repo.buscarBloqueios?.(profissionalId, data)) ?? [];
+    const bloqueios = (await this.repo.buscarBloqueios?.(profissionalId, data, tenantId)) ?? [];
     if (bloqueios.length) {
       const inicioDoDia = new Date(data);
       inicioDoDia.setHours(0, 0, 0, 0);

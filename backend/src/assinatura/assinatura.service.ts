@@ -59,8 +59,18 @@ export class AssinaturaService {
       (assinatura.status === 'active' || assinatura.status === 'trialing') &&
       assinatura.dataFim > agora;
 
-    // Sem assinatura vigente → inicia teste de 30 dias.
-    if (!emVigor) {
+    // Teste grátis é UMA vez por barbearia, e a marca fica no tenant para
+    // sobreviver a cancelamento. Sem isso bastava cancelar e escolher um
+    // plano de novo para ganhar mais 30 dias — todo mês, de graça, e ainda
+    // dava para pular do Básico para o Premium.
+    const barbearia = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { testeGratisUsadoEm: true },
+    });
+    const jaUsouTeste = !!barbearia?.testeGratisUsadoEm;
+
+    // Sem assinatura vigente e sem teste gasto → inicia teste de 30 dias.
+    if (!emVigor && !jaUsouTeste) {
       const dataFim = new Date();
       dataFim.setDate(dataFim.getDate() + 30);
       const criada = await this.prisma.assinatura.upsert({
@@ -85,8 +95,21 @@ export class AssinaturaService {
         include: { plano: true },
       });
 
+      // Queima o teste: a partir daqui, escolher plano de novo não renova nada.
+      await this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: { testeGratisUsadoEm: agora },
+      });
+
       await this.avisarNoWhatsapp(tenantId, plano, dataFim, true);
       return criada;
+    }
+
+    // Já gastou o teste e não tem assinatura vigente: precisa pagar para voltar.
+    if (!emVigor) {
+      throw new BadRequestException(
+        'Seu período de teste já foi usado. Escolha um plano e pague para reativar o acesso.',
+      );
     }
 
     // Já tem plano vigente (teste ou pago) → só troca o plano, mantém a validade.

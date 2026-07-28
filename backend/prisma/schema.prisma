@@ -70,6 +70,10 @@ model Tenant {
   profissionais Profissional[]
   servicos      Servico[]
   chavePix      String?   // chave Pix da barbearia (recebe o clube de assinatura)
+  /// Quando o teste grátis foi concedido. Fica no tenant, e não na assinatura,
+  /// para sobreviver a cancelamento — senão bastava cancelar e escolher plano
+  /// de novo para ganhar outros 30 dias, todo mês.
+  testeGratisUsadoEm DateTime?
   agendamentos  Agendamento[]
   pagamentos    Pagamento[]
   bloqueios     Bloqueio[]
