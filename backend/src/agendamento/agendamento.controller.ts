@@ -32,12 +32,24 @@ export class AgendamentoController {
 
   @Post()
   async criar(
-    @Body() agendamento: Agendamento,
+    @Body() body: any, // Agendamento + telefoneCliente
     @UsuarioLogado() usuarioLogado: Usuario,
     @CurrentTenant() tenant: any,
   ) {
-    if (agendamento.usuarioId !== usuarioLogado.id) {
-      throw new HttpException('Usuário não autorizado', 401);
+    let agendamento = body as Agendamento;
+    // Se o bot mandou o telefoneCliente e for admin/barbeiro/bot
+    if (body.telefoneCliente && (usuarioLogado.tipo === 'tenant' || usuarioLogado.barbeiro)) {
+      const usuarioId = await this.repo.buscarIdUsuarioPorTelefone(body.telefoneCliente, tenant.id);
+      if (usuarioId) {
+        agendamento.usuarioId = usuarioId;
+      } else {
+        throw new HttpException('Usuário não encontrado pelo telefone', 404);
+      }
+    } else {
+      // Permite que o próprio usuário crie, ou que o tenant admin/barbeiro crie em nome dele
+      if (agendamento.usuarioId !== usuarioLogado.id && usuarioLogado.tipo !== 'tenant' && !usuarioLogado.barbeiro) {
+        throw new HttpException('Usuário não autorizado', 401);
+      }
     }
     agendamento.tenantId = tenant.id;
     const id = await this.repo.salvar(agendamento);
@@ -59,6 +71,11 @@ export class AgendamentoController {
   @Get(':email')
   buscarPorEmail(@Param('email') email: string, @CurrentTenant() tenant: any) {
     return this.repo.buscarPorEmail(email, tenant.id);
+  }
+
+  @Get('telefone/:telefone')
+  buscarPorTelefone(@Param('telefone') telefone: string, @CurrentTenant() tenant: any) {
+    return this.repo.buscarPorTelefone(telefone, tenant.id);
   }
 
   @Get('ocupacao/:profissional/:data')
@@ -121,5 +138,27 @@ export class AgendamentoController {
       throw new HttpException('Não é possível reverter o status de um agendamento concluído', 400);
     }
     await this.repo.atualizarStatus(+id, tenant.id, status);
+  }
+
+  @Patch(':id/reagendar')
+  async reagendar(
+    @Param('id') id: string,
+    @Body('data') data: string,
+    @UsuarioLogado() usuarioLogado: Usuario,
+    @CurrentTenant() tenant: any,
+  ) {
+    const agendamento = await this.repo.buscarPorId(+id, tenant.id);
+    if (!agendamento) {
+      throw new HttpException('Agendamento não encontrado', 404);
+    }
+    // Para simplificar a verificação, permitimos que tanto o barbeiro/tenant
+    // quanto o próprio usuário (bot via token ou frontend) possam reagendar.
+    if (!usuarioLogado.barbeiro && usuarioLogado.tipo !== 'tenant' && usuarioLogado.id !== agendamento.usuarioId) {
+      throw new HttpException('Usuário não autorizado', 401);
+    }
+    if (agendamento.status === 'concluido' || agendamento.status === 'cancelado') {
+      throw new HttpException('Não é possível reagendar um agendamento concluído ou cancelado', 400);
+    }
+    await this.repo.reagendar(+id, tenant.id, new Date(data));
   }
 }

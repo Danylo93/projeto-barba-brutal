@@ -160,6 +160,43 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     return agendamentos.map(paraLeitura) as unknown as Agendamento[];
   }
 
+  async buscarPorTelefone(telefone: string, tenantId: number): Promise<Agendamento[]> {
+    const agendamentos = await this.prismaService.agendamento.findMany({
+      where: {
+        tenantId,
+        usuario: {
+          telefone: telefone,
+        },
+        data: {
+          gte: new Date(),
+        },
+      },
+      include: {
+        servicos: true,
+        profissional: true,
+        usuario: true,
+      },
+      orderBy: {
+        data: 'desc',
+      },
+    });
+
+    return agendamentos.map(paraLeitura) as unknown as Agendamento[];
+  }
+
+  async buscarIdUsuarioPorTelefone(telefone: string, tenantId: number): Promise<number | null> {
+    const usuario = await this.prismaService.usuario.findFirst({
+      where: {
+        telefone,
+        tenantId,
+      },
+      select: {
+        id: true,
+      },
+    });
+    return usuario?.id || null;
+  }
+
   async buscarPorProfissionalEData(
     profissional: number,
     data: Date,
@@ -201,6 +238,18 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       },
       data: {
         status,
+      },
+    });
+  }
+
+  async reagendar(id: number, tenantId: number, data: Date): Promise<void> {
+    await this.prismaService.agendamento.update({
+      where: {
+        id: id,
+        tenantId,
+      },
+      data: {
+        data,
       },
     });
   }

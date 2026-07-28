@@ -1,0 +1,634 @@
+{
+  "name": "Assistente IA WhatsApp - Barbearia (Plano Premium)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook-whatsapp",
+        "options": {}
+      },
+      "id": "webhook-evo",
+      "name": "Webhook EVO",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tenant-id",
+              "name": "tenantId",
+              "value": "1",
+              "type": "number"
+            },
+            {
+              "id": "api-token",
+              "name": "apiToken",
+              "value": "SEU_TOKEN_AQUI",
+              "type": "string"
+            },
+            {
+              "id": "backend-url",
+              "name": "backendUrl",
+              "value": "http://localhost:4000",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-variables",
+      "name": "Variaveis do sistema",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst msgData = body?.data;\nif (!msgData) return [];\nconst fromMe = msgData?.key?.fromMe;\nif (fromMe) return []; // Ignorar mensagens enviadas pelo bot\n\nconst jid1 = msgData?.key?.remoteJid || '';\nconst jid2 = msgData?.key?.remoteJidAlt || '';\nlet telefone = jid1.includes('@s.whatsapp.net') ? jid1 : (jid2.includes('@s.whatsapp.net') ? jid2 : '');\n\nconst content = msgData?.message?.extendedTextMessage?.text || msgData?.message?.conversation || '';\nconst pushName = msgData?.pushName || 'Cliente';\ntelefone = telefone.replace('@s.whatsapp.net', '');\n\nreturn [{\n  json: {\n    Telefone: telefone,\n    Mensagem: content,\n    NomeWpp: pushName\n  }\n}];"
+      },
+      "id": "extract-data",
+      "name": "Extrair Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT p.nome, a.status FROM assinatura a JOIN plano p ON a.\"planoId\" = p.id WHERE a.\"tenantId\" = $1 AND a.status IN ('active', 'trialing') AND p.nome = 'Premium'",
+        "options": {
+          "queryParameters": "={{ $('Variaveis do sistema').item.json.tenantId }}"
+        }
+      },
+      "id": "check-premium",
+      "name": "Verificar Plano Premium",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        600,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres (Neon)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-premium",
+              "leftValue": "={{ $json.nome }}",
+              "rightValue": "Premium",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-premium",
+      "name": "É Premium?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "={{ $('Webhook EVO').item.json.body.instance }}",
+        "remoteJid": "={{ $('Extrair Dados').item.json.Telefone }}@s.whatsapp.net",
+        "messageText": "O atendimento automatizado por IA está disponível apenas no plano Premium da barbearia. Por favor, entre em contato com o salão por outro meio.",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        200
+      ],
+      "id": "evo-not-premium",
+      "name": "Aviso Não Premium",
+      "credentials": {
+        "evolutionApi": {
+          "id": "EVO_CREDENTIAL_ID",
+          "name": "Evolution API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, nome, email, telefone FROM usuario WHERE telefone = $1 AND \"tenantId\" = $2 AND ativo = true",
+        "options": {
+          "queryParameters": "={{ $('Extrair Dados').item.json.Telefone }}, {{ $('Variaveis do sistema').item.json.tenantId }}"
+        }
+      },
+      "id": "check-user",
+      "name": "Buscar Usuário",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1000,
+        -200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres (Neon)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "user-exists",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-user",
+      "name": "Usuário Existe?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO usuario (nome, email, senha, telefone, barbeiro, \"tenantId\", ativo, \"updatedAt\") VALUES ($1, $2, 'senha-padrao', $3, false, $4, true, NOW()) RETURNING id",
+        "options": {
+          "queryParameters": "={{ $('Extrair Dados').item.json.NomeWpp }}, email_temporario_{{ $('Extrair Dados').item.json.Telefone }}@email.com, {{ $('Extrair Dados').item.json.Telefone }}, {{ $('Variaveis do sistema').item.json.tenantId }}"
+        }
+      },
+      "id": "create-user",
+      "name": "Criar Usuário",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1400,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres (Neon)"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "merge-user",
+      "name": "Merge Usuário",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1600,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Extrair Dados').item.json.Mensagem }}",
+        "options": {
+          "systemMessage": "=# Role and Objective\nVocê é o assistente virtual da Barbearia, responsável por atender clientes no WhatsApp, tirar dúvidas, listar serviços/profissionais, verificar disponibilidade, realizar e gerenciar agendamentos via suas ferramentas.\n\n# Instruções\n- **Tom**: amigável, ágil e profissional. Respostas curtas (1-2 parágrafos no máximo).\n- Você SEMPRE usa as tools (`listar_servicos`, `listar_profissionais`, `consultar_meus_agendamentos`, `criar_agendamento`, `cancelar_agendamento`, `reagendar_agendamento`) para interagir com o sistema.\n- Se o usuário perguntar o preço ou os serviços, use `listar_servicos`.\n- Se o usuário perguntar os barbeiros, use `listar_profissionais`.\n- Se o usuário quiser agendar, obtenha as seguintes informações nesta ordem (uma por vez se faltar algo):\n  1. O serviço desejado\n  2. O profissional desejado (opcional, pode ser o primeiro disponível)\n  3. Data e hora desejada (ano corrente é 2026)\n- Para criar o agendamento, chame `criar_agendamento` passando o profissionalId e servicoId corretos (busque antes se não souber o ID) e a data no formato ISO (ex: 2026-07-25T14:30:00Z). IMPORTANTE: lembre do fuso horário (-03:00 para o Brasil).\n- Antes de agendar, você sempre pode (opcionalmente) verificar a disponibilidade, mas caso não consiga, tente agendar diretamente.\n- Para ver os agendamentos do cliente, use `consultar_meus_agendamentos`.\n- Para remarcar um agendamento, use `reagendar_agendamento` passando o ID do agendamento (que você consulta com `consultar_meus_agendamentos`) e a nova dataIso.\n- Não invente IDs ou horários. Extraia-os fielmente das repostas das tools.\n- Se não puder resolver ou o cliente quiser falar com humano, informe que passará para o atendente.\n- A sua resposta deve ser em Português do Brasil.\n- Não use Markdown complexo, nem negrito com **. Apenas texto simples e amigável."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1800,
+        -200
+      ],
+      "id": "agent-ia",
+      "name": "Agente IA Barbearia"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Extrair Dados').item.json.Telefone }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        1850,
+        0
+      ],
+      "id": "memory-postgres",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres (Neon)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.1,
+      "position": [
+        1700,
+        50
+      ],
+      "id": "model-openai",
+      "name": "GPT 4o Mini",
+      "credentials": {
+        "openAiApi": {
+          "id": "OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "={{ $('Webhook EVO').item.json.body.instance }}",
+        "remoteJid": "={{ $('Extrair Dados').item.json.Telefone }}@s.whatsapp.net",
+        "messageText": "={{ $json.output }}",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        -200
+      ],
+      "id": "evo-send-message",
+      "name": "Enviar Mensagem IA",
+      "credentials": {
+        "evolutionApi": {
+          "id": "EVO_CREDENTIAL_ID",
+          "name": "Evolution API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "listar_servicos",
+        "description": "Lista todos os serviços disponíveis na barbearia, com seus IDs e preços.",
+        "jsCode": "const url = $('Variaveis do sistema').item.json.backendUrl;\nconst token = $('Variaveis do sistema').item.json.apiToken;\nconst options = {\n  method: 'GET',\n  url: `${url}/servicos`,\n  headers: { 'Authorization': `Bearer ${token}` }\n};\ntry {\n  const res = await $helpers.httpRequest(options);\n  return JSON.stringify(res.map(s => ({id: s.id, nome: s.nome, preco: s.preco})));\n} catch (e) { return 'Erro ao listar servicos'; }"
+      },
+      "id": "tool-listar-servicos",
+      "name": "listar_servicos",
+      "type": "@n8n/n8n-nodes-langchain.toolCustom",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "name": "listar_profissionais",
+        "description": "Lista os profissionais (barbeiros) disponíveis com seus IDs.",
+        "jsCode": "const url = $('Variaveis do sistema').item.json.backendUrl;\nconst token = $('Variaveis do sistema').item.json.apiToken;\nconst options = {\n  method: 'GET',\n  url: `${url}/profissionais`,\n  headers: { 'Authorization': `Bearer ${token}` }\n};\ntry {\n  const res = await $helpers.httpRequest(options);\n  return JSON.stringify(res.map(p => ({id: p.id, nome: p.nome})));\n} catch (e) { return 'Erro ao listar profissionais'; }"
+      },
+      "id": "tool-listar-profissionais",
+      "name": "listar_profissionais",
+      "type": "@n8n/n8n-nodes-langchain.toolCustom",
+      "typeVersion": 1,
+      "position": [
+        1950,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "name": "consultar_meus_agendamentos",
+        "description": "Consulta os próximos agendamentos do cliente atual (não precisa passar nenhum parâmetro).",
+        "jsCode": "const url = $('Variaveis do sistema').item.json.backendUrl;\nconst token = $('Variaveis do sistema').item.json.apiToken;\nconst telefone = $('Extrair Dados').item.json.Telefone;\nconst options = {\n  method: 'GET',\n  url: `${url}/agendamentos/telefone/${telefone}`,\n  headers: { 'Authorization': `Bearer ${token}` }\n};\ntry {\n  const res = await $helpers.httpRequest(options);\n  if(!res.length) return 'Nenhum agendamento encontrado.';\n  return JSON.stringify(res.map(a => ({id: a.id, data: a.data, status: a.status, profissional: a.profissional?.nome, servicos: a.servicos.map(s => s.nome)})));\n} catch (e) { return 'Erro ao consultar'; }"
+      },
+      "id": "tool-consultar-agendamentos",
+      "name": "consultar_meus_agendamentos",
+      "type": "@n8n/n8n-nodes-langchain.toolCustom",
+      "typeVersion": 1,
+      "position": [
+        2100,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "name": "criar_agendamento",
+        "description": "Cria um agendamento. Parâmetros necessários: profissionalId, servicoId, dataIso.",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"profissionalId\": {\n      \"type\": \"number\"\n    },\n    \"servicoId\": {\n      \"type\": \"number\"\n    },\n    \"dataIso\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\"profissionalId\", \"servicoId\", \"dataIso\"]\n}",
+        "jsCode": "const url = $('Variaveis do sistema').item.json.backendUrl;\nconst token = $('Variaveis do sistema').item.json.apiToken;\nconst telefone = $('Extrair Dados').item.json.Telefone;\ntry {\n  // Buscar usuário por telefone primeiro para pegar o ID\n  let userRes;\n  try {\n     userRes = await $helpers.httpRequest({ method: 'GET', url: `${url}/usuarios/telefone/${telefone}`, headers: { 'Authorization': `Bearer ${token}` } });\n  } catch(e) {\n     // Usuario não existe, precisa ser criado pela lógica original, assumimos que já existe graças à lógica de DB antes do webhook\n     // Se a lógica do DB antes do agente existir, o DB Node criou.\n  }\n\n  // Como o DB cria sem nos dar o ID de forma fácil para a API, e a API agora aceita o admin criando, podemos modificar o backend para buscar por telefone dentro do criar, ou buscar aqui se tivéssemos um endpoint de usuários.\n  // Vamos assumir que a API `POST /agendamentos` precise do usuarioId. Vamos adicionar um parâmetro opcional `telefoneCliente` nela para facilitar a vida do bot.\n  \n  const body = {\n    profissionalId: this.getInputData()[0].json.profissionalId,\n    servicos: [this.getInputData()[0].json.servicoId],\n    data: this.getInputData()[0].json.dataIso,\n    telefoneCliente: telefone // Enviamos isso para a API\n  };\n  const res = await $helpers.httpRequest({ method: 'POST', url: `${url}/agendamentos`, headers: { 'Authorization': `Bearer ${token}` }, body });\n  return 'Agendamento criado com sucesso!';\n} catch(e) { return 'Erro ao criar agendamento: ' + e.message; }"
+      },
+      "id": "tool-criar-agendamento",
+      "name": "criar_agendamento",
+      "type": "@n8n/n8n-nodes-langchain.toolCustom",
+      "typeVersion": 1,
+      "position": [
+        2250,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "name": "cancelar_agendamento",
+        "description": "Cancela um agendamento. Parâmetro necessário: agendamentoId",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"agendamentoId\": {\n      \"type\": \"number\"\n    }\n  },\n  \"required\": [\"agendamentoId\"]\n}",
+        "jsCode": "const url = $('Variaveis do sistema').item.json.backendUrl;\nconst token = $('Variaveis do sistema').item.json.apiToken;\nconst id = this.getInputData()[0].json.agendamentoId;\ntry {\n  await $helpers.httpRequest({ method: 'DELETE', url: `${url}/agendamentos/${id}`, headers: { 'Authorization': `Bearer ${token}` } });\n  return 'Agendamento cancelado com sucesso!';\n} catch(e) { return 'Erro ao cancelar'; }"
+      },
+      "id": "tool-cancelar-agendamento",
+      "name": "cancelar_agendamento",
+      "type": "@n8n/n8n-nodes-langchain.toolCustom",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "name": "reagendar_agendamento",
+        "description": "Muda a data de um agendamento. Parâmetros necessários: agendamentoId e dataIso (nova data ISO).",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"agendamentoId\": {\n      \"type\": \"number\"\n    },\n    \"dataIso\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\"agendamentoId\", \"dataIso\"]\n}",
+        "jsCode": "const url = $('Variaveis do sistema').item.json.backendUrl;\nconst token = $('Variaveis do sistema').item.json.apiToken;\nconst id = this.getInputData()[0].json.agendamentoId;\nconst data = this.getInputData()[0].json.dataIso;\ntry {\n  await $helpers.httpRequest({ method: 'PATCH', url: `${url}/agendamentos/${id}/reagendar`, headers: { 'Authorization': `Bearer ${token}` }, body: { data } });\n  return 'Agendamento reagendado com sucesso!';\n} catch(e) { return 'Erro ao reagendar'; }"
+      },
+      "id": "tool-reagendar-agendamento",
+      "name": "reagendar_agendamento",
+      "type": "@n8n/n8n-nodes-langchain.toolCustom",
+      "typeVersion": 1,
+      "position": [
+        2550,
+        150
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook EVO": {
+      "main": [
+        [
+          {
+            "node": "Variaveis do sistema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variaveis do sistema": {
+      "main": [
+        [
+          {
+            "node": "Extrair Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Dados": {
+      "main": [
+        [
+          {
+            "node": "Verificar Plano Premium",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Plano Premium": {
+      "main": [
+        [
+          {
+            "node": "É Premium?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Premium?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Usuário",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aviso Não Premium",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Usuário": {
+      "main": [
+        [
+          {
+            "node": "Usuário Existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usuário Existe?": {
+      "main": [
+        [
+          {
+            "node": "Merge Usuário",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Usuário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Usuário": {
+      "main": [
+        [
+          {
+            "node": "Merge Usuário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Usuário": {
+      "main": [
+        [
+          {
+            "node": "Agente IA Barbearia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente IA Barbearia": {
+      "main": [
+        [
+          {
+            "node": "Enviar Mensagem IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "model-openai": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente IA Barbearia",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "memory-postgres": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agente IA Barbearia",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tool-listar-servicos": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente IA Barbearia",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tool-listar-profissionais": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente IA Barbearia",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tool-consultar-agendamentos": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente IA Barbearia",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tool-criar-agendamento": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente IA Barbearia",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tool-cancelar-agendamento": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente IA Barbearia",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tool-reagendar-agendamento": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente IA Barbearia",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "v1"
+}
