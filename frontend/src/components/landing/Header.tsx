@@ -65,10 +65,10 @@ export function Header() {
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full"></span>
             </Link>
             <Link
-              href="#testimonials"
+              href="#garantia"
               className="text-zinc-300 hover:text-white transition-colors duration-200 relative group"
             >
-              Depoimentos
+              Garantia
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-full"></span>
             </Link>
           </nav>
@@ -141,11 +141,11 @@ export function Header() {
                     Preços
                   </Link>
                   <Link
-                    href="#testimonials"
+                    href="#garantia"
                     className="text-zinc-300 hover:text-white hover:bg-zinc-800/60 rounded-lg px-3 py-3 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Depoimentos
+                    Garantia
                   </Link>
                   <div className="flex flex-col space-y-2 pt-4 px-3">
                     <Button variant="outline" asChild>

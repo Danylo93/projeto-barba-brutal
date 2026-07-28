@@ -271,40 +271,10 @@ export function Hero() {
         {/* Produto visível no hero */}
         <DashboardMockup />
 
-        {/* Prova social com contadores animados */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.6 }}
-          className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-4xl mx-auto text-center"
-        >
-          <div>
-            <div className="text-3xl sm:text-4xl font-black text-white">
-              <CountUp end={500} suffix="+" />
-            </div>
-            <div className="text-sm text-zinc-500 mt-1">Barbearias ativas</div>
-          </div>
-          <div>
-            <div className="text-3xl sm:text-4xl font-black text-white">
-              <CountUp end={50} suffix="k+" />
-            </div>
-            <div className="text-sm text-zinc-500 mt-1">Agendamentos/mês</div>
-          </div>
-          <div>
-            <div className="text-3xl sm:text-4xl font-black text-white">
-              <CountUp end={99.9} suffix="%" decimals={1} />
-            </div>
-            <div className="text-sm text-zinc-500 mt-1">Uptime</div>
-          </div>
-          <div>
-            <div className="text-3xl sm:text-4xl font-black text-white inline-flex items-center gap-1.5">
-              <CountUp end={4.9} decimals={1} />
-              <Star className="h-6 w-6 text-yellow-400 fill-current" />
-            </div>
-            <div className="text-sm text-zinc-500 mt-1">Avaliação média</div>
-          </div>
-        </motion.div>
+        {/* Nada de contador de "barbearias ativas" ou nota média aqui: a
+            Barbearia Brutal é um sistema novo e esses números seriam
+            inventados. Quando houver base de clientes real e mensurável,
+            um contador como o CountUp acima pode voltar com dado verdadeiro. */}
       </div>
     </section>
   );
