@@ -49,12 +49,12 @@ export default function PoliticaDePrivacidade() {
             <Secao titulo="2. Identificação do controlador">
                 <Lista
                     itens={[
-                        <>Razão social: <strong className="text-zinc-200">[preencher]</strong></>,
-                        <>CNPJ: <strong className="text-zinc-200">[preencher]</strong></>,
-                        <>Endereço: <strong className="text-zinc-200">[preencher]</strong></>,
+                        <>Razão social: <strong className="text-zinc-200">Danylo Alves de Oliveira (Agência FW Digital)</strong></>,
+                        <>CNPJ: <strong className="text-zinc-200">46.595.026/0001-20</strong></>,
+                        <>Endereço: <strong className="text-zinc-200">Rua principal (Endereço mantido em cadastro confidencial)</strong></>,
                         <>
                             Encarregado pelo tratamento de dados (DPO, art. 41):{' '}
-                            <strong className="text-zinc-200">[preencher nome e e-mail]</strong>
+                            <strong className="text-zinc-200">Agência FW Digital (agenciafwdigital@gmail.com)</strong>
                         </>,
                     ]}
                 />

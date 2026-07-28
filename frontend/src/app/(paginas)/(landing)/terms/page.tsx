@@ -159,8 +159,8 @@ export default function TermosDeUso() {
 
             <Secao titulo="11. Lei aplicável e foro">
                 <p>
-                    Aplica-se a lei brasileira. Fica eleito o foro de{' '}
-                    <strong className="text-zinc-200">[preencher comarca]</strong> para as questões
+                    Aplica-se a lei brasileira. Fica eleito o foro da{' '}
+                    <strong className="text-zinc-200">Comarca de São Paulo/SP</strong> para as questões
                     que não puderem ser resolvidas de outro modo, ressalvado o direito do consumidor
                     de acionar o foro do seu domicílio.
                 </p>

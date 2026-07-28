@@ -13,6 +13,21 @@ function validarEmail(email: string): boolean {
 }
 
 /**
+ * Gera um slug a partir de uma string (ex: "Barbearia do Zé" -> "barbearia-do-ze")
+ */
+function slugify(texto: string): string {
+  return texto
+    .toString()
+    .normalize('NFD') // separa acentos
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-') // espaços por hifens
+    .replace(/[^\w-]+/g, '') // remove caracteres não alfanuméricos
+    .replace(/--+/g, '-'); // remove hifens duplos
+}
+
+/**
  * Valida telefone brasileiro (WhatsApp).
  * Aceita somente dígitos, com DDD (2 dígitos) + número (8 ou 9 dígitos) = 10 ou 11 dígitos.
  */
@@ -211,6 +226,26 @@ export class AuthService {
       existentes.length,
     );
 
+    // Gerar domínio único (slug)
+    let baseSlug = slugify(data.nome);
+    if (!baseSlug) baseSlug = 'barbearia';
+    
+    let slug = baseSlug;
+    let contador = 1;
+    let slugExiste = await this.prisma.tenant.findUnique({
+      where: { dominio: slug },
+      select: { id: true },
+    });
+
+    while (slugExiste) {
+      slug = `${baseSlug}-${contador}`;
+      contador++;
+      slugExiste = await this.prisma.tenant.findUnique({
+        where: { dominio: slug },
+        select: { id: true },
+      });
+    }
+
     const tenant = await this.prisma.tenant.create({
       data: {
         ...data,
@@ -219,6 +254,7 @@ export class AuthService {
         senha: senhaHash,
         corPrimaria: COR_PRIMARIA_PADRAO,
         corSecundaria,
+        dominio: slug,
       },
     });
 

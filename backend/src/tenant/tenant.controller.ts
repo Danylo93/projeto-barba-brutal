@@ -39,9 +39,9 @@ export class TenantController {
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   updateConfiguracoes(
     @CurrentUser() user: any,
-    @Body() configuracoes: any,
+    @Body() body: { configuracoes: any, corSecundaria?: string },
   ) {
-    return this.tenantService.update(user.id, { configuracoes });
+    return this.tenantService.update(user.id, body);
   }
 
   /** Relatório de comissões da equipe (?mes=2026-07; padrão: mês atual). */

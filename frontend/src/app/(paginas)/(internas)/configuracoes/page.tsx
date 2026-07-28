@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Save, AlertCircle, Loader2, Copy } from 'lucide-react'
+import { Settings, Save, AlertCircle, Loader2, Copy, Palette } from 'lucide-react'
 import { motion } from 'framer-motion'
 import useSessao from '@/data/hooks/useSessao'
 import useAPI from '@/data/hooks/useAPI'
@@ -44,6 +44,7 @@ export default function ConfiguracoesPage() {
     const [sucesso, setSucesso] = useState(false)
 
     const [horarios, setHorarios] = useState<DiaHorario[]>(horariosPadrao())
+    const [corSecundaria, setCorSecundaria] = useState('#f59e0b')
 
     useEffect(() => {
         if (token) fetchConfiguracoes()
@@ -55,6 +56,7 @@ export default function ConfiguracoesPage() {
             setLoading(true)
             const response = await httpGet('tenants/me')
             const conf = response?.configuracoes
+            if (response?.corSecundaria) setCorSecundaria(response.corSecundaria)
             // Deriva o horário de cada dia (aceita formato novo e o antigo).
             setHorarios(DIAS_SEMANA.map((d) => horarioDoDia(conf, d.id)))
         } catch (err) {
@@ -105,7 +107,7 @@ export default function ConfiguracoesPage() {
                 horaFechamento: (horarios.find((h) => h.aberto) ?? horarios[1]).fechamento,
             }
 
-            const response = await httpPut('tenants/me/configuracoes', configuracoes)
+            const response = await httpPut('tenants/me/configuracoes', { configuracoes, corSecundaria })
 
             if (response && (response.statusCode >= 400 || response.message)) {
                 throw new Error(response.message || 'Erro ao salvar configurações')
@@ -248,8 +250,45 @@ export default function ConfiguracoesPage() {
                             )
                         })}
                     </div>
+                </motion.div>
 
-                    <div className="mt-8 pt-6 border-t border-zinc-800/80 flex justify-end">
+                {/* --- SEÇÃO DE IDENTIDADE VISUAL --- */}
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.1 }}
+                    className="bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-6 sm:p-8 mt-8"
+                >
+                    <div className="flex items-center gap-3 mb-6 pb-6 border-b border-zinc-800/80">
+                        <div className="w-10 h-10 rounded-xl bg-purple-400/10 border border-purple-400/20 flex items-center justify-center">
+                            <Palette size={20} className="text-purple-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-white tracking-tight">Identidade Visual</h2>
+                            <p className="text-sm text-zinc-500">Escolha a cor de destaque da sua página.</p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
+                        <div className="flex-1">
+                            <label className="block text-sm font-semibold text-white mb-2">Cor Secundária (Destaque)</label>
+                            <p className="text-sm text-zinc-400 mb-4">Esta cor será usada nos botões e destaques da sua página pública. Não pode ser igual à de outra barbearia.</p>
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="color"
+                                    value={corSecundaria}
+                                    onChange={(e) => setCorSecundaria(e.target.value)}
+                                    className="h-12 w-24 rounded cursor-pointer bg-zinc-800 border-none"
+                                />
+                                <span className="text-sm text-zinc-300 uppercase bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700 font-mono">
+                                    {corSecundaria}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+
+                <div className="mt-8 pt-6 border-t border-zinc-800/80 flex justify-end">
                         <button
                             onClick={salvarConfiguracoes}
                             disabled={saving || !algumDiaAberto}
