@@ -87,7 +87,7 @@ export class AgendamentoController {
     @CurrentTenant() tenant: any,
   ) {
     const casoDeUso = new ObterHorariosOcupados(this.repo);
-    return casoDeUso.executar(+profissional, new Date(dataParam));
+    return casoDeUso.executar(+profissional, new Date(dataParam), tenant.id);
   }
 
   @Get(':profissional/:data')

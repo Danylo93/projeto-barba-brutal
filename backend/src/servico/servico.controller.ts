@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { AtualizarServicoDto, CriarServicoDto } from './servico.dto';
 import { PrismaService } from 'src/db/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
@@ -32,14 +33,7 @@ export class ServicoController {
   @Post()
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   async create(
-    @Body() data: {
-      nome: string;
-      descricao: string;
-      preco: number;
-      qtdeSlots: number;
-      imagemURL?: string;
-      ehCombo?: boolean;
-    },
+    @Body() data: CriarServicoDto,
     @CurrentTenant() tenant: any,
   ) {
     return this.prisma.servico.create({
@@ -59,15 +53,7 @@ export class ServicoController {
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   async update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() data: Partial<{
-      nome: string;
-      descricao: string;
-      preco: number;
-      qtdeSlots: number;
-      imagemURL: string;
-      ativo: boolean;
-      ehCombo: boolean;
-    }>,
+    @Body() data: AtualizarServicoDto,
     @CurrentTenant() tenant: any,
   ) {
     return this.prisma.servico.updateMany({

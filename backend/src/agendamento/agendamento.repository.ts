@@ -7,6 +7,7 @@ import {
   normalizarIdsDeServico,
   duracaoEmMinutos,
   haConflito,
+  validarDentroDoExpediente,
 } from './agendamento.validacao';
 
 const MINUTOS_POR_SLOT = 30;
@@ -119,10 +120,32 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       throw new BadRequestException(erro);
     }
 
-    // 5) Conflito de horário: o profissional não pode ter dois atendimentos
-    //    sobrepostos. Considera a duração de cada agendamento (slots × 30 min).
+    // 5) Dentro do expediente daquela barbearia. A tela já esconde os
+    //    horários fechados, mas quem chama a API direto passava por cima:
+    //    havia agendamento marcado em domingo às 4h da manhã.
     const duracaoMin = duracaoEmMinutos(servicos);
-    await this.garantirHorarioLivre(agendamento, inicio, duracaoMin);
+    const barbearia = await this.prismaService.tenant.findUnique({
+      where: { id: agendamento.tenantId },
+      select: { configuracoes: true },
+    });
+    const erroExpediente = validarDentroDoExpediente(
+      inicio,
+      duracaoMin,
+      barbearia?.configuracoes,
+    );
+    if (erroExpediente) {
+      throw new BadRequestException(erroExpediente);
+    }
+
+    // 6) Conflito de horário: o profissional não pode ter dois atendimentos
+    //    sobrepostos. Considera a duração de cada agendamento (slots × 30 min).
+    //    Ao remarcar, o próprio agendamento não conta como conflito.
+    await this.garantirHorarioLivre(
+      agendamento,
+      inicio,
+      duracaoMin,
+      (agendamento as any).id,
+    );
 
     // 6) Bloqueios de agenda (folga, almoço, férias, feriado).
     await this.garantirSemBloqueio(agendamento, inicio, duracaoMin);
@@ -163,6 +186,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   async buscarBloqueios(
     profissionalId: number,
     data: Date,
+    tenantId: number,
   ): Promise<{ inicio: Date; fim: Date }[]> {
     const inicioDoDia = new Date(data);
     inicioDoDia.setHours(0, 0, 0, 0);
@@ -171,6 +195,9 @@ export class AgendamentoRepository implements RepositorioAgendamento {
 
     const bloqueios = await this.prismaService.bloqueio.findMany({
       where: {
+        // Sem o tenantId, o bloqueio "da barbearia inteira" (profissionalId
+        // nulo) de UMA barbearia derrubava horário nas outras todas.
+        tenantId,
         OR: [{ profissionalId }, { profissionalId: null }],
         inicio: { lte: fimDoDia },
         fim: { gte: inicioDoDia },
@@ -248,7 +275,18 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     return agendamentos.map(paraLeitura) as unknown as Agendamento[];
   }
 
-  async buscarPorProfissional(profissionalId: number, data: Date): Promise<Agendamento[]> {
+  /**
+   * Agenda de um profissional num dia.
+   *
+   * `tenantId` é obrigatório: sem ele, bastava chutar um id de profissional
+   * (são sequenciais) para ler a agenda de outra barbearia — com nome e
+   * e-mail dos clientes dela.
+   */
+  async buscarPorProfissional(
+    profissionalId: number,
+    data: Date,
+    tenantId: number,
+  ): Promise<Agendamento[]> {
     const ano = data.getFullYear();
     const mes = data.getUTCMonth();
     const dia = data.getUTCDate();
@@ -259,6 +297,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     const agendamentos = await this.prismaService.agendamento.findMany({
       where: {
         profissionalId,
+        tenantId,
         data: {
           gte: inicioDoDia,
           lte: fimDoDia,
@@ -339,7 +378,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     data: Date,
     tenantId: number,
   ): Promise<Agendamento[]> {
-    return this.buscarPorProfissional(profissional, data);
+    return this.buscarPorProfissional(profissional, data, tenantId);
   }
 
   async buscarPorId(id: number, tenantId: number): Promise<Agendamento | null> {
@@ -379,15 +418,35 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     });
   }
 
+  /**
+   * Remarcar passa pelas MESMAS regras de criar.
+   *
+   * Antes o método só fazia `update({ data })`: dava para remarcar para o
+   * passado, para cima de outro atendimento e para fora do expediente — tudo
+   * que o `criar` protege era contornável remarcando depois. Data inválida
+   * também chegava crua no Prisma e virava 500.
+   */
   async reagendar(id: number, tenantId: number, data: Date): Promise<void> {
+    const atual = await this.prismaService.agendamento.findFirst({
+      where: { id, tenantId },
+      include: { servicos: { select: { id: true } } },
+    });
+    if (!atual) {
+      throw new BadRequestException('Agendamento não encontrado.');
+    }
+
+    await this.validarRegras({
+      id: atual.id,
+      data,
+      profissionalId: atual.profissionalId,
+      servicos: atual.servicos.map((s) => s.id),
+      usuarioId: atual.usuarioId,
+      tenantId,
+    } as unknown as Agendamento);
+
     await this.prismaService.agendamento.update({
-      where: {
-        id: id,
-        tenantId,
-      },
-      data: {
-        data,
-      },
+      where: { id, tenantId },
+      data: { data },
     });
   }
 

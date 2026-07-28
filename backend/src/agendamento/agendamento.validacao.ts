@@ -109,3 +109,93 @@ export function normalizarIdsDeServico(servicos: unknown): number[] | null {
   }
   return ids;
 }
+
+/** Fuso de Brasília: é nele que o barbeiro pensa o horário da barbearia. */
+const FUSO_BRASILIA = 'America/Sao_Paulo';
+
+/** Dia da semana (0=domingo) e hora decimal no fuso de Brasília. */
+export function diaEHoraEmBrasilia(data: Date): { dia: number; hora: number } {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: FUSO_BRASILIA,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const partes = Object.fromEntries(
+    fmt.formatToParts(data).map((p) => [p.type, p.value]),
+  );
+  const dias: Record<string, number> = {
+    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+  };
+  const hora = Number(partes.hour) + Number(partes.minute) / 60;
+  return { dia: dias[partes.weekday as string] ?? 0, hora };
+}
+
+/**
+ * O expediente daquele dia, lido das configurações da barbearia.
+ *
+ * Aceita os dois formatos que já existem em produção: o novo (`horarios[]`,
+ * com abertura e fechamento por dia) e o antigo (`diasAbertos` +
+ * `horaAbertura`/`horaFechamento` iguais para todos os dias).
+ */
+export function expedienteDoDia(
+  configuracoes: any,
+  dia: number,
+): { aberto: boolean; abertura: number; fechamento: number } | null {
+  if (!configuracoes || typeof configuracoes !== 'object') return null;
+
+  const horarios = (configuracoes as any).horarios;
+  if (Array.isArray(horarios) && horarios.length) {
+    const doDia = horarios.find((h: any) => Number(h?.dia) === dia);
+    if (!doDia) return { aberto: false, abertura: 0, fechamento: 0 };
+    return {
+      aberto: doDia.aberto !== false,
+      abertura: Number(doDia.abertura ?? 0),
+      fechamento: Number(doDia.fechamento ?? 24),
+    };
+  }
+
+  const diasAbertos = (configuracoes as any).diasAbertos;
+  if (Array.isArray(diasAbertos)) {
+    if (!diasAbertos.map(Number).includes(dia)) {
+      return { aberto: false, abertura: 0, fechamento: 0 };
+    }
+  }
+
+  const abertura = Number((configuracoes as any).horaAbertura);
+  const fechamento = Number((configuracoes as any).horaFechamento);
+  if (!Number.isFinite(abertura) || !Number.isFinite(fechamento)) return null;
+  return { aberto: true, abertura, fechamento };
+}
+
+/**
+ * O atendimento cabe dentro do expediente daquele dia?
+ *
+ * Sem isso a API aceitava agendamento em dia fechado e de madrugada — a tela
+ * escondia, mas quem chamasse a API direto passava. Barbearia sem configuração
+ * definida não é bloqueada: seria pior travar quem ainda não configurou nada.
+ */
+export function validarDentroDoExpediente(
+  data: Date,
+  duracaoMin: number,
+  configuracoes: any,
+): string | null {
+  const { dia, hora } = diaEHoraEmBrasilia(data);
+  const expediente = expedienteDoDia(configuracoes, dia);
+  if (!expediente) return null;
+
+  const nomes = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+  if (!expediente.aberto) {
+    return `A barbearia não abre ${nomes[dia]}. Escolha outro dia.`;
+  }
+
+  const fim = hora + duracaoMin / 60;
+  if (hora < expediente.abertura || fim > expediente.fechamento) {
+    const h = (v: number) => `${String(Math.floor(v)).padStart(2, '0')}h`;
+    return `Nesse dia a barbearia atende das ${h(expediente.abertura)} às ${h(
+      expediente.fechamento,
+    )}. Escolha um horário dentro desse período.`;
+  }
+  return null;
+}
