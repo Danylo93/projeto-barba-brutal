@@ -48,6 +48,7 @@ interface BarbeariaPublica {
     telefone?: string
     dominio?: string
     logo?: string
+    corPrimaria?: string
     corSecundaria?: string
     configuracoes?: {
         horaAbertura?: string
