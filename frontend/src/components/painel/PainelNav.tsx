@@ -103,12 +103,14 @@ export default function PainelNav() {
         conta = [
             { href: '/assinatura', rotulo: 'Meu Plano' },
             { href: '/configuracoes', rotulo: 'Configurações' },
+            { href: '/meus-dados', rotulo: 'Meus dados (LGPD)' },
         ]
     } else if (isEmployeeBarber) {
         links = [
             { href: '/agenda', rotulo: 'Minha Agenda' },
             { href: '/financas', rotulo: 'Finanças' },
         ]
+        conta = [{ href: '/meus-dados', rotulo: 'Meus dados (LGPD)' }]
     } else {
         // cliente
         links = [
@@ -116,6 +118,7 @@ export default function PainelNav() {
             { href: '/agendamentos', rotulo: 'Meus Agendamentos' },
             { href: '/clube', rotulo: 'Clube' },
         ]
+        conta = [{ href: '/meus-dados', rotulo: 'Meus dados (LGPD)' }]
     }
 
     function ativo(href: string) {

@@ -7,6 +7,7 @@ import useSessao from '@/data/hooks/useSessao'
 import AuthShell from '@/components/auth/AuthShell'
 import { formatarTelefone, formatarTelefoneInput, validarEmail, validarTelefone } from '@/lib/agendamento-utils'
 import { useToast } from '@/hooks/use-toast'
+import { registrarAceiteDeTermos } from '@/lib/registrar-aceite'
 
 const inputClasses =
     'w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 ' +
@@ -84,6 +85,9 @@ export default function RegisterPage() {
                 toastError('Não foi possível criar a conta', msg)
                 return
             }
+
+            // Prova do aceite dos termos, exigida pela LGPD (art. 8º, §1º).
+            await registrarAceiteDeTermos(data.access_token)
 
             // Sessão do app vive em cookie (ContextoSessao), não em localStorage.
             // Novo dono ainda não tem plano ativo → leva para escolher o plano.

@@ -238,6 +238,52 @@ model Bloqueio {
   @@map("bloqueio")
 }
 
+/// Prova de consentimento exigida pela LGPD (art. 8º, §1º: cabe ao
+/// controlador comprovar que o consentimento foi obtido).
+///
+/// `titularTipo` diz de quem é o consentimento — 'tenant' (barbearia),
+/// 'usuario' (cliente ou barbeiro) ou 'visitante' (ainda sem conta, só o
+/// banner de cookies). `tenantId` nulo = consentimento dado no site do SaaS.
+model ConsentimentoLgpd {
+  id          Int      @id @default(autoincrement())
+  titularTipo String
+  titularId   Int?
+  tenantId    Int?
+  /// cookies_analise, cookies_marketing, termos_de_uso, politica_privacidade
+  tipo        String
+  /// Versão do texto aceito, para saber a que redação o titular consentiu.
+  versao      String
+  aceito      Boolean
+  /// Identificador anônimo do navegador, para o consentimento de quem ainda não tem conta.
+  visitanteId String?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([titularTipo, titularId])
+  @@index([visitanteId])
+  @@map("consentimento_lgpd")
+}
+
+/// Pedido de exclusão de conta feito pelo titular (art. 18, VI).
+/// Fica registrado mesmo depois de atendido, como prova do atendimento.
+model SolicitacaoExclusao {
+  id          Int       @id @default(autoincrement())
+  titularTipo String
+  titularId   Int
+  tenantId    Int?
+  email       String
+  motivo      String?
+  /// pendente, concluida, recusada
+  status      String    @default("pendente")
+  observacao  String?
+  atendidoEm  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status])
+  @@map("solicitacao_exclusao")
+}
+
 /// Plano do clube de assinatura que a barbearia oferece aos seus clientes.
 model PlanoClube {
   id          Int      @id @default(autoincrement())
