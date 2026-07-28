@@ -55,7 +55,10 @@ export class TenantService {
         },
       },
     });
-    if (tenant) delete (tenant as any).senha; // nunca expor o hash da senha
+    if (tenant) {
+      delete (tenant as any).senha; // nunca expor o hash da senha
+      delete (tenant as any).apiKey; // a chave só aparece na tela que a gera
+    }
     return tenant;
   }
 
@@ -296,22 +299,50 @@ export class TenantService {
     };
   }
 
-  async update(id: number, data: Partial<{
-    nome: string;
-    email: string;
-    telefone: string;
-    endereco: string;
-    cnpj: string;
-    dominio: string;
-    logo: string;
-    corPrimaria: string;
-    corSecundaria: string;
-    ativo: boolean;
-    configuracoes: any;
-  }>) {
+  /**
+   * Campos que o dono pode alterar na própria barbearia.
+   *
+   * A lista existe porque tipo de TypeScript some em tempo de execução:
+   * repassar o corpo da requisição direto para o Prisma deixava QUALQUER
+   * campo passar. Dava para uma barbearia suspensa se reativar (`ativo`),
+   * zerar o próprio CPF/CNPJ para reciclar o teste grátis (`documento`) e
+   * gravar senha sem hash.
+   */
+  private static readonly CAMPOS_DO_DONO = [
+    'nome',
+    'email',
+    'telefone',
+    'endereco',
+    'dominio',
+    'logo',
+    'corPrimaria',
+    'corSecundaria',
+    'configuracoes',
+  ] as const;
+
+  /** Só o admin do SaaS suspende ou reativa uma barbearia. */
+  private static readonly CAMPOS_DO_ADMIN = [
+    ...TenantService.CAMPOS_DO_DONO,
+    'ativo',
+  ] as const;
+
+  private apenas(data: any, permitidos: readonly string[]) {
+    const limpo: Record<string, any> = {};
+    for (const campo of permitidos) {
+      if (data && Object.prototype.hasOwnProperty.call(data, campo)) {
+        limpo[campo] = data[campo];
+      }
+    }
+    return limpo;
+  }
+
+  async update(id: number, data: any, comoAdmin = false) {
     return this.prisma.tenant.update({
       where: { id },
-      data,
+      data: this.apenas(
+        data,
+        comoAdmin ? TenantService.CAMPOS_DO_ADMIN : TenantService.CAMPOS_DO_DONO,
+      ),
     });
   }
 
@@ -341,6 +372,12 @@ export class TenantService {
       }),
       this.prisma.tenant.count(),
     ]);
+
+    // Nem o admin do SaaS precisa ver hash de senha ou a chave de API alheia.
+    for (const t of tenants as any[]) {
+      delete t.senha;
+      delete t.apiKey;
+    }
 
     return {
       tenants,
