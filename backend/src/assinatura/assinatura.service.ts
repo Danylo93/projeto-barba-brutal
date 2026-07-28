@@ -446,23 +446,28 @@ export class AssinaturaService {
       throw new NotFoundException('Plano não encontrado ou inativo');
     }
 
-    // O plano precisa existir no MP antes de alguém assinar.
-    if (!plano.mpPreapprovalPlanId) {
-      await this.sincronizarPlanoNoMercadoPago(plano.id);
-    }
-    const atualizado = await this.prisma.plano.findUnique({
-      where: { id: plano.id },
+    // A primeira cobrança cai só quando o teste de 30 dias termina. Se a
+    // barbearia já está em teste, respeita a data que ela já tem.
+    const assinaturaAtual = await this.prisma.assinatura.findUnique({
+      where: { tenantId },
+      select: { dataFim: true, emTeste: true },
     });
+    const daquiATrintaDias = new Date();
+    daquiATrintaDias.setDate(daquiATrintaDias.getDate() + 30);
+    const primeiraCobranca =
+      assinaturaAtual?.emTeste && assinaturaAtual.dataFim > new Date()
+        ? assinaturaAtual.dataFim
+        : daquiATrintaDias;
 
     const criada = await this.mpFetch('/preapproval', {
       method: 'POST',
       body: JSON.stringify(
         corpoDaAssinatura({
-          preapprovalPlanId: atualizado!.mpPreapprovalPlanId!,
+          plano,
           emailDoPagador: tenant.email,
           tenantId,
-          planoId,
           backUrl: `${this.urlDoSite}/assinatura`,
+          primeiraCobranca,
         }),
       ),
     });
@@ -473,7 +478,7 @@ export class AssinaturaService {
       data: { mpPreapprovalId: String(criada.id) },
     });
 
-    const link = criada.init_point || atualizado!.mpInitPoint;
+    const link = criada.init_point;
     if (!link) {
       throw new BadRequestException(
         'O Mercado Pago não devolveu o link do checkout. Tente de novo em instantes.',
