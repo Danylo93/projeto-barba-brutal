@@ -22,7 +22,7 @@ export class SchemaController {
       tenant: [
         'id', 'nome', 'email', 'telefone', 'senha', 'endereco', 'documento',
         'tipoDocumento', 'cnpj', 'dominio', 'logo', 'corPrimaria',
-        'corSecundaria', 'stripeCustomerId', 'configuracoes', 'ativo',
+        'corSecundaria', 'apiKey', 'stripeCustomerId', 'configuracoes', 'ativo',
         'chavePix', 'createdAt', 'updatedAt',
       ],
       assinatura: [
@@ -34,6 +34,10 @@ export class SchemaController {
         'id', 'nome', 'descricao', 'preco', 'duracao', 'maxUsuarios',
         'maxAgendamentos', 'features', 'ativo', 'mpPreapprovalPlanId',
         'mpInitPoint', 'createdAt', 'updatedAt',
+      ],
+      cupom: [
+        'id', 'tenantId', 'codigo', 'tipo', 'valor', 'ativo', 'validoAte',
+        'usos', 'maxUsos', 'createdAt', 'updatedAt',
       ],
       usuario: [
         'id', 'nome', 'email', 'senha', 'telefone', 'barbeiro', 'tenantId',
