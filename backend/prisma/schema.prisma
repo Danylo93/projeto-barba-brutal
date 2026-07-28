@@ -25,6 +25,10 @@ model Plano {
   maxAgendamentos Int   // máximo de agendamentos por mês
   features    String[]  // features incluídas no plano
   ativo       Boolean   @default(true)
+  /// id do preapproval_plan no Mercado Pago (assinatura recorrente).
+  mpPreapprovalPlanId String? @unique
+  /// Link do checkout de assinatura gerado pelo Mercado Pago.
+  mpInitPoint String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -83,6 +87,10 @@ model Assinatura {
   emTeste           Boolean   @default(false) // período de teste de 30 dias
   stripeCustomerId  String?   @unique
   stripeSubscriptionId String? @unique
+  /// id do preapproval no Mercado Pago — a assinatura recorrente do barbeiro.
+  mpPreapprovalId   String?   @unique
+  /// recorrente (cartão/Pix pelo Mercado Pago) ou pix_avulso (QR Code manual)
+  meioPagamento     String?
   dataInicio        DateTime
   dataFim           DateTime
   renovacaoAutomatica Boolean @default(true)

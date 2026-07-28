@@ -2,6 +2,13 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from '../db/prisma.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { mensagemPlanoContratado } from '../whatsapp/mensagens';
+import {
+  corpoDaAssinatura,
+  corpoDoPlano,
+  interpretarNotificacao,
+  lerReferenciaExterna,
+  traduzirStatus,
+} from './mercadopago-assinatura';
 
 @Injectable()
 export class AssinaturaService {
@@ -20,6 +27,9 @@ export class AssinaturaService {
     if (!assinatura) {
       throw new NotFoundException('Assinatura não encontrada');
     }
+
+    // Para de cobrar no cartão: cancelar só localmente deixaria a fatura vindo.
+    await this.cancelarRecorrenciaNoMp(assinatura.mpPreapprovalId);
 
     // Atualizar no banco
     return this.prisma.assinatura.update({
@@ -262,6 +272,7 @@ export class AssinaturaService {
         dataInicio,
         dataFim,
         renovacaoAutomatica: true,
+        meioPagamento: 'pix_avulso',
       },
       update: {
         planoId,
@@ -269,6 +280,7 @@ export class AssinaturaService {
         emTeste: false,
         dataInicio,
         dataFim,
+        meioPagamento: 'pix_avulso',
       },
     });
 
@@ -280,28 +292,287 @@ export class AssinaturaService {
     if (plano) await this.avisarNoWhatsapp(tenantId, plano, dataFim, false);
   }
 
-  /** Webhook do Mercado Pago: confirma pagamentos aprovados. */
-  async handleWebhookMercadoPago(body: any) {
-    const paymentId = body?.data?.id || body?.id;
-    if (!paymentId || !this.mpToken) return { ok: true };
-    try {
-      const mp = await this.mpFetch(`/v1/payments/${paymentId}`);
-      const pagamento = await this.prisma.pagamento.findUnique({
-        where: { mpPaymentId: String(paymentId) },
+  // ───────────────── Assinatura recorrente (cartão ou Pix) ─────────────────
+
+  private get urlDoSite(): string {
+    return (process.env.FRONTEND_URL || 'http://localhost:3000')
+      .split(',')[0]
+      .trim()
+      .replace(/\/+$/, '');
+  }
+
+  /**
+   * Garante que o plano existe como `preapproval_plan` no Mercado Pago.
+   *
+   * É idempotente: se já houver id salvo, atualiza o valor lá em vez de criar
+   * outro — plano duplicado no MP vira cobrança duplicada no cartão de alguém.
+   */
+  async sincronizarPlanoNoMercadoPago(planoId: number) {
+    const plano = await this.prisma.plano.findUnique({ where: { id: planoId } });
+    if (!plano) throw new NotFoundException('Plano não encontrado');
+    this.exigirToken();
+
+    const corpo = corpoDoPlano(plano, `${this.urlDoSite}/assinatura`);
+
+    if (plano.mpPreapprovalPlanId) {
+      const atualizado = await this.mpFetch(
+        `/preapproval_plan/${plano.mpPreapprovalPlanId}`,
+        { method: 'PUT', body: JSON.stringify(corpo) },
+      );
+      await this.prisma.plano.update({
+        where: { id: plano.id },
+        data: { mpInitPoint: atualizado.init_point ?? plano.mpInitPoint },
       });
-      if (pagamento && mp.status) {
-        await this.prisma.pagamento.update({
-          where: { id: pagamento.id },
-          data: { status: mp.status },
+      return { id: plano.mpPreapprovalPlanId, atualizado: true };
+    }
+
+    const criado = await this.mpFetch('/preapproval_plan', {
+      method: 'POST',
+      body: JSON.stringify(corpo),
+    });
+    await this.prisma.plano.update({
+      where: { id: plano.id },
+      data: {
+        mpPreapprovalPlanId: String(criado.id),
+        mpInitPoint: criado.init_point ?? null,
+      },
+    });
+    return { id: String(criado.id), atualizado: false };
+  }
+
+  /** Sincroniza todos os planos ativos de uma vez. */
+  async sincronizarTodosOsPlanos() {
+    const planos = await this.prisma.plano.findMany({
+      where: { ativo: true },
+      select: { id: true, nome: true },
+    });
+    const resultado: { plano: string; id?: string; erro?: string }[] = [];
+    for (const p of planos) {
+      try {
+        const r = await this.sincronizarPlanoNoMercadoPago(p.id);
+        resultado.push({ plano: p.nome, id: r.id });
+      } catch (e) {
+        resultado.push({
+          plano: p.nome,
+          erro: e instanceof Error ? e.message : String(e),
         });
-        if (mp.status === 'approved') {
-          await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
-        }
+      }
+    }
+    return resultado;
+  }
+
+  private exigirToken() {
+    if (!this.mpToken) {
+      throw new BadRequestException(
+        'Pagamento indisponível: configure MERCADO_PAGO_ACCESS_TOKEN no servidor.',
+      );
+    }
+  }
+
+  /**
+   * Começa a assinatura recorrente e devolve o link do checkout do Mercado
+   * Pago, onde o barbeiro escolhe cartão ou Pix.
+   *
+   * Não pedimos os dados do cartão nas nossas telas de propósito: além de
+   * tirar o cartão do nosso servidor, é o que permite oferecer Pix — pelo
+   * caminho do `card_token_id` só daria para cobrar no cartão.
+   */
+  async iniciarAssinaturaRecorrente(tenantId: number, planoId: number) {
+    this.exigirToken();
+
+    const [tenant, plano] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { email: true, nome: true },
+      }),
+      this.prisma.plano.findUnique({ where: { id: planoId } }),
+    ]);
+    if (!tenant) throw new NotFoundException('Barbearia não encontrada');
+    if (!plano || !plano.ativo) {
+      throw new NotFoundException('Plano não encontrado ou inativo');
+    }
+
+    // O plano precisa existir no MP antes de alguém assinar.
+    if (!plano.mpPreapprovalPlanId) {
+      await this.sincronizarPlanoNoMercadoPago(plano.id);
+    }
+    const atualizado = await this.prisma.plano.findUnique({
+      where: { id: plano.id },
+    });
+
+    const criada = await this.mpFetch('/preapproval', {
+      method: 'POST',
+      body: JSON.stringify(
+        corpoDaAssinatura({
+          preapprovalPlanId: atualizado!.mpPreapprovalPlanId!,
+          emailDoPagador: tenant.email,
+          tenantId,
+          planoId,
+          backUrl: `${this.urlDoSite}/assinatura`,
+        }),
+      ),
+    });
+
+    // Guarda o vínculo já: o webhook pode chegar antes do barbeiro voltar.
+    await this.prisma.assinatura.updateMany({
+      where: { tenantId },
+      data: { mpPreapprovalId: String(criada.id) },
+    });
+
+    const link = criada.init_point || atualizado!.mpInitPoint;
+    if (!link) {
+      throw new BadRequestException(
+        'O Mercado Pago não devolveu o link do checkout. Tente de novo em instantes.',
+      );
+    }
+    return { preapprovalId: String(criada.id), initPoint: link };
+  }
+
+  /** Cancela a recorrência no Mercado Pago, se houver. */
+  private async cancelarRecorrenciaNoMp(mpPreapprovalId: string | null) {
+    if (!mpPreapprovalId || !this.mpToken) return;
+    try {
+      await this.mpFetch(`/preapproval/${mpPreapprovalId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+    } catch (e) {
+      // Cancelamento local não pode travar por falha externa — mas registrar
+      // é essencial: senão o barbeiro segue sendo cobrado sem ninguém ver.
+      this.logger.error(
+        `Falha ao cancelar a recorrência ${mpPreapprovalId} no Mercado Pago: ${
+          e instanceof Error ? e.message : e
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Webhook do Mercado Pago. Trata três tópicos:
+   * - subscription_preapproval: o barbeiro autorizou (ou cancelou) a assinatura
+   * - subscription_authorized_payment: caiu a cobrança mensal
+   * - payment: pagamento avulso (o Pix por QR Code)
+   *
+   * Sempre responde 200: o MP reenvia o que falha, e devolver erro por uma
+   * notificação que não sabemos tratar só gera retentativa infinita.
+   */
+  async handleWebhookMercadoPago(body: any, query: any = {}) {
+    const { topico, id } = interpretarNotificacao(body, query);
+    if (!topico || !id || !this.mpToken) return { ok: true };
+
+    try {
+      if (topico === 'subscription_preapproval') {
+        await this.tratarAssinaturaRecorrente(id);
+      } else if (topico === 'subscription_authorized_payment') {
+        await this.tratarCobrancaRecorrente(id);
+      } else {
+        await this.tratarPagamentoAvulso(id);
       }
     } catch (e) {
-      console.error('Webhook MP falhou:', (e as any)?.message);
+      this.logger.error(
+        `Webhook ${topico}/${id} falhou: ${e instanceof Error ? e.message : e}`,
+      );
     }
     return { ok: true };
+  }
+
+  /** O barbeiro autorizou, pausou ou cancelou a assinatura. */
+  private async tratarAssinaturaRecorrente(preapprovalId: string) {
+    const mp = await this.mpFetch(`/preapproval/${preapprovalId}`);
+    const ref = lerReferenciaExterna(mp.external_reference);
+    if (!ref) {
+      this.logger.warn(
+        `Assinatura ${preapprovalId} sem referência externa reconhecível — ignorada.`,
+      );
+      return;
+    }
+
+    const status = traduzirStatus(mp.status);
+    if (status === 'pending') return; // criada, mas ainda não autorizada
+
+    if (status === 'canceled') {
+      await this.prisma.assinatura.updateMany({
+        where: { tenantId: ref.tenantId },
+        data: { status: 'canceled', renovacaoAutomatica: false },
+      });
+      return;
+    }
+
+    // Autorizada: vale por 30 dias e renova sozinha a cada cobrança.
+    const inicio = new Date();
+    const fim = new Date();
+    fim.setDate(fim.getDate() + 30);
+    await this.prisma.assinatura.upsert({
+      where: { tenantId: ref.tenantId },
+      create: {
+        tenantId: ref.tenantId,
+        planoId: ref.planoId,
+        status: 'active',
+        emTeste: false,
+        dataInicio: inicio,
+        dataFim: fim,
+        renovacaoAutomatica: true,
+        mpPreapprovalId: preapprovalId,
+        meioPagamento: 'recorrente',
+      },
+      update: {
+        planoId: ref.planoId,
+        status: 'active',
+        emTeste: false,
+        dataInicio: inicio,
+        dataFim: fim,
+        renovacaoAutomatica: true,
+        mpPreapprovalId: preapprovalId,
+        meioPagamento: 'recorrente',
+      },
+    });
+
+    const plano = await this.prisma.plano.findUnique({
+      where: { id: ref.planoId },
+      select: { nome: true, preco: true },
+    });
+    if (plano) await this.avisarNoWhatsapp(ref.tenantId, plano, fim, false);
+  }
+
+  /** Caiu a mensalidade: estende a validade por mais 30 dias. */
+  private async tratarCobrancaRecorrente(pagamentoId: string) {
+    const mp = await this.mpFetch(`/authorized_payments/${pagamentoId}`);
+    const situacao = mp?.payment?.status ?? mp?.status;
+    if (situacao !== 'approved') return;
+
+    const assinatura = await this.prisma.assinatura.findFirst({
+      where: { mpPreapprovalId: String(mp.preapproval_id) },
+    });
+    if (!assinatura) {
+      this.logger.warn(
+        `Cobrança ${pagamentoId} sem assinatura correspondente (preapproval ${mp.preapproval_id}).`,
+      );
+      return;
+    }
+
+    const fim = new Date();
+    fim.setDate(fim.getDate() + 30);
+    await this.prisma.assinatura.update({
+      where: { id: assinatura.id },
+      data: { status: 'active', emTeste: false, dataFim: fim },
+    });
+  }
+
+  /** Pix avulso por QR Code — o caminho de quem não quer recorrência. */
+  private async tratarPagamentoAvulso(paymentId: string) {
+    const mp = await this.mpFetch(`/v1/payments/${paymentId}`);
+    const pagamento = await this.prisma.pagamento.findUnique({
+      where: { mpPaymentId: String(paymentId) },
+    });
+    if (!pagamento || !mp.status) return;
+
+    await this.prisma.pagamento.update({
+      where: { id: pagamento.id },
+      data: { status: mp.status },
+    });
+    if (mp.status === 'approved') {
+      await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
+    }
   }
 
   /** Confirmação manual pelo admin (controle do dono do SaaS). */
