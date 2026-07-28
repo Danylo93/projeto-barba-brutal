@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../db/prisma.service';
 import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
 import { escolherCorMarca, COR_PRIMARIA_PADRAO } from '../tenant/cores-marca';
+import { limparDocumento, tipoDoDocumento } from '../common/documento';
 import * as bcrypt from 'bcrypt';
 
 /** Valida formato de e-mail. */
@@ -169,13 +170,34 @@ export class AuthService {
     telefone: string;
     senha: string;
     endereco?: string;
-    cnpj?: string;
+    documento: string;
   }) {
     if (!validarEmail(data.email)) {
       throw new BadRequestException('E-mail inválido. Informe um e-mail válido (ex: nome@email.com)');
     }
     if (!validarTelefone(data.telefone)) {
       throw new BadRequestException('Telefone inválido. Informe o DDD + número (ex: 11999990000)');
+    }
+
+    // O documento é o que identifica a barbearia de verdade. E-mail não
+    // verificado não identifica ninguém: sem isso, a mesma pessoa abre conta
+    // atrás de conta e renova o teste grátis para sempre.
+    const documento = limparDocumento(data.documento || '');
+    const tipoDocumento = tipoDoDocumento(documento);
+    if (!tipoDocumento) {
+      throw new BadRequestException(
+        'CPF ou CNPJ inválido. Confira os números e tente de novo.',
+      );
+    }
+
+    const jaCadastrado = await this.prisma.tenant.findUnique({
+      where: { documento },
+      select: { id: true },
+    });
+    if (jaCadastrado) {
+      throw new BadRequestException(
+        'Já existe uma barbearia cadastrada com esse CPF/CNPJ. Entre com a conta existente ou recupere a senha.',
+      );
     }
 
     const senhaHash = await bcrypt.hash(data.senha, 10);
@@ -192,6 +214,8 @@ export class AuthService {
     const tenant = await this.prisma.tenant.create({
       data: {
         ...data,
+        documento,
+        tipoDocumento,
         senha: senhaHash,
         corPrimaria: COR_PRIMARIA_PADRAO,
         corSecundaria,
