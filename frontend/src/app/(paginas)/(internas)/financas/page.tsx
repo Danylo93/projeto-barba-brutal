@@ -7,6 +7,7 @@ import useUsuario from '@/data/hooks/useUsuario'
 import Cabecalho from '@/components/shared/Cabecalho'
 import { Skeleton } from '@/components/ui/skeleton'
 import RelatorioComissoes from '@/components/painel/RelatorioComissoes'
+import GestaoBloqueios from '@/components/painel/GestaoBloqueios'
 
 interface Servico {
   nome: string
@@ -72,8 +73,11 @@ export default function FinancasPage() {
           titulo="Financeiro"
           descricao="Faturamento e comissões da sua equipe."
         />
-        <div className="container mx-auto max-w-5xl px-4 py-10 md:px-0">
+        <div className="container mx-auto flex max-w-5xl flex-col gap-12 px-4 py-10 md:px-0">
           <RelatorioComissoes />
+          <div className="border-t border-zinc-800 pt-10">
+            <GestaoBloqueios ehDono />
+          </div>
         </div>
       </div>
     )

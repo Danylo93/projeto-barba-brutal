@@ -59,6 +59,7 @@ model Tenant {
   servicos      Servico[]
   agendamentos  Agendamento[]
   pagamentos    Pagamento[]
+  bloqueios     Bloqueio[]
 
   @@map("tenant")
 }
@@ -152,6 +153,7 @@ model Profissional {
   updatedAt            DateTime      @updatedAt
   agendamentos         Agendamento[]
   servicos             Servico[]     // serviços que este profissional realiza
+  bloqueios            Bloqueio[]    // folgas, almoço, férias
 
   tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   usuario              Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
@@ -211,4 +213,23 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@map("audit_log")
+}
+
+/// Período em que não se pode agendar: folga, almoço, férias ou feriado.
+/// `profissionalId` nulo bloqueia a barbearia inteira.
+model Bloqueio {
+  id             Int           @id @default(autoincrement())
+  tenantId       Int
+  profissionalId Int?
+  inicio         DateTime      @db.Timestamptz(3)
+  fim            DateTime      @db.Timestamptz(3)
+  motivo         String?
+  createdAt      DateTime      @default(now())
+
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profissional   Profissional? @relation(fields: [profissionalId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, inicio])
+  @@index([profissionalId, inicio])
+  @@map("bloqueio")
 }
