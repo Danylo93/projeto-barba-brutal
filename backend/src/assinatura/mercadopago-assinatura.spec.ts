@@ -49,26 +49,40 @@ describe('corpoDoPlano', () => {
 });
 
 describe('corpoDaAssinatura', () => {
+  const primeiraCobranca = new Date('2026-08-27T12:00:00.000Z');
   const corpo = corpoDaAssinatura({
-    preapprovalPlanId: '2c93808493',
+    plano,
     emailDoPagador: 'contato@barbearia.app',
     tenantId: 7,
-    planoId: 2,
     backUrl: 'https://barbeariabrutal.vercel.app/assinatura',
+    primeiraCobranca,
   });
 
   it('nasce pendente, para o assinante autorizar no Mercado Pago', () => {
     expect(corpo.status).toBe('pending');
   });
 
-  it('não manda dados de cartão', () => {
-    // É o que permite cartão E Pix, e mantém dado de cartão fora do servidor.
+  it('não manda dados de cartão nem plano associado', () => {
+    // Com preapproval_plan_id a API exigiria card_token_id — só cartão, e com
+    // os dados do cartão passando por aqui. Sem ele, o Mercado Pago devolve o
+    // init_point e o barbeiro escolhe cartão ou Pix na tela deles.
     expect(corpo).not.toHaveProperty('card_token_id');
+    expect(corpo).not.toHaveProperty('preapproval_plan_id');
+  });
+
+  it('leva a recorrência embutida', () => {
+    expect(corpo.auto_recurring.frequency).toBe(1);
+    expect(corpo.auto_recurring.frequency_type).toBe('months');
+    expect(corpo.auto_recurring.transaction_amount).toBe(99.9);
+    expect(corpo.auto_recurring.currency_id).toBe('BRL');
+  });
+
+  it('só cobra quando o teste termina', () => {
+    expect(corpo.auto_recurring.start_date).toBe(primeiraCobranca.toISOString());
   });
 
   it('amarra a assinatura ao tenant e ao plano', () => {
     expect(corpo.external_reference).toBe('bb-7-2');
-    expect(corpo.preapproval_plan_id).toBe('2c93808493');
   });
 });
 

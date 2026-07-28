@@ -49,24 +49,38 @@ export function corpoDoPlano(plano: PlanoLocal, backUrl: string) {
 }
 
 /**
- * Corpo de POST /preapproval sem cartão: o assinante escolhe o meio de
- * pagamento na página do Mercado Pago (o `init_point` devolvido na resposta).
+ * Corpo de POST /preapproval **sem plano associado**, com status `pending`.
  *
- * É esse caminho que permite cartão E Pix. Criar com `card_token_id` exigiria
- * capturar os dados do cartão nas nossas telas — mais risco, e só cartão.
+ * Por que sem plano associado: com `preapproval_plan_id`, a API do Mercado
+ * Pago exige `card_token_id` — ou seja, só cartão, e com os dados do cartão
+ * passando pelas nossas telas. Sem o plano, a assinatura nasce pendente e o
+ * Mercado Pago devolve um `init_point`; lá o barbeiro escolhe cartão ou Pix,
+ * e nada de cartão toca o nosso servidor.
+ *
+ * A recorrência vai embutida aqui, então cada assinatura carrega a própria
+ * configuração — e o `external_reference` é nosso, que é como o webhook
+ * descobre de quem é a assinatura.
  */
 export function corpoDaAssinatura(dados: {
-  preapprovalPlanId: string;
+  plano: PlanoLocal;
   emailDoPagador: string;
   tenantId: number;
-  planoId: number;
   backUrl: string;
+  /** Primeira cobrança; use o fim do teste grátis para não cobrar antes. */
+  primeiraCobranca: Date;
 }) {
   return {
-    preapproval_plan_id: dados.preapprovalPlanId,
+    reason: `Barbearia Brutal — Plano ${dados.plano.nome}`,
     payer_email: dados.emailDoPagador,
-    // Volta para nós no webhook: é como sabemos de quem é a assinatura.
-    external_reference: referenciaExterna(dados.tenantId, dados.planoId),
+    external_reference: referenciaExterna(dados.tenantId, dados.plano.id),
+    auto_recurring: {
+      frequency: 1,
+      frequency_type: 'months' as const,
+      // Só começa a cobrar quando o teste acaba.
+      start_date: dados.primeiraCobranca.toISOString(),
+      transaction_amount: Number(dados.plano.preco.toFixed(2)),
+      currency_id: 'BRL' as const,
+    },
     back_url: dados.backUrl,
     status: 'pending' as const,
   };
