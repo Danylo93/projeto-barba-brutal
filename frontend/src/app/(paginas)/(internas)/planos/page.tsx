@@ -172,6 +172,23 @@ export default function PlanosPage() {
               <Crown size={16} /> Em teste grátis · {diasRestantes} dia(s) restante(s)
             </div>
           )}
+
+          {/* Mensal x anual. O anual entra quando o pagamento com cartão existir —
+              mostrar agora, desabilitado, evita a pergunta "só tem mensal?". */}
+          <div className="mt-6 inline-flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900 p-1">
+            <span className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-900">
+              Mensal
+            </span>
+            <span
+              className="cursor-not-allowed rounded-lg px-4 py-2 text-sm font-medium text-zinc-500"
+              title="Disponível quando o pagamento com cartão entrar"
+            >
+              Anual
+              <span className="ml-2 rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+                em breve
+              </span>
+            </span>
+          </div>
         </div>
 
         {error && (

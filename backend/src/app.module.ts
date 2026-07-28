@@ -10,11 +10,11 @@ import { AssinaturaModule } from './assinatura/assinatura.module';
 import { AdminModule } from './admin/admin.module';
 import { ProfissionalModule } from './profissional/profissional.module';
 import { HealthModule } from './health/health.module';
-import { BillingModule } from './billing/billing.module';
 import { LembreteModule } from './lembrete/lembrete.module';
 import { BloqueioModule } from './bloqueio/bloqueio.module';
 import { ClubeModule } from './clube/clube.module';
 import { LgpdModule } from './lgpd/lgpd.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { TenantedThrottlerGuard } from './common/tenanted-throttler.guard';
@@ -32,11 +32,11 @@ import { TenantedThrottlerGuard } from './common/tenanted-throttler.guard';
     AdminModule,
     ProfissionalModule,
     HealthModule,
-    BillingModule,
     LembreteModule,
     BloqueioModule,
     ClubeModule,
     LgpdModule,
+    WhatsappModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,

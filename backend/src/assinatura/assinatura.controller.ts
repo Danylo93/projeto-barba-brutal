@@ -16,7 +16,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import Stripe from 'stripe';
 
 /** Dono só mexe na própria assinatura; admin do SaaS pode tudo. */
 function exigirProprioTenantOuAdmin(user: any, tenantId: number) {
@@ -36,24 +35,6 @@ function exigirTenant(user: any): number {
 @Controller('assinaturas')
 export class AssinaturaController {
   constructor(private readonly assinaturaService: AssinaturaService) {}
-
-  // Público: usado no fluxo de cadastro/venda (o tenant recém-criado ainda não logou).
-  @Post('checkout')
-  createCheckoutSession(
-    @Body() data: {
-      tenantId: number;
-      planoId: number;
-      successUrl: string;
-      cancelUrl: string;
-    },
-  ) {
-    return this.assinaturaService.createCheckoutSession(
-      data.tenantId,
-      data.planoId,
-      data.successUrl,
-      data.cancelUrl,
-    );
-  }
 
   // ── Endpoints "me": o tenant autenticado gerencia o próprio plano ──
 
@@ -111,24 +92,6 @@ export class AssinaturaController {
 
   // ── Endpoints por tenantId: restritos ao próprio tenant ou admin ──
 
-  @Post(':tenantId/subscribe')
-  @UseGuards(JwtAuthGuard)
-  createSubscription(
-    @Param('tenantId', ParseIntPipe) tenantId: number,
-    @CurrentUser() user: any,
-    @Body() data: {
-      planoId: number;
-      paymentMethodId: string;
-    },
-  ) {
-    exigirProprioTenantOuAdmin(user, tenantId);
-    return this.assinaturaService.createSubscription(
-      tenantId,
-      data.planoId,
-      data.paymentMethodId,
-    );
-  }
-
   @Post(':tenantId/cancel')
   @UseGuards(JwtAuthGuard)
   cancelSubscription(
@@ -147,28 +110,5 @@ export class AssinaturaController {
   ) {
     exigirProprioTenantOuAdmin(user, tenantId);
     return this.assinaturaService.getSubscription(tenantId);
-  }
-
-  @Post('webhook')
-  handleWebhook(
-    @Req() req: RawBodyRequest<Request>,
-    @Headers('stripe-signature') signature: string,
-  ) {
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    let event: Stripe.Event;
-
-    try {
-      event = Stripe.webhooks.constructEvent(
-        req.rawBody,
-        signature,
-        endpointSecret,
-      );
-    } catch (err) {
-      console.log(`Webhook signature verification failed.`, err.message);
-      return { error: 'Invalid signature' };
-    }
-
-    return this.assinaturaService.handleWebhook(event);
   }
 }

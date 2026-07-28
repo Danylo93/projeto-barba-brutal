@@ -42,6 +42,13 @@ model Tenant {
   telefone      String
   senha         String?
   endereco      String?
+  /// CPF ou CNPJ da barbearia, só dígitos (e letras, no CNPJ alfanumérico).
+  /// É o que impede a mesma pessoa abrir várias contas com e-mails diferentes
+  /// para renovar o teste grátis — e-mail não verificado não identifica ninguém.
+  documento     String?   @unique
+  /// cpf | cnpj — guardado para exibir formatado sem recalcular.
+  tipoDocumento String?
+  /// @deprecated Use `documento`. Mantido para não quebrar cadastros antigos.
   cnpj          String?   @unique
   dominio       String?   @unique // subdomínio personalizado
   logo          String?   // URL da logo

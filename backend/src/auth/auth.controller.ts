@@ -19,7 +19,8 @@ export class AuthController {
     telefone: string;
     senha: string;
     endereco?: string;
-    cnpj?: string;
+    /** CPF ou CNPJ — obrigatório, é o identificador único da barbearia. */
+    documento: string;
   }) {
     return this.authService.registerTenant(data);
   }
