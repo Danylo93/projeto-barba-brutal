@@ -1,16 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import { Ticket, Search, Plus, Trash2, Tag, Percent } from 'lucide-react'
+import { Ticket, Tag } from 'lucide-react'
 import Cabecalho from '@/components/shared/Cabecalho'
-import useAPI from '@/data/hooks/useAPI'
 import useSessao from '@/data/hooks/useSessao'
 
 export default function MarketingPage() {
     const { usuario } = useSessao()
-    const { httpGet, httpPost, httpDelete } = useAPI()
-    const [loading, setLoading] = useState(false)
-    const [cupons, setCupons] = useState<any[]>([])
 
     const isTenant = usuario?.tipo === 'tenant'
 
@@ -29,25 +24,27 @@ export default function MarketingPage() {
                 descricao="Crie e gerencie cupons de desconto para seus clientes."
             />
             <div className="container py-10 px-4 md:px-0 max-w-5xl mx-auto">
-                <div className="flex justify-between items-center mb-6 border-b border-zinc-800 pb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-purple-400/10 border border-purple-400/20 flex items-center justify-center">
-                            <Ticket size={24} className="text-purple-400" />
+                <div className="mb-6 flex flex-col gap-4 border-b border-zinc-800 pb-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-yellow-400/20 bg-yellow-400/10">
+                            <Ticket size={24} className="text-yellow-400" />
                         </div>
-                        <div>
-                            <h2 className="text-2xl font-bold text-white">Cupons Ativos</h2>
+                        <div className="min-w-0">
+                            <h2 className="text-2xl font-bold text-white">Cupons</h2>
                             <p className="text-sm text-zinc-400">Atraia mais clientes com descontos</p>
                         </div>
                     </div>
-                    <button className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white font-bold px-4 py-2 rounded-lg transition-colors">
-                        <Plus size={20} /> Novo Cupom
-                    </button>
+                    {/* Sem botão de criar enquanto a API de cupons não existe: botão que
+                        não faz nada assusta mais do que a ausência dele. */}
+                    <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-400 sm:self-auto">
+                        Em breve
+                    </span>
                 </div>
 
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-10 flex flex-col items-center justify-center text-center">
                     <Tag size={48} className="text-zinc-700 mb-4" />
                     <h3 className="text-xl font-bold text-white mb-2">Nenhum cupom criado ainda</h3>
-                    <p className="text-zinc-400 max-w-md">O backend da API de cupons está sendo preparado. Em breve você poderá distribuir códigos como "BEMVINDO10" para atrair novos agendamentos.</p>
+                    <p className="text-zinc-400 max-w-md">Estamos preparando os cupons. Em breve você vai poder criar códigos como <span className="font-mono text-zinc-300">BEMVINDO10</span> e atrair agendamentos novos.</p>
                 </div>
             </div>
         </div>
