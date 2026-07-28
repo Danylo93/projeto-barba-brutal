@@ -67,6 +67,7 @@ export default function PainelNav() {
             { href: '/profissionais', rotulo: 'Profissionais' },
             { href: '/servicos', rotulo: 'Serviços' },
             { href: '/financas', rotulo: 'Financeiro' },
+            { href: '/clube', rotulo: 'Clube' },
             { href: '/assinatura', rotulo: 'Meu Plano' },
             { href: '/configuracoes', rotulo: 'Configurações' },
         ]
@@ -80,6 +81,7 @@ export default function PainelNav() {
         links = [
             { href: '/agendamento', rotulo: 'Agendar' },
             { href: '/agendamentos', rotulo: 'Meus Agendamentos' },
+            { href: '/clube', rotulo: 'Clube' },
         ]
     }
 

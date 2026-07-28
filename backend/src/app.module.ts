@@ -13,6 +13,7 @@ import { HealthModule } from './health/health.module';
 import { BillingModule } from './billing/billing.module';
 import { LembreteModule } from './lembrete/lembrete.module';
 import { BloqueioModule } from './bloqueio/bloqueio.module';
+import { ClubeModule } from './clube/clube.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { TenantedThrottlerGuard } from './common/tenanted-throttler.guard';
@@ -33,6 +34,7 @@ import { TenantedThrottlerGuard } from './common/tenanted-throttler.guard';
     BillingModule,
     LembreteModule,
     BloqueioModule,
+    ClubeModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,
