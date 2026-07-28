@@ -301,7 +301,6 @@ export default function ConfiguracoesPage() {
                             Salvar Configurações
                         </button>
                     </div>
-                </motion.div>
             </div>
         </div>
     )
