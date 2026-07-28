@@ -2,13 +2,26 @@ import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, Query, U
 import { TenantService } from './tenant.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
+import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { ForbiddenException } from '@nestjs/common';
+
+/** O dono só mexe na própria barbearia; o admin do SaaS mexe em qualquer uma. */
+function exigirProprioTenantOuAdmin(user: any, tenantId: number) {
+  if (user?.tipo === 'admin') return;
+  if (user?.tipo === 'tenant' && user.id === tenantId) return;
+  throw new ForbiddenException('Acesso negado aos dados de outra barbearia');
+}
 
 @Controller('tenants')
 export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
 
+  // Barbearia nova entra por /auth/tenant/register, que exige CPF/CNPJ válido
+  // e único. Este endpoint é ferramenta de administração e não pode ficar
+  // aberto — sem guarda, qualquer um criava barbearia pulando essa validação.
   @Post()
+  @UseGuards(JwtAuthGuard, AdminAuthGuard)
   create(@Body() data: {
     nome: string;
     email: string;
@@ -69,7 +82,10 @@ export class TenantController {
     return this.tenantService.getPaginaPublica(identificador);
   }
 
+  // A lista traz TODAS as barbearias do SaaS, com faturamento e contatos.
+  // É painel do dono do SaaS, não informação pública.
   @Get()
+  @UseGuards(JwtAuthGuard, AdminAuthGuard)
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -79,37 +95,36 @@ export class TenantController {
     return this.tenantService.findAll(pageNum, limitNum);
   }
 
+  /** Dados de uma barbearia: o próprio dono ou o admin do SaaS. */
   @Get(':id')
-  findById(@Param('id', ParseIntPipe) id: number) {
+  @UseGuards(JwtAuthGuard)
+  findById(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    exigirProprioTenantOuAdmin(user, id);
     return this.tenantService.findById(id);
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard)
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() data: Partial<{
-      nome: string;
-      email: string;
-      telefone: string;
-      endereco: string;
-      cnpj: string;
-      dominio: string;
-      logo: string;
-      corPrimaria: string;
-      corSecundaria: string;
-      ativo: boolean;
-    }>
+    @CurrentUser() user: any,
+    @Body() data: any,
   ) {
-    return this.tenantService.update(id, data);
+    exigirProprioTenantOuAdmin(user, id);
+    // Só o admin do SaaS pode mexer em `ativo` (suspender/reativar).
+    return this.tenantService.update(id, data, user?.tipo === 'admin');
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, AdminAuthGuard)
   delete(@Param('id', ParseIntPipe) id: number) {
     return this.tenantService.delete(id);
   }
 
   @Get(':id/limits')
-  checkLimits(@Param('id', ParseIntPipe) id: number) {
+  @UseGuards(JwtAuthGuard)
+  checkLimits(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    exigirProprioTenantOuAdmin(user, id);
     return this.tenantService.checkLimits(id);
   }
 }
