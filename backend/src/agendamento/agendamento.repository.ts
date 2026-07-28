@@ -121,7 +121,64 @@ export class AgendamentoRepository implements RepositorioAgendamento {
 
     // 5) Conflito de horário: o profissional não pode ter dois atendimentos
     //    sobrepostos. Considera a duração de cada agendamento (slots × 30 min).
-    await this.garantirHorarioLivre(agendamento, inicio, duracaoEmMinutos(servicos));
+    const duracaoMin = duracaoEmMinutos(servicos);
+    await this.garantirHorarioLivre(agendamento, inicio, duracaoMin);
+
+    // 6) Bloqueios de agenda (folga, almoço, férias, feriado).
+    await this.garantirSemBloqueio(agendamento, inicio, duracaoMin);
+  }
+
+  /**
+   * Recusa o agendamento quando o intervalo cai em um bloqueio do profissional
+   * ou da barbearia inteira (profissionalId nulo).
+   */
+  private async garantirSemBloqueio(
+    agendamento: Agendamento,
+    inicio: Date,
+    duracaoMin: number,
+  ): Promise<void> {
+    const fim = new Date(inicio.getTime() + duracaoMin * 60000);
+
+    const bloqueio = await this.prismaService.bloqueio.findFirst({
+      where: {
+        tenantId: agendamento.tenantId,
+        OR: [{ profissionalId: agendamento.profissionalId }, { profissionalId: null }],
+        // Sobreposição: começa antes do fim do atendimento e termina depois do início.
+        inicio: { lt: fim },
+        fim: { gt: inicio },
+      },
+      select: { motivo: true, profissionalId: true },
+    });
+
+    if (bloqueio) {
+      const quem = bloqueio.profissionalId ? 'O profissional' : 'A barbearia';
+      const motivo = bloqueio.motivo ? ` (${bloqueio.motivo})` : '';
+      throw new BadRequestException(
+        `${quem} não está disponível neste horário${motivo}. Escolha outro horário.`,
+      );
+    }
+  }
+
+  /** Bloqueios que afetam um profissional em um dia — usado na disponibilidade. */
+  async buscarBloqueios(
+    profissionalId: number,
+    data: Date,
+  ): Promise<{ inicio: Date; fim: Date }[]> {
+    const inicioDoDia = new Date(data);
+    inicioDoDia.setHours(0, 0, 0, 0);
+    const fimDoDia = new Date(data);
+    fimDoDia.setHours(23, 59, 59, 999);
+
+    const bloqueios = await this.prismaService.bloqueio.findMany({
+      where: {
+        OR: [{ profissionalId }, { profissionalId: null }],
+        inicio: { lte: fimDoDia },
+        fim: { gte: inicioDoDia },
+      },
+      select: { inicio: true, fim: true },
+    });
+
+    return bloqueios.map((b) => ({ inicio: new Date(b.inicio), fim: new Date(b.fim) }));
   }
 
   /**

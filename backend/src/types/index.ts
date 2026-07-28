@@ -37,6 +37,8 @@ export interface RepositorioAgendamento {
   salvar(agendamento: Agendamento): Promise<number>;
   buscarPorUsuario(usuarioId: number): Promise<Agendamento[]>;
   buscarPorProfissional(profissionalId: number, data: Date): Promise<Agendamento[]>;
+  /** Bloqueios (folga/almoço/férias) que afetam o profissional no dia. */
+  buscarBloqueios?(profissionalId: number, data: Date): Promise<{ inicio: Date; fim: Date }[]>;
 }
 
 // Interface para provedor de criptografia
@@ -114,6 +116,27 @@ export class ObterHorariosOcupados {
         ocupados.push(horaStr);
         // Avança 30 minutos (1 slot)
         dataSlot.setMinutes(dataSlot.getMinutes() + 30);
+      }
+    }
+
+    // Slots cobertos por bloqueios (folga, almoço, férias) também ficam indisponíveis.
+    const bloqueios = (await this.repo.buscarBloqueios?.(profissionalId, data)) ?? [];
+    if (bloqueios.length) {
+      const inicioDoDia = new Date(data);
+      inicioDoDia.setHours(0, 0, 0, 0);
+      for (let i = 0; i < 48; i++) {
+        const slotInicio = new Date(inicioDoDia.getTime() + i * 30 * 60000);
+        const slotFim = new Date(slotInicio.getTime() + 30 * 60000);
+        const bloqueado = bloqueios.some(
+          (b) => slotInicio < b.fim && b.inicio < slotFim,
+        );
+        if (!bloqueado) continue;
+        const horaStr = slotInicio.toLocaleTimeString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        if (!ocupados.includes(horaStr)) ocupados.push(horaStr);
       }
     }
 
