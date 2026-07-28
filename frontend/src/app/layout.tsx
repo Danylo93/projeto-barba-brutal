@@ -3,6 +3,7 @@ import { Inter, Outfit } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/ui/theme-provider'
 import { ToastProvider } from '@/components/ui/toast-provider'
+import BannerConsentimento from '@/components/shared/BannerConsentimento'
 
 const inter = Inter({
     subsets: ['latin'],
@@ -43,6 +44,8 @@ export default function RootLayout({
                 >
                     <ToastProvider>
                         {children}
+                        {/* Primeira visita a qualquer página — SaaS ou site de barbearia. */}
+                        <BannerConsentimento />
                     </ToastProvider>
                 </ThemeProvider>
             </body>
