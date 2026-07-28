@@ -5,9 +5,11 @@ export interface LogoProps {
     href?: string
     /** Nome da barbearia (tenant). Sem isso, usa a marca padrão do sistema. */
     nome?: string | null
+    /** Esconde o nome abaixo de 1280px, deixando só o brasão (usado na barra do painel). */
+    compacto?: boolean
 }
 
-export default function Logo({ href = '/', nome }: LogoProps) {
+export default function Logo({ href = '/', nome, compacto = false }: LogoProps) {
     let linha1 = 'Barbearia'
     let linha2 = 'Brutal'
     const limpo = (nome ?? '').trim()
@@ -23,16 +25,18 @@ export default function Logo({ href = '/', nome }: LogoProps) {
     }
 
     return (
-        <Link href={href} className="flex items-center h-14">
-            <Image src="/logo.png" alt="Logo" width={65} height={65} className="hidden sm:block" />
-            <Image src="/logo.png" alt="Logo" width={50} height={50} className="block sm:hidden" />
-            <div className="flex flex-col justify-center h-full">
+        <Link href={href} className="flex shrink-0 items-center h-14">
+            <Image src="/logo.png" alt="Logo" width={65} height={65} className="hidden shrink-0 sm:block" />
+            <Image src="/logo.png" alt="Logo" width={50} height={50} className="block shrink-0 sm:hidden" />
+            <div
+                className={`${compacto ? 'hidden xl:flex' : 'flex'} flex-col justify-center h-full`}
+            >
                 {linha1 && (
-                    <span className="text-xl sm:text-2xl font-extralight leading-6 tracking-widest text-gradient">
+                    <span className="whitespace-nowrap text-xl sm:text-2xl font-extralight leading-6 tracking-widest text-gradient">
                         {linha1}
                     </span>
                 )}
-                <span className="text-[20px] sm:text-[24px] font-bold leading-6 pl-px text-gradient">
+                <span className="whitespace-nowrap text-[20px] sm:text-[24px] font-bold leading-6 pl-px text-gradient">
                     {linha2}
                 </span>
             </div>
