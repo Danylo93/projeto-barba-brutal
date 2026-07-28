@@ -421,6 +421,7 @@ function VisaoCliente() {
     const [minhas, setMinhas] = useState<Assinatura[]>([])
     const [carregando, setCarregando] = useState(true)
     const [assinando, setAssinando] = useState<number | null>(null)
+    const [cancelar, setCancelar] = useState<Assinatura | null>(null)
 
     const carregar = useCallback(async () => {
         try {
@@ -464,6 +465,20 @@ function VisaoCliente() {
         success('Pix copiado', 'Cole no app do seu banco para pagar.')
     }
 
+    async function cancelarAssinatura(a: Assinatura) {
+        setCancelar(null)
+        try {
+            await httpPost(`clube/assinaturas/${a.id}/cancelar`, {})
+            success(
+                a.status === 'pendente' ? 'Contratação cancelada' : 'Assinatura cancelada',
+                'Você pode assinar de novo quando quiser.',
+            )
+            await carregar()
+        } catch (e) {
+            toastErro('Erro ao cancelar', e instanceof Error ? e.message : 'Tente novamente.')
+        }
+    }
+
     if (carregando) return <Skeleton className="h-64 w-full" />
 
     const pendente = minhas.find((a) => a.status === 'pendente')
@@ -482,6 +497,23 @@ function VisaoCliente() {
                             Válido até {new Date(ativa.fim).toLocaleDateString('pt-BR')}
                         </p>
                     )}
+                    {/* Lembra o cliente do que ele tem direito. */}
+                    {(ativa.plano?.beneficios?.length ?? 0) > 0 && (
+                        <ul className="mt-4 flex flex-col gap-1.5">
+                            {ativa.plano!.beneficios!.map((b) => (
+                                <li key={b} className="flex items-start gap-2 text-sm text-zinc-300">
+                                    <Check size={15} className="mt-0.5 shrink-0 text-green-400" />
+                                    {b}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <button
+                        onClick={() => setCancelar(ativa)}
+                        className="mt-4 text-sm text-zinc-500 underline underline-offset-4 hover:text-red-400"
+                    >
+                        Cancelar assinatura
+                    </button>
                 </div>
             )}
 
@@ -495,13 +527,21 @@ function VisaoCliente() {
                     <div className="mt-3 break-all rounded-lg border border-zinc-800 bg-zinc-950 p-3 font-mono text-[11px] text-zinc-400">
                         {pendente.pixCopiaECola}
                     </div>
-                    <button
-                        onClick={() => copiar(pendente.pixCopiaECola!)}
-                        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-4 py-2.5 text-sm font-bold text-zinc-900 hover:bg-yellow-300"
-                    >
-                        <Copy size={16} />
-                        Copiar código Pix
-                    </button>
+                    <div className="mt-3 flex flex-wrap items-center gap-4">
+                        <button
+                            onClick={() => copiar(pendente.pixCopiaECola!)}
+                            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-4 py-2.5 text-sm font-bold text-zinc-900 hover:bg-yellow-300"
+                        >
+                            <Copy size={16} />
+                            Copiar código Pix
+                        </button>
+                        <button
+                            onClick={() => setCancelar(pendente)}
+                            className="text-sm text-zinc-500 underline underline-offset-4 hover:text-red-400"
+                        >
+                            Desistir
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -545,6 +585,20 @@ function VisaoCliente() {
                     )}
                 </section>
             )}
+
+            <ConfirmModal
+                aberto={cancelar !== null}
+                titulo={cancelar?.status === 'pendente' ? 'Desistir da contratação' : 'Cancelar assinatura'}
+                mensagem={
+                    cancelar?.status === 'pendente'
+                        ? 'O código Pix deixa de valer. Se já pagou, fale com a barbearia antes de desistir.'
+                        : 'Você perde os benefícios do clube imediatamente. Confirma?'
+                }
+                textoConfirmar={cancelar?.status === 'pendente' ? 'Desistir' : 'Cancelar assinatura'}
+                variante="warning"
+                onConfirmar={() => cancelar && cancelarAssinatura(cancelar)}
+                onCancelar={() => setCancelar(null)}
+            />
         </div>
     )
 }

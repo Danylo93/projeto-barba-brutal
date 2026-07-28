@@ -85,6 +85,12 @@ export default function PainelNav() {
         ]
     }
 
+    // O dono tem muitos itens de menu e a linha não cabe em telas médias:
+    // nesse caso o menu horizontal só aparece a partir de 1280px.
+    const muitosLinks = links.length >= 7
+    const barraDesktop = muitosLinks ? 'hidden xl:flex' : 'hidden md:flex'
+    const soMobile = muitosLinks ? 'xl:hidden' : 'md:hidden'
+
     function ativo(href: string) {
         return pathname === href || (href !== '/' && pathname?.startsWith(href + '/'))
     }
@@ -111,14 +117,14 @@ export default function PainelNav() {
     return (
         <header className="sticky top-0 z-40 bg-zinc-900/95 backdrop-blur-xl border-b border-zinc-800/80">
             <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-                <div className="flex items-center gap-8">
+                <div className="flex items-center gap-4 xl:gap-8 min-w-0">
                     <Logo href={logoHref} nome={isAdmin ? undefined : barbeariaNome} />
-                    <div className="hidden md:flex items-center gap-1">
+                    <div className={`${barraDesktop} items-center gap-0.5 xl:gap-1`}>
                         {links.map((l) => (
                             <Link
                                 key={l.href}
                                 href={l.href}
-                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                className={`whitespace-nowrap px-2.5 xl:px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                                     ativo(l.href)
                                         ? 'bg-yellow-400/10 text-yellow-400 shadow-[inset_0_-2px_0_0_rgba(250,204,21,0.4)]'
                                         : 'text-zinc-400 hover:text-white hover:bg-zinc-800/80'
@@ -130,7 +136,7 @@ export default function PainelNav() {
                     </div>
                 </div>
 
-                <div className="hidden md:flex items-center gap-3">
+                <div className={`${barraDesktop} items-center gap-3 shrink-0`}>
                     {/* Badge de Trial */}
                     {trial.emTeste && !trial.carregando && (
                         <Link
@@ -145,14 +151,15 @@ export default function PainelNav() {
                         </Link>
                     )}
 
+                    {/* Em telas menores o nome sai: quem tem muitos itens de menu precisa do espaço. */}
                     {usuario && (
-                        <span className="text-sm text-zinc-400 max-w-[180px] truncate">
+                        <span className="hidden 2xl:inline text-sm text-zinc-400 max-w-[180px] truncate">
                             {usuario.nome || usuario.email}
                         </span>
                     )}
                     <button
                         onClick={sair}
-                        className="inline-flex items-center gap-2 text-sm text-zinc-300 border border-zinc-700/80 
+                        className="inline-flex items-center gap-2 whitespace-nowrap text-sm text-zinc-300 border border-zinc-700/80
                             px-3 py-1.5 rounded-lg hover:bg-zinc-800 hover:border-zinc-600 
                             transition-all duration-200"
                     >
@@ -165,7 +172,7 @@ export default function PainelNav() {
                     aria-label="Abrir menu"
                     aria-expanded={aberto}
                     onClick={() => setAberto((v) => !v)}
-                    className="md:hidden p-2 text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    className={`${soMobile} p-2 text-white hover:bg-zinc-800 rounded-lg transition-colors`}
                 >
                     {aberto ? <X size={24} /> : <Menu size={24} />}
                 </button>
@@ -179,7 +186,7 @@ export default function PainelNav() {
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.25, ease: 'easeInOut' }}
-                        className="md:hidden border-t border-zinc-800 bg-zinc-900/98 backdrop-blur-xl overflow-hidden"
+                        className={`${soMobile} border-t border-zinc-800 bg-zinc-900/98 backdrop-blur-xl overflow-hidden`}
                     >
                         <nav className="flex flex-col px-4 py-3 gap-1">
                             {usuario && (
