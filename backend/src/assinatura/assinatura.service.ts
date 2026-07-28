@@ -361,6 +361,60 @@ export class AssinaturaService {
     return resultado;
   }
 
+  /**
+   * Diz se a credencial do Mercado Pago funciona, sem revelar o token.
+   *
+   * Existe porque errar a credencial é fácil demais: na tela do Mercado Pago
+   * a Public Key aparece visível e o Access Token vem mascarado, então copiar
+   * a de cima é o acidente natural. Os erros que voltam ("authorization value
+   * not present") não dizem isso, e a pessoa fica adivinhando.
+   */
+  async diagnosticarMercadoPago() {
+    const token = this.mpToken;
+    if (!token?.trim()) {
+      return {
+        ok: false,
+        problema: 'MERCADO_PAGO_ACCESS_TOKEN não está configurado no servidor.',
+      };
+    }
+
+    // A Public Key é um UUID depois do prefixo; o Access Token é um número
+    // longo seguido de data e hash. Dá para avisar antes mesmo de chamar a API.
+    const pareceChavePublica = /^(TEST-|APP_USR-)?[0-9a-f]{8}-[0-9a-f]{4}-/i.test(token.trim());
+    if (pareceChavePublica) {
+      return {
+        ok: false,
+        problema:
+          'O valor configurado tem cara de Public Key, não de Access Token. ' +
+          'Na tela de credenciais do Mercado Pago, a Public Key fica visível e o ' +
+          'Access Token vem mascarado — clique no olho e use o botão de copiar do Access Token.',
+      };
+    }
+    if (token !== token.trim()) {
+      return {
+        ok: false,
+        problema: 'O token tem espaço ou quebra de linha sobrando. Cole de novo, sem espaços.',
+      };
+    }
+
+    try {
+      const eu = await this.mpFetch('/users/me');
+      return {
+        ok: true,
+        ambiente: token.startsWith('TEST-') ? 'teste' : 'produção',
+        contaMercadoPago: eu?.nickname ?? eu?.id ?? null,
+        pais: eu?.site_id ?? null,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        problema:
+          'O Mercado Pago recusou a credencial: ' +
+          (e instanceof Error ? e.message : String(e)),
+      };
+    }
+  }
+
   private exigirToken() {
     if (!this.mpToken) {
       throw new BadRequestException(

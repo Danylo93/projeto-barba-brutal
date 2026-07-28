@@ -70,6 +70,17 @@ export class AssinaturaController {
     return this.assinaturaService.iniciarAssinaturaRecorrente(tenantId, body?.planoId);
   }
 
+  /**
+   * Diz se a credencial do Mercado Pago está funcionando. Não devolve o token,
+   * só o veredito e o apelido da conta — dá para checar sem expor segredo.
+   */
+  @Get('mercadopago/diagnostico')
+  @UseGuards(JwtAuthGuard)
+  diagnosticarMp(@CurrentUser() user: any) {
+    exigirTenant(user);
+    return this.assinaturaService.diagnosticarMercadoPago();
+  }
+
   /** Admin do SaaS: publica/atualiza os planos no Mercado Pago. */
   @Post('planos/sincronizar')
   @UseGuards(JwtAuthGuard, AdminAuthGuard)
