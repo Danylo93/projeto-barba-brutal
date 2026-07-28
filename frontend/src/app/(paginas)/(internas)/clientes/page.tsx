@@ -194,8 +194,9 @@ export default function ClientesPage() {
                   </div>
                   <button
                     onClick={() => setConfirmarExclusao(cliente.id)}
-                    className="text-red-400 hover:text-red-300"
+                    className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
                     title="Deletar"
+                    aria-label={`Excluir ${cliente.nome}`}
                   >
                     <Trash2 size={18} />
                   </button>

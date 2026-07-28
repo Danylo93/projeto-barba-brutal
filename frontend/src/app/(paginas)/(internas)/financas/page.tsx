@@ -6,6 +6,8 @@ import useAPI from '@/data/hooks/useAPI'
 import useUsuario from '@/data/hooks/useUsuario'
 import Cabecalho from '@/components/shared/Cabecalho'
 import { Skeleton } from '@/components/ui/skeleton'
+import RelatorioComissoes from '@/components/painel/RelatorioComissoes'
+import GestaoBloqueios from '@/components/painel/GestaoBloqueios'
 
 interface Servico {
   nome: string
@@ -62,6 +64,24 @@ export default function FinancasPage() {
   const quantidadeCortes = agendamentos
     .filter((a) => a.status === 'concluido' || a.status === 'confirmado')
     .length
+
+  // Dono da barbearia: vê o relatório de comissões da equipe.
+  if (isTenant) {
+    return (
+      <div className="flex flex-col bg-zinc-900 min-h-screen">
+        <Cabecalho
+          titulo="Financeiro"
+          descricao="Faturamento e comissões da sua equipe."
+        />
+        <div className="container mx-auto flex max-w-5xl flex-col gap-12 px-4 py-10 md:px-0">
+          <RelatorioComissoes />
+          <div className="border-t border-zinc-800 pt-10">
+            <GestaoBloqueios ehDono />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!isEmployeeBarber && !loading) {
     return (

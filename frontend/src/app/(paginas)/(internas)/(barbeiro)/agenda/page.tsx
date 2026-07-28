@@ -5,6 +5,7 @@ import DiaInput from '@/components/agendamento/DiaInput'
 import Cabecalho from '@/components/shared/Cabecalho'
 import AgendaProfissionalItem from '@/components/agendamento/AgendaProfissionalItem'
 import useTenantConfig from '@/data/hooks/useTenantConfig'
+import GestaoBloqueios from '@/components/painel/GestaoBloqueios'
 
 export default function PaginaAgenda() {
     const { data, agendamentos, alterarData, excluirAgendamento, atualizarStatus } = useProfissionalAgenda()
@@ -34,6 +35,10 @@ export default function PaginaAgenda() {
                         </span>
                     </div>
                 )}
+
+                <div className="border-t border-zinc-800 pt-10">
+                    <GestaoBloqueios ehDono={false} />
+                </div>
             </div>
         </div>
     )

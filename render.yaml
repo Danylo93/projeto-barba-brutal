@@ -24,7 +24,21 @@ services:
         sync: false # ex.: https://seu-app.vercel.app
       - key: MERCADO_PAGO_ACCESS_TOKEN
         sync: false
-      - key: STRIPE_SECRET_KEY
-        value: sk_test_placeholder
-      - key: STRIPE_WEBHOOK_SECRET
-        value: whsec_placeholder
+      # WhatsApp (Evolution API) — confirmação de plano e notificações
+      - key: EVOLUTION_URL
+        sync: false # ex.: https://evolution.seudominio.com
+      - key: EVOLUTION_APIKEY
+        sync: false
+      - key: EVOLUTION_INSTANCE
+        sync: false # nome da instância conectada ao número
+      # E-mail de notificação — sem SMTP_HOST o envio fica desativado (só log)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false # ex.: nao-responda@suamarca.com.br

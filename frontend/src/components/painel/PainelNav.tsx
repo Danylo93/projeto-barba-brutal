@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, LogOut, Clock } from 'lucide-react'
+import { Menu, X, LogOut, Clock, ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Logo from '@/components/shared/Logo'
 import useUsuario from '@/data/hooks/useUsuario'
@@ -17,16 +17,22 @@ interface LinkNav {
 
 /**
  * Barra de navegação dos painéis internos (dono, barbeiro, cliente, admin).
- * Mostra links conforme o papel e destaca a página atual. Fixa no topo,
- * com menu hambúrguer no mobile. Badge de trial para tenants em teste.
+ *
+ * O que fica onde:
+ * - `links` são as telas do dia a dia e ficam na horizontal.
+ * - `conta` são as telas de administração da própria conta e vivem no menu
+ *   do usuário, à direita — assim a linha não estoura mesmo com muitas telas.
+ * No mobile os dois grupos aparecem juntos na gaveta.
  */
 export default function PainelNav() {
     const { usuario, sair } = useUsuario()
     const { httpGet } = useAPI()
     const pathname = usePathname()
     const [aberto, setAberto] = useState(false)
+    const [menuConta, setMenuConta] = useState(false)
     const [barbeariaNome, setBarbeariaNome] = useState<string | undefined>()
     const trial = useTrialStatus()
+    const contaRef = useRef<HTMLDivElement>(null)
 
     const isTenant = usuario?.tipo === 'tenant'
     const isAdmin = usuario?.tipo === 'admin'
@@ -54,9 +60,34 @@ export default function PainelNav() {
             document.title = `Agendamento | ${marca}`
         }
     }, [usuario, isAdmin, barbeariaNome])
+
+    // Fecha o menu do usuário ao clicar fora ou apertar Esc.
+    useEffect(() => {
+        if (!menuConta) return
+        function clique(e: MouseEvent) {
+            if (!contaRef.current?.contains(e.target as Node)) setMenuConta(false)
+        }
+        function tecla(e: KeyboardEvent) {
+            if (e.key === 'Escape') setMenuConta(false)
+        }
+        document.addEventListener('mousedown', clique)
+        document.addEventListener('keydown', tecla)
+        return () => {
+            document.removeEventListener('mousedown', clique)
+            document.removeEventListener('keydown', tecla)
+        }
+    }, [menuConta])
+
+    // Fecha ao navegar.
+    useEffect(() => {
+        setMenuConta(false)
+        setAberto(false)
+    }, [pathname])
+
     const isEmployeeBarber = isBarbeiro && !isTenant
 
     let links: LinkNav[] = []
+    let conta: LinkNav[] = []
     if (isAdmin) {
         links = [{ href: '/admin', rotulo: 'Painel' }]
     } else if (isTenant) {
@@ -66,25 +97,38 @@ export default function PainelNav() {
             { href: '/clientes', rotulo: 'Clientes' },
             { href: '/profissionais', rotulo: 'Profissionais' },
             { href: '/servicos', rotulo: 'Serviços' },
+            { href: '/financas', rotulo: 'Financeiro' },
+            { href: '/clube', rotulo: 'Clube' },
+        ]
+        conta = [
             { href: '/assinatura', rotulo: 'Meu Plano' },
             { href: '/configuracoes', rotulo: 'Configurações' },
+            { href: '/meus-dados', rotulo: 'Meus dados (LGPD)' },
         ]
     } else if (isEmployeeBarber) {
         links = [
             { href: '/agenda', rotulo: 'Minha Agenda' },
             { href: '/financas', rotulo: 'Finanças' },
         ]
+        conta = [{ href: '/meus-dados', rotulo: 'Meus dados (LGPD)' }]
     } else {
         // cliente
         links = [
             { href: '/agendamento', rotulo: 'Agendar' },
             { href: '/agendamentos', rotulo: 'Meus Agendamentos' },
+            { href: '/clube', rotulo: 'Clube' },
         ]
+        conta = [{ href: '/meus-dados', rotulo: 'Meus dados (LGPD)' }]
     }
 
     function ativo(href: string) {
         return pathname === href || (href !== '/' && pathname?.startsWith(href + '/'))
     }
+
+    // Com muitos itens a linha só cabe a partir de 1024px; com poucos, 768px basta.
+    const muitosLinks = links.length >= 6
+    const barraDesktop = muitosLinks ? 'hidden lg:flex' : 'hidden md:flex'
+    const soMobile = muitosLinks ? 'lg:hidden' : 'md:hidden'
 
     // Cor do badge baseada na urgência do trial
     const trialBadgeColor = {
@@ -105,17 +149,21 @@ export default function PainelNav() {
         logoHref = '/agendamento'
     }
 
+    const nomeExibido = usuario?.nome || usuario?.email || ''
+    const inicial = nomeExibido.trim().charAt(0).toUpperCase() || '?'
+    const contaAtiva = conta.some((l) => ativo(l.href))
+
     return (
         <header className="sticky top-0 z-40 bg-zinc-900/95 backdrop-blur-xl border-b border-zinc-800/80">
-            <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-                <div className="flex items-center gap-8">
-                    <Logo href={logoHref} nome={isAdmin ? undefined : barbeariaNome} />
-                    <div className="hidden md:flex items-center gap-1">
+            <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 h-16">
+                <div className="flex items-center gap-3 xl:gap-6">
+                    <Logo href={logoHref} nome={isAdmin ? undefined : barbeariaNome} compacto={muitosLinks} />
+                    <div className={`${barraDesktop} shrink-0 items-center gap-0.5 xl:gap-1`}>
                         {links.map((l) => (
                             <Link
                                 key={l.href}
                                 href={l.href}
-                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium transition-all duration-200 xl:px-3 ${
                                     ativo(l.href)
                                         ? 'bg-yellow-400/10 text-yellow-400 shadow-[inset_0_-2px_0_0_rgba(250,204,21,0.4)]'
                                         : 'text-zinc-400 hover:text-white hover:bg-zinc-800/80'
@@ -127,13 +175,13 @@ export default function PainelNav() {
                     </div>
                 </div>
 
-                <div className="hidden md:flex items-center gap-3">
+                <div className={`${barraDesktop} shrink-0 items-center gap-3`}>
                     {/* Badge de Trial */}
                     {trial.emTeste && !trial.carregando && (
                         <Link
                             href="/planos"
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold 
-                                border transition-all duration-200 hover:scale-105
+                            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1
+                                text-xs font-bold transition-all duration-200 hover:scale-105
                                 ${trialBadgeColor[trial.urgencia]}`}
                             title={`${trial.diasRestantes} dias restantes do período de teste`}
                         >
@@ -142,19 +190,80 @@ export default function PainelNav() {
                         </Link>
                     )}
 
-                    {usuario && (
-                        <span className="text-sm text-zinc-400 max-w-[180px] truncate">
-                            {usuario.nome || usuario.email}
-                        </span>
-                    )}
-                    <button
-                        onClick={sair}
-                        className="inline-flex items-center gap-2 text-sm text-zinc-300 border border-zinc-700/80 
-                            px-3 py-1.5 rounded-lg hover:bg-zinc-800 hover:border-zinc-600 
-                            transition-all duration-200"
-                    >
-                        <LogOut size={16} /> Sair
-                    </button>
+                    {/* Menu do usuário: conta + sair */}
+                    <div className="relative" ref={contaRef}>
+                        <button
+                            type="button"
+                            onClick={() => setMenuConta((v) => !v)}
+                            aria-haspopup="menu"
+                            aria-expanded={menuConta}
+                            className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-2 transition-colors ${
+                                menuConta || contaAtiva
+                                    ? 'border-yellow-400/40 bg-yellow-400/10'
+                                    : 'border-zinc-700/80 hover:bg-zinc-800'
+                            }`}
+                        >
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-yellow-400 text-sm font-bold text-zinc-900">
+                                {inicial}
+                            </span>
+                            <span className="hidden max-w-[130px] truncate text-sm text-zinc-300 2xl:inline">
+                                {nomeExibido}
+                            </span>
+                            <ChevronDown
+                                size={15}
+                                className={`shrink-0 text-zinc-400 transition-transform ${menuConta ? 'rotate-180' : ''}`}
+                            />
+                        </button>
+
+                        <AnimatePresence>
+                            {menuConta && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -6 }}
+                                    transition={{ duration: 0.15 }}
+                                    role="menu"
+                                    className="absolute right-0 mt-2 w-60 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl shadow-black/50"
+                                >
+                                    <div className="border-b border-zinc-800 px-4 py-3">
+                                        <p className="truncate text-sm font-semibold text-white">{nomeExibido}</p>
+                                        {usuario?.email && usuario.email !== nomeExibido && (
+                                            <p className="truncate text-xs text-zinc-500">{usuario.email}</p>
+                                        )}
+                                    </div>
+                                    {conta.length > 0 && (
+                                        <div className="py-1">
+                                            {conta.map((l) => (
+                                                <Link
+                                                    key={l.href}
+                                                    href={l.href}
+                                                    role="menuitem"
+                                                    onClick={() => setMenuConta(false)}
+                                                    className={`block px-4 py-2.5 text-sm transition-colors ${
+                                                        ativo(l.href)
+                                                            ? 'bg-yellow-400/10 text-yellow-400'
+                                                            : 'text-zinc-300 hover:bg-zinc-800'
+                                                    }`}
+                                                >
+                                                    {l.rotulo}
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <button
+                                        role="menuitem"
+                                        onClick={() => {
+                                            setMenuConta(false)
+                                            sair()
+                                        }}
+                                        className="flex w-full items-center gap-2 border-t border-zinc-800 px-4 py-2.5 text-left text-sm text-red-400 transition-colors hover:bg-zinc-800"
+                                    >
+                                        <LogOut size={16} /> Sair
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                 </div>
 
                 <button
@@ -162,7 +271,7 @@ export default function PainelNav() {
                     aria-label="Abrir menu"
                     aria-expanded={aberto}
                     onClick={() => setAberto((v) => !v)}
-                    className="md:hidden p-2 text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    className={`${soMobile} shrink-0 rounded-lg p-2 text-white transition-colors hover:bg-zinc-800`}
                 >
                     {aberto ? <X size={24} /> : <Menu size={24} />}
                 </button>
@@ -176,21 +285,21 @@ export default function PainelNav() {
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.25, ease: 'easeInOut' }}
-                        className="md:hidden border-t border-zinc-800 bg-zinc-900/98 backdrop-blur-xl overflow-hidden"
+                        // 98 não existe na escala de opacidade do Tailwind: a classe era
+                        // descartada e a gaveta ficava sem fundo nenhum.
+                        className={`${soMobile} border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-xl overflow-hidden`}
                     >
                         <nav className="flex flex-col px-4 py-3 gap-1">
                             {usuario && (
                                 <div className="px-3 pb-3 mb-1 border-b border-zinc-800">
-                                    <p className="text-white font-semibold text-sm leading-5">
-                                        {usuario.nome || usuario.email}
-                                    </p>
+                                    <p className="text-white font-semibold text-sm leading-5">{nomeExibido}</p>
                                     <p className="text-xs text-zinc-500">{usuario.email}</p>
                                     {/* Badge de trial no mobile */}
                                     {trial.emTeste && !trial.carregando && (
                                         <Link
                                             href="/planos"
                                             onClick={() => setAberto(false)}
-                                            className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-bold 
+                                            className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-bold
                                                 border ${trialBadgeColor[trial.urgencia]}`}
                                         >
                                             <Clock size={12} />
@@ -199,7 +308,7 @@ export default function PainelNav() {
                                     )}
                                 </div>
                             )}
-                            {links.map((l, i) => (
+                            {[...links, ...conta].map((l, i) => (
                                 <motion.div
                                     key={l.href}
                                     initial={{ opacity: 0, x: -10 }}
@@ -222,7 +331,7 @@ export default function PainelNav() {
                             <motion.button
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                transition={{ delay: links.length * 0.04 }}
+                                transition={{ delay: (links.length + conta.length) * 0.04 }}
                                 onClick={() => {
                                     setAberto(false)
                                     sair()

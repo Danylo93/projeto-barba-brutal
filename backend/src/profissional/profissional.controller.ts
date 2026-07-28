@@ -67,6 +67,7 @@ export class ProfissionalController {
         usuarioId,
         avaliacao: data.avaliacao || 0,
         quantidadeAvaliacoes: data.quantidadeAvaliacoes || 0,
+        comissaoPercent: data.comissaoPercent ?? 0,
         servicos: servicoIds.length
           ? { connect: servicoIds.map((id) => ({ id })) }
           : undefined,
@@ -155,6 +156,7 @@ export class ProfissionalController {
         imagemUrl: data.imagemUrl,
         avaliacao: data.avaliacao,
         quantidadeAvaliacoes: data.quantidadeAvaliacoes,
+        comissaoPercent: data.comissaoPercent,
         ativo: data.ativo,
         usuarioId,
         servicos: servicosUpdate,

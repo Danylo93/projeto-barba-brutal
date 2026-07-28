@@ -7,6 +7,8 @@ import useSessao from '@/data/hooks/useSessao'
 import AuthShell from '@/components/auth/AuthShell'
 import { formatarTelefone, formatarTelefoneInput, validarEmail, validarTelefone } from '@/lib/agendamento-utils'
 import { useToast } from '@/hooks/use-toast'
+import { registrarAceiteDeTermos } from '@/lib/registrar-aceite'
+import { formatarDocumentoInput, limparDocumento, validarDocumento } from '@/lib/documento'
 
 const inputClasses =
     'w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 ' +
@@ -23,12 +25,13 @@ export default function RegisterPage() {
         senha: '',
         confirmarSenha: '',
         endereco: '',
-        cnpj: '',
+        documento: '',
         aceitoTermos: false,
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [fieldErrors, setFieldErrors] = useState<{ email?: string; telefone?: string }>({})
+    const [erroDocumento, setErroDocumento] = useState<string | null>(null)
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target
@@ -42,12 +45,22 @@ export default function RegisterPage() {
         e.preventDefault()
         setError('')
         setFieldErrors({})
+        setErroDocumento(null)
 
         // Validação de email e telefone
         const erroEmail = validarEmail(formData.email)
         const erroTelefone = validarTelefone(formData.telefone)
         if (erroEmail || erroTelefone) {
             setFieldErrors({ email: erroEmail || undefined, telefone: erroTelefone || undefined })
+            return
+        }
+
+        // Uma barbearia por CPF/CNPJ: é o que impede abrir conta atrás de conta
+        // com e-mails diferentes para renovar o teste grátis.
+        const erroDoc = validarDocumento(formData.documento)
+        if (erroDoc) {
+            setErroDocumento(erroDoc)
+            toastError('Verifique os dados', erroDoc)
             return
         }
 
@@ -73,7 +86,7 @@ export default function RegisterPage() {
                     telefone: formData.telefone.replace(/\D/g, ''),
                     senha: formData.senha,
                     endereco: formData.endereco || undefined,
-                    cnpj: formData.cnpj || undefined,
+                    documento: limparDocumento(formData.documento),
                 }),
             })
             const data = await response.json().catch(() => ({}))
@@ -84,6 +97,9 @@ export default function RegisterPage() {
                 toastError('Não foi possível criar a conta', msg)
                 return
             }
+
+            // Prova do aceite dos termos, exigida pela LGPD (art. 8º, §1º).
+            await registrarAceiteDeTermos(data.access_token)
 
             // Sessão do app vive em cookie (ContextoSessao), não em localStorage.
             // Novo dono ainda não tem plano ativo → leva para escolher o plano.
@@ -164,14 +180,30 @@ export default function RegisterPage() {
                         placeholder="Endereço (opcional)"
                         className={inputClasses}
                     />
-                    <input
-                        type="text"
-                        name="cnpj"
-                        value={formData.cnpj}
-                        onChange={handleChange}
-                        placeholder="CNPJ (opcional)"
-                        className={inputClasses}
-                    />
+                    <div>
+                        <input
+                            type="text"
+                            name="documento"
+                            required
+                            inputMode="text"
+                            value={formData.documento}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    documento: formatarDocumentoInput(e.target.value),
+                                })
+                            }
+                            placeholder="CPF ou CNPJ da barbearia"
+                            className={`${inputClasses} ${erroDocumento ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                        />
+                        {erroDocumento ? (
+                            <p className="mt-1 text-xs text-red-400">{erroDocumento}</p>
+                        ) : (
+                            <p className="mt-1 text-xs text-zinc-500">
+                                Uma conta por CPF/CNPJ. Se você é MEI ou autônomo, use o CPF.
+                            </p>
+                        )}
+                    </div>
                     <input
                         type="password"
                         name="senha"

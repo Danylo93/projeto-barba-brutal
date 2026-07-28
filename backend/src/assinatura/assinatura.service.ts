@@ -1,185 +1,23 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
-import Stripe from 'stripe';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { mensagemPlanoContratado } from '../whatsapp/mensagens';
+import {
+  corpoDaAssinatura,
+  corpoDoPlano,
+  interpretarNotificacao,
+  lerReferenciaExterna,
+  traduzirStatus,
+} from './mercadopago-assinatura';
 
 @Injectable()
 export class AssinaturaService {
-  private stripe: Stripe;
+  private readonly logger = new Logger(AssinaturaService.name);
 
-  constructor(private prisma: PrismaService) {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2023-10-16',
-    });
-  }
-
-  private async createOrGetProduct(plano: any): Promise<string> {
-    // Buscar produto existente
-    const products = await this.stripe.products.list({
-      limit: 100,
-    });
-    
-    const existingProduct = products.data.find(p => p.name === plano.nome);
-    if (existingProduct) {
-      return existingProduct.id;
-    }
-    
-    // Criar novo produto
-    const product = await this.stripe.products.create({
-      name: plano.nome,
-      description: plano.descricao,
-    });
-    
-    return product.id;
-  }
-
-  async createCheckoutSession(
-    tenantId: number,
-    planoId: number,
-    successUrl: string,
-    cancelUrl: string,
-  ) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-
-    const plano = await this.prisma.plano.findUnique({
-      where: { id: planoId },
-    });
-
-    if (!tenant || !plano) {
-      throw new Error('Tenant ou plano não encontrado');
-    }
-
-    // Criar ou buscar customer no Stripe
-    let customerId = tenant.stripeCustomerId;
-    
-    if (!customerId) {
-      const customer = await this.stripe.customers.create({
-        email: tenant.email,
-        name: tenant.nome,
-        metadata: {
-          tenantId: tenant.id.toString(),
-        },
-      });
-      customerId = customer.id;
-      
-      // Salvar customer ID no tenant
-      await this.prisma.tenant.update({
-        where: { id: tenantId },
-        data: { stripeCustomerId: customerId },
-      });
-    }
-
-    // Criar checkout session
-    const session = await this.stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'subscription',
-      customer: customerId,
-      line_items: [
-        {
-          price_data: {
-            currency: 'brl',
-            product_data: {
-              name: plano.nome,
-              description: plano.descricao,
-            },
-            unit_amount: Math.round(plano.preco * 100), // Converter para centavos
-            recurring: {
-              interval: plano.duracao === 30 ? 'month' : 'year',
-            },
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        tenantId: tenantId.toString(),
-        planoId: planoId.toString(),
-      },
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-    });
-
-    return { sessionId: session.id };
-  }
-
-  async createSubscription(tenantId: number, planoId: number, paymentMethodId: string) {
-    // Buscar tenant e plano
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      include: { assinatura: true },
-    });
-
-    const plano = await this.prisma.plano.findUnique({
-      where: { id: planoId },
-    });
-
-    if (!tenant || !plano) {
-      throw new Error('Tenant ou plano não encontrado');
-    }
-
-    // Criar ou buscar customer no Stripe
-    let customerId = tenant.assinatura?.stripeCustomerId;
-    
-    if (!customerId) {
-      const customer = await this.stripe.customers.create({
-        email: tenant.email,
-        name: tenant.nome,
-        metadata: {
-          tenantId: tenant.id.toString(),
-        },
-      });
-      customerId = customer.id;
-    }
-
-    // Criar subscription no Stripe
-    const subscription = await this.stripe.subscriptions.create({
-      customer: customerId,
-      items: [{
-        price_data: {
-          currency: 'brl',
-          product: await this.createOrGetProduct(plano),
-          unit_amount: Math.round(plano.preco * 100), // Converter para centavos
-          recurring: {
-            interval: plano.duracao === 30 ? 'month' : 'year',
-          },
-        },
-      }],
-      payment_behavior: 'default_incomplete',
-      payment_settings: { save_default_payment_method: 'on_subscription' },
-      expand: ['latest_invoice.payment_intent'],
-    });
-
-    // Criar assinatura no banco
-    const dataInicio = new Date();
-    const dataFim = new Date();
-    dataFim.setDate(dataFim.getDate() + plano.duracao);
-
-    const assinatura = await this.prisma.assinatura.upsert({
-      where: { tenantId },
-      create: {
-        tenantId,
-        planoId,
-        status: 'active',
-        stripeCustomerId: customerId,
-        stripeSubscriptionId: subscription.id,
-        dataInicio,
-        dataFim,
-      },
-      update: {
-        planoId,
-        status: 'active',
-        stripeSubscriptionId: subscription.id,
-        dataInicio,
-        dataFim,
-      },
-    });
-
-    return {
-      assinatura,
-      subscription,
-      clientSecret: (subscription.latest_invoice as any).payment_intent.client_secret,
-    };
-  }
+  constructor(
+    private prisma: PrismaService,
+    private whatsapp: WhatsappService,
+  ) {}
 
   async cancelSubscription(tenantId: number) {
     const assinatura = await this.prisma.assinatura.findUnique({
@@ -190,15 +28,8 @@ export class AssinaturaService {
       throw new NotFoundException('Assinatura não encontrada');
     }
 
-    // Cancelar no Stripe quando houver subscription vinculada (best effort:
-    // assinaturas criadas manualmente/seed não têm stripeSubscriptionId).
-    if (assinatura.stripeSubscriptionId) {
-      try {
-        await this.stripe.subscriptions.cancel(assinatura.stripeSubscriptionId);
-      } catch (err) {
-        console.error('Falha ao cancelar no Stripe (seguindo com cancelamento local):', err?.message);
-      }
-    }
+    // Para de cobrar no cartão: cancelar só localmente deixaria a fatura vindo.
+    await this.cancelarRecorrenciaNoMp(assinatura.mpPreapprovalId);
 
     // Atualizar no banco
     return this.prisma.assinatura.update({
@@ -232,7 +63,7 @@ export class AssinaturaService {
     if (!emVigor) {
       const dataFim = new Date();
       dataFim.setDate(dataFim.getDate() + 30);
-      return this.prisma.assinatura.upsert({
+      const criada = await this.prisma.assinatura.upsert({
         where: { tenantId },
         create: {
           tenantId,
@@ -253,14 +84,63 @@ export class AssinaturaService {
         },
         include: { plano: true },
       });
+
+      await this.avisarNoWhatsapp(tenantId, plano, dataFim, true);
+      return criada;
     }
 
     // Já tem plano vigente (teste ou pago) → só troca o plano, mantém a validade.
-    return this.prisma.assinatura.update({
+    const trocada = await this.prisma.assinatura.update({
       where: { tenantId },
       data: { planoId },
       include: { plano: true },
     });
+
+    await this.avisarNoWhatsapp(
+      tenantId,
+      plano,
+      trocada.dataFim,
+      trocada.status === 'trialing',
+    );
+    return trocada;
+  }
+
+  /**
+   * Manda no WhatsApp do dono o plano que ele acabou de fechar.
+   *
+   * Nunca propaga erro: se a mensagem falhar, o barbeiro já tem o plano e não
+   * pode ver a contratação quebrar por causa de um envio.
+   */
+  private async avisarNoWhatsapp(
+    tenantId: number,
+    plano: { nome: string; preco: number },
+    fimDoTeste: Date,
+    emTeste: boolean,
+  ) {
+    try {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { nome: true, telefone: true },
+      });
+      if (!tenant?.telefone) return;
+
+      await this.whatsapp.enviarTexto(
+        tenant.telefone,
+        mensagemPlanoContratado({
+          nomeBarbearia: tenant.nome,
+          nomePlano: plano.nome,
+          preco: plano.preco,
+          fimDoTeste,
+          emTeste,
+        }),
+      );
+    } catch (erro) {
+      this.logger.error(
+        `Falha ao avisar o plano no WhatsApp (tenant ${tenantId}): ${
+          erro instanceof Error ? erro.message : erro
+        }`,
+      );
+    }
   }
 
   // ─────────────────────────── Pix (Mercado Pago) ───────────────────────────
@@ -392,6 +272,7 @@ export class AssinaturaService {
         dataInicio,
         dataFim,
         renovacaoAutomatica: true,
+        meioPagamento: 'pix_avulso',
       },
       update: {
         planoId,
@@ -399,32 +280,358 @@ export class AssinaturaService {
         emTeste: false,
         dataInicio,
         dataFim,
+        meioPagamento: 'pix_avulso',
       },
+    });
+
+    // O barbeiro pagou e merece a confirmação no celular, não só na tela.
+    const plano = await this.prisma.plano.findUnique({
+      where: { id: planoId },
+      select: { nome: true, preco: true },
+    });
+    if (plano) await this.avisarNoWhatsapp(tenantId, plano, dataFim, false);
+  }
+
+  // ───────────────── Assinatura recorrente (cartão ou Pix) ─────────────────
+
+  private get urlDoSite(): string {
+    return (process.env.FRONTEND_URL || 'http://localhost:3000')
+      .split(',')[0]
+      .trim()
+      .replace(/\/+$/, '');
+  }
+
+  /**
+   * Garante que o plano existe como `preapproval_plan` no Mercado Pago.
+   *
+   * É idempotente: se já houver id salvo, atualiza o valor lá em vez de criar
+   * outro — plano duplicado no MP vira cobrança duplicada no cartão de alguém.
+   */
+  async sincronizarPlanoNoMercadoPago(planoId: number) {
+    const plano = await this.prisma.plano.findUnique({ where: { id: planoId } });
+    if (!plano) throw new NotFoundException('Plano não encontrado');
+    this.exigirToken();
+
+    const corpo = corpoDoPlano(plano, `${this.urlDoSite}/assinatura`);
+
+    if (plano.mpPreapprovalPlanId) {
+      const atualizado = await this.mpFetch(
+        `/preapproval_plan/${plano.mpPreapprovalPlanId}`,
+        { method: 'PUT', body: JSON.stringify(corpo) },
+      );
+      await this.prisma.plano.update({
+        where: { id: plano.id },
+        data: { mpInitPoint: atualizado.init_point ?? plano.mpInitPoint },
+      });
+      return { id: plano.mpPreapprovalPlanId, atualizado: true };
+    }
+
+    const criado = await this.mpFetch('/preapproval_plan', {
+      method: 'POST',
+      body: JSON.stringify(corpo),
+    });
+    await this.prisma.plano.update({
+      where: { id: plano.id },
+      data: {
+        mpPreapprovalPlanId: String(criado.id),
+        mpInitPoint: criado.init_point ?? null,
+      },
+    });
+    return { id: String(criado.id), atualizado: false };
+  }
+
+  /** Sincroniza todos os planos ativos de uma vez. */
+  async sincronizarTodosOsPlanos() {
+    const planos = await this.prisma.plano.findMany({
+      where: { ativo: true },
+      select: { id: true, nome: true },
+    });
+    const resultado: { plano: string; id?: string; erro?: string }[] = [];
+    for (const p of planos) {
+      try {
+        const r = await this.sincronizarPlanoNoMercadoPago(p.id);
+        resultado.push({ plano: p.nome, id: r.id });
+      } catch (e) {
+        resultado.push({
+          plano: p.nome,
+          erro: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+    return resultado;
+  }
+
+  /**
+   * Diz se a credencial do Mercado Pago funciona, sem revelar o token.
+   *
+   * Existe porque errar a credencial é fácil demais: na tela do Mercado Pago
+   * a Public Key aparece visível e o Access Token vem mascarado, então copiar
+   * a de cima é o acidente natural. Os erros que voltam ("authorization value
+   * not present") não dizem isso, e a pessoa fica adivinhando.
+   */
+  async diagnosticarMercadoPago() {
+    const token = this.mpToken;
+    if (!token?.trim()) {
+      return {
+        ok: false,
+        problema: 'MERCADO_PAGO_ACCESS_TOKEN não está configurado no servidor.',
+      };
+    }
+
+    // A Public Key é um UUID depois do prefixo; o Access Token é um número
+    // longo seguido de data e hash. Dá para avisar antes mesmo de chamar a API.
+    const pareceChavePublica = /^(TEST-|APP_USR-)?[0-9a-f]{8}-[0-9a-f]{4}-/i.test(token.trim());
+    if (pareceChavePublica) {
+      return {
+        ok: false,
+        problema:
+          'O valor configurado tem cara de Public Key, não de Access Token. ' +
+          'Na tela de credenciais do Mercado Pago, a Public Key fica visível e o ' +
+          'Access Token vem mascarado — clique no olho e use o botão de copiar do Access Token.',
+      };
+    }
+    if (token !== token.trim()) {
+      return {
+        ok: false,
+        problema: 'O token tem espaço ou quebra de linha sobrando. Cole de novo, sem espaços.',
+      };
+    }
+
+    try {
+      const eu = await this.mpFetch('/users/me');
+      return {
+        ok: true,
+        ambiente: token.startsWith('TEST-') ? 'teste' : 'produção',
+        contaMercadoPago: eu?.nickname ?? eu?.id ?? null,
+        pais: eu?.site_id ?? null,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        problema:
+          'O Mercado Pago recusou a credencial: ' +
+          (e instanceof Error ? e.message : String(e)),
+      };
+    }
+  }
+
+  private exigirToken() {
+    if (!this.mpToken) {
+      throw new BadRequestException(
+        'Pagamento indisponível: configure MERCADO_PAGO_ACCESS_TOKEN no servidor.',
+      );
+    }
+  }
+
+  /**
+   * Começa a assinatura recorrente e devolve o link do checkout do Mercado
+   * Pago, onde o barbeiro escolhe cartão ou Pix.
+   *
+   * Não pedimos os dados do cartão nas nossas telas de propósito: além de
+   * tirar o cartão do nosso servidor, é o que permite oferecer Pix — pelo
+   * caminho do `card_token_id` só daria para cobrar no cartão.
+   */
+  async iniciarAssinaturaRecorrente(tenantId: number, planoId: number) {
+    this.exigirToken();
+
+    const [tenant, plano] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { email: true, nome: true },
+      }),
+      this.prisma.plano.findUnique({ where: { id: planoId } }),
+    ]);
+    if (!tenant) throw new NotFoundException('Barbearia não encontrada');
+    if (!plano || !plano.ativo) {
+      throw new NotFoundException('Plano não encontrado ou inativo');
+    }
+
+    // A primeira cobrança cai só quando o teste de 30 dias termina. Se a
+    // barbearia já está em teste, respeita a data que ela já tem.
+    const assinaturaAtual = await this.prisma.assinatura.findUnique({
+      where: { tenantId },
+      select: { dataFim: true, emTeste: true },
+    });
+    const daquiATrintaDias = new Date();
+    daquiATrintaDias.setDate(daquiATrintaDias.getDate() + 30);
+    const primeiraCobranca =
+      assinaturaAtual?.emTeste && assinaturaAtual.dataFim > new Date()
+        ? assinaturaAtual.dataFim
+        : daquiATrintaDias;
+
+    const criada = await this.mpFetch('/preapproval', {
+      method: 'POST',
+      body: JSON.stringify(
+        corpoDaAssinatura({
+          plano,
+          emailDoPagador: tenant.email,
+          tenantId,
+          backUrl: `${this.urlDoSite}/assinatura`,
+          primeiraCobranca,
+        }),
+      ),
+    });
+
+    // Guarda o vínculo já: o webhook pode chegar antes do barbeiro voltar.
+    await this.prisma.assinatura.updateMany({
+      where: { tenantId },
+      data: { mpPreapprovalId: String(criada.id) },
+    });
+
+    const link = criada.init_point;
+    if (!link) {
+      throw new BadRequestException(
+        'O Mercado Pago não devolveu o link do checkout. Tente de novo em instantes.',
+      );
+    }
+    return { preapprovalId: String(criada.id), initPoint: link };
+  }
+
+  /** Cancela a recorrência no Mercado Pago, se houver. */
+  private async cancelarRecorrenciaNoMp(mpPreapprovalId: string | null) {
+    if (!mpPreapprovalId || !this.mpToken) return;
+    try {
+      await this.mpFetch(`/preapproval/${mpPreapprovalId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+    } catch (e) {
+      // Cancelamento local não pode travar por falha externa — mas registrar
+      // é essencial: senão o barbeiro segue sendo cobrado sem ninguém ver.
+      this.logger.error(
+        `Falha ao cancelar a recorrência ${mpPreapprovalId} no Mercado Pago: ${
+          e instanceof Error ? e.message : e
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Webhook do Mercado Pago. Trata três tópicos:
+   * - subscription_preapproval: o barbeiro autorizou (ou cancelou) a assinatura
+   * - subscription_authorized_payment: caiu a cobrança mensal
+   * - payment: pagamento avulso (o Pix por QR Code)
+   *
+   * Sempre responde 200: o MP reenvia o que falha, e devolver erro por uma
+   * notificação que não sabemos tratar só gera retentativa infinita.
+   */
+  async handleWebhookMercadoPago(body: any, query: any = {}) {
+    const { topico, id } = interpretarNotificacao(body, query);
+    if (!topico || !id || !this.mpToken) return { ok: true };
+
+    try {
+      if (topico === 'subscription_preapproval') {
+        await this.tratarAssinaturaRecorrente(id);
+      } else if (topico === 'subscription_authorized_payment') {
+        await this.tratarCobrancaRecorrente(id);
+      } else {
+        await this.tratarPagamentoAvulso(id);
+      }
+    } catch (e) {
+      this.logger.error(
+        `Webhook ${topico}/${id} falhou: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+    return { ok: true };
+  }
+
+  /** O barbeiro autorizou, pausou ou cancelou a assinatura. */
+  private async tratarAssinaturaRecorrente(preapprovalId: string) {
+    const mp = await this.mpFetch(`/preapproval/${preapprovalId}`);
+    const ref = lerReferenciaExterna(mp.external_reference);
+    if (!ref) {
+      this.logger.warn(
+        `Assinatura ${preapprovalId} sem referência externa reconhecível — ignorada.`,
+      );
+      return;
+    }
+
+    const status = traduzirStatus(mp.status);
+    if (status === 'pending') return; // criada, mas ainda não autorizada
+
+    if (status === 'canceled') {
+      await this.prisma.assinatura.updateMany({
+        where: { tenantId: ref.tenantId },
+        data: { status: 'canceled', renovacaoAutomatica: false },
+      });
+      return;
+    }
+
+    // Autorizada: vale por 30 dias e renova sozinha a cada cobrança.
+    const inicio = new Date();
+    const fim = new Date();
+    fim.setDate(fim.getDate() + 30);
+    await this.prisma.assinatura.upsert({
+      where: { tenantId: ref.tenantId },
+      create: {
+        tenantId: ref.tenantId,
+        planoId: ref.planoId,
+        status: 'active',
+        emTeste: false,
+        dataInicio: inicio,
+        dataFim: fim,
+        renovacaoAutomatica: true,
+        mpPreapprovalId: preapprovalId,
+        meioPagamento: 'recorrente',
+      },
+      update: {
+        planoId: ref.planoId,
+        status: 'active',
+        emTeste: false,
+        dataInicio: inicio,
+        dataFim: fim,
+        renovacaoAutomatica: true,
+        mpPreapprovalId: preapprovalId,
+        meioPagamento: 'recorrente',
+      },
+    });
+
+    const plano = await this.prisma.plano.findUnique({
+      where: { id: ref.planoId },
+      select: { nome: true, preco: true },
+    });
+    if (plano) await this.avisarNoWhatsapp(ref.tenantId, plano, fim, false);
+  }
+
+  /** Caiu a mensalidade: estende a validade por mais 30 dias. */
+  private async tratarCobrancaRecorrente(pagamentoId: string) {
+    const mp = await this.mpFetch(`/authorized_payments/${pagamentoId}`);
+    const situacao = mp?.payment?.status ?? mp?.status;
+    if (situacao !== 'approved') return;
+
+    const assinatura = await this.prisma.assinatura.findFirst({
+      where: { mpPreapprovalId: String(mp.preapproval_id) },
+    });
+    if (!assinatura) {
+      this.logger.warn(
+        `Cobrança ${pagamentoId} sem assinatura correspondente (preapproval ${mp.preapproval_id}).`,
+      );
+      return;
+    }
+
+    const fim = new Date();
+    fim.setDate(fim.getDate() + 30);
+    await this.prisma.assinatura.update({
+      where: { id: assinatura.id },
+      data: { status: 'active', emTeste: false, dataFim: fim },
     });
   }
 
-  /** Webhook do Mercado Pago: confirma pagamentos aprovados. */
-  async handleWebhookMercadoPago(body: any) {
-    const paymentId = body?.data?.id || body?.id;
-    if (!paymentId || !this.mpToken) return { ok: true };
-    try {
-      const mp = await this.mpFetch(`/v1/payments/${paymentId}`);
-      const pagamento = await this.prisma.pagamento.findUnique({
-        where: { mpPaymentId: String(paymentId) },
-      });
-      if (pagamento && mp.status) {
-        await this.prisma.pagamento.update({
-          where: { id: pagamento.id },
-          data: { status: mp.status },
-        });
-        if (mp.status === 'approved') {
-          await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
-        }
-      }
-    } catch (e) {
-      console.error('Webhook MP falhou:', (e as any)?.message);
+  /** Pix avulso por QR Code — o caminho de quem não quer recorrência. */
+  private async tratarPagamentoAvulso(paymentId: string) {
+    const mp = await this.mpFetch(`/v1/payments/${paymentId}`);
+    const pagamento = await this.prisma.pagamento.findUnique({
+      where: { mpPaymentId: String(paymentId) },
+    });
+    if (!pagamento || !mp.status) return;
+
+    await this.prisma.pagamento.update({
+      where: { id: pagamento.id },
+      data: { status: mp.status },
+    });
+    if (mp.status === 'approved') {
+      await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
     }
-    return { ok: true };
   }
 
   /** Confirmação manual pelo admin (controle do dono do SaaS). */
@@ -468,99 +675,4 @@ export class AssinaturaService {
     });
   }
 
-  async updateSubscriptionStatus(stripeSubscriptionId: string, status: string) {
-    return this.prisma.assinatura.update({
-      where: { stripeSubscriptionId },
-      data: { status },
-    });
-  }
-
-
-  async handleWebhook(event: any) {
-    switch (event.type) {
-      case 'checkout.session.completed':
-        const session = event.data.object;
-        const { tenantId, planoId } = session.metadata;
-        
-        if (session.payment_status === 'paid') {
-          await this.createSubscriptionFromCheckout(
-            parseInt(tenantId),
-            parseInt(planoId),
-            session.customer,
-            session.subscription,
-          );
-        }
-        break;
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-        await this.updateSubscriptionStatus(
-          event.data.object.id,
-          event.data.object.status,
-        );
-        break;
-      case 'customer.subscription.deleted':
-        await this.updateSubscriptionStatus(
-          event.data.object.id,
-          'canceled',
-        );
-        break;
-      case 'invoice.payment_succeeded':
-        // Renovar assinatura
-        const subscription = await this.stripe.subscriptions.retrieve(
-          event.data.object.subscription,
-        );
-        await this.updateSubscriptionStatus(
-          subscription.id,
-          subscription.status,
-        );
-        break;
-      case 'invoice.payment_failed':
-        await this.updateSubscriptionStatus(
-          event.data.object.subscription,
-          'past_due',
-        );
-        break;
-    }
-  }
-
-  private async createSubscriptionFromCheckout(
-    tenantId: number,
-    planoId: number,
-    customerId: string,
-    subscriptionId: string,
-  ) {
-    const plano = await this.prisma.plano.findUnique({
-      where: { id: planoId },
-    });
-
-    if (!plano) {
-      throw new Error('Plano não encontrado');
-    }
-
-    const dataInicio = new Date();
-    const dataFim = new Date();
-    dataFim.setDate(dataFim.getDate() + plano.duracao);
-
-    await this.prisma.assinatura.upsert({
-      where: { tenantId },
-      update: {
-        status: 'active',
-        stripeCustomerId: customerId,
-        stripeSubscriptionId: subscriptionId,
-        dataInicio,
-        dataFim,
-        renovacaoAutomatica: true,
-      },
-      create: {
-        tenantId,
-        planoId,
-        status: 'active',
-        stripeCustomerId: customerId,
-        stripeSubscriptionId: subscriptionId,
-        dataInicio,
-        dataFim,
-        renovacaoAutomatica: true,
-      },
-    });
-  }
 }

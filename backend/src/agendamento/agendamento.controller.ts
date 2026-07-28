@@ -55,6 +55,8 @@ export class AgendamentoController {
     const id = await this.repo.salvar(agendamento);
     // Notificação assíncrona (não bloqueia a resposta e nunca derruba o fluxo).
     this.notificacao.notificarNovoAgendamento(id).catch(() => undefined);
+    // Devolve o agendamento criado para o cliente saber o id (remarcar, cancelar…).
+    return this.repo.buscarPorId(id, tenant.id);
   }
 
   @Get('barbeiro/meus-horarios')

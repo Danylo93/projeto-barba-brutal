@@ -6,7 +6,9 @@ import useSessao from '@/data/hooks/useSessao'
 import AuthShell from '@/components/auth/AuthShell'
 import { API_BASE } from '@/lib/api-base'
 import { formatarTelefone, formatarTelefoneInput, validarEmail, validarTelefone } from '@/lib/agendamento-utils'
+import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
+import { registrarAceiteDeTermos } from '@/lib/registrar-aceite'
 
 type Modo = 'entrar' | 'cadastrar'
 
@@ -25,6 +27,7 @@ function LoginContent() {
     const [telefone, setTelefone] = useState('')
     const [email, setEmail] = useState('')
     const [senha, setSenha] = useState('')
+    const [aceitoTermos, setAceitoTermos] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [fieldErrors, setFieldErrors] = useState<{ email?: string; telefone?: string }>({})
@@ -134,6 +137,9 @@ function LoginContent() {
             setFieldErrors({ email: erroEmail || undefined, telefone: erroTelefone || undefined })
             return
         }
+        if (!aceitoTermos) {
+            throw new Error('Aceite os termos de uso e a política de privacidade para continuar.')
+        }
 
         const response = await fetch('/api/auth/usuario/register', {
             method: 'POST',
@@ -152,6 +158,8 @@ function LoginContent() {
         if (!response.ok || !data.access_token) {
             throw new Error(data.message || 'Não foi possível criar a conta')
         }
+        // Prova do aceite, exigida pela LGPD (art. 8º, §1º).
+        await registrarAceiteDeTermos(data.access_token, tenantId)
         criarSessao(data.access_token)
         irPara('/agendamento', true)
     }
@@ -278,6 +286,28 @@ function LoginContent() {
                             <p className="text-red-400 text-xs mt-1">{fieldErrors.telefone}</p>
                         )}
                     </div>
+                )}
+
+                {modo === 'cadastrar' && (
+                    <label className="flex select-none items-start gap-2 text-sm text-zinc-400">
+                        <input
+                            type="checkbox"
+                            checked={aceitoTermos}
+                            onChange={(e) => setAceitoTermos(e.target.checked)}
+                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-600 bg-zinc-900 accent-yellow-400"
+                        />
+                        <span>
+                            Li e aceito os{' '}
+                            <Link href="/terms" target="_blank" className="text-yellow-400 hover:text-yellow-300">
+                                termos de uso
+                            </Link>{' '}
+                            e a{' '}
+                            <Link href="/privacy" target="_blank" className="text-yellow-400 hover:text-yellow-300">
+                                política de privacidade
+                            </Link>
+                            , e concordo em receber mensagens sobre os meus agendamentos.
+                        </span>
+                    </label>
                 )}
 
                 <button

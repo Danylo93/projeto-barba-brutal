@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
   Headers,
   RawBodyRequest,
   Req,
@@ -16,7 +17,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import Stripe from 'stripe';
 
 /** Dono só mexe na própria assinatura; admin do SaaS pode tudo. */
 function exigirProprioTenantOuAdmin(user: any, tenantId: number) {
@@ -36,24 +36,6 @@ function exigirTenant(user: any): number {
 @Controller('assinaturas')
 export class AssinaturaController {
   constructor(private readonly assinaturaService: AssinaturaService) {}
-
-  // Público: usado no fluxo de cadastro/venda (o tenant recém-criado ainda não logou).
-  @Post('checkout')
-  createCheckoutSession(
-    @Body() data: {
-      tenantId: number;
-      planoId: number;
-      successUrl: string;
-      cancelUrl: string;
-    },
-  ) {
-    return this.assinaturaService.createCheckoutSession(
-      data.tenantId,
-      data.planoId,
-      data.successUrl,
-      data.cancelUrl,
-    );
-  }
 
   // ── Endpoints "me": o tenant autenticado gerencia o próprio plano ──
 
@@ -76,6 +58,35 @@ export class AssinaturaController {
   }
 
   // ── Pagamento via Pix (Mercado Pago) ──
+
+  /**
+   * Começa a assinatura recorrente e devolve o link do checkout do Mercado
+   * Pago, onde o barbeiro escolhe cartão ou Pix.
+   */
+  @Post('me/recorrente')
+  @UseGuards(JwtAuthGuard)
+  iniciarRecorrente(@CurrentUser() user: any, @Body() body: { planoId: number }) {
+    const tenantId = exigirTenant(user);
+    return this.assinaturaService.iniciarAssinaturaRecorrente(tenantId, body?.planoId);
+  }
+
+  /**
+   * Diz se a credencial do Mercado Pago está funcionando. Não devolve o token,
+   * só o veredito e o apelido da conta — dá para checar sem expor segredo.
+   */
+  @Get('mercadopago/diagnostico')
+  @UseGuards(JwtAuthGuard)
+  diagnosticarMp(@CurrentUser() user: any) {
+    exigirTenant(user);
+    return this.assinaturaService.diagnosticarMercadoPago();
+  }
+
+  /** Admin do SaaS: publica/atualiza os planos no Mercado Pago. */
+  @Post('planos/sincronizar')
+  @UseGuards(JwtAuthGuard, AdminAuthGuard)
+  sincronizarPlanos() {
+    return this.assinaturaService.sincronizarTodosOsPlanos();
+  }
 
   @Post('me/pix')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
@@ -104,30 +115,14 @@ export class AssinaturaController {
   }
 
   // Webhook do Mercado Pago (público — validado pelo id do pagamento).
+  // O Mercado Pago manda o tópico ora no corpo, ora na query — o serviço lê
+  // os dois para não perder notificação por causa do formato.
   @Post('webhook/mercadopago')
-  handleMercadoPago(@Body() body: any) {
-    return this.assinaturaService.handleWebhookMercadoPago(body);
+  handleMercadoPago(@Body() body: any, @Query() query: any) {
+    return this.assinaturaService.handleWebhookMercadoPago(body, query);
   }
 
   // ── Endpoints por tenantId: restritos ao próprio tenant ou admin ──
-
-  @Post(':tenantId/subscribe')
-  @UseGuards(JwtAuthGuard)
-  createSubscription(
-    @Param('tenantId', ParseIntPipe) tenantId: number,
-    @CurrentUser() user: any,
-    @Body() data: {
-      planoId: number;
-      paymentMethodId: string;
-    },
-  ) {
-    exigirProprioTenantOuAdmin(user, tenantId);
-    return this.assinaturaService.createSubscription(
-      tenantId,
-      data.planoId,
-      data.paymentMethodId,
-    );
-  }
 
   @Post(':tenantId/cancel')
   @UseGuards(JwtAuthGuard)
@@ -147,28 +142,5 @@ export class AssinaturaController {
   ) {
     exigirProprioTenantOuAdmin(user, tenantId);
     return this.assinaturaService.getSubscription(tenantId);
-  }
-
-  @Post('webhook')
-  handleWebhook(
-    @Req() req: RawBodyRequest<Request>,
-    @Headers('stripe-signature') signature: string,
-  ) {
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    let event: Stripe.Event;
-
-    try {
-      event = Stripe.webhooks.constructEvent(
-        req.rawBody,
-        signature,
-        endpointSecret,
-      );
-    } catch (err) {
-      console.log(`Webhook signature verification failed.`, err.message);
-      return { error: 'Invalid signature' };
-    }
-
-    return this.assinaturaService.handleWebhook(event);
   }
 }

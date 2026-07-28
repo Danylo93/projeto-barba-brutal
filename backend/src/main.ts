@@ -10,9 +10,12 @@ import helmet from 'helmet';
 async function bootstrap() {
   // FRONTEND_URL aceita várias origens separadas por vírgula
   // (ex.: produção + previews da Vercel)
+  // A barra final tem que sair: o navegador manda a origem sem ela, então
+  // "https://app.vercel.app/" nunca casaria com nada e o CORS quebraria
+  // inteiro por causa de um caractere na variável de ambiente.
   const origens = (process.env.FRONTEND_URL || 'http://localhost:3000')
     .split(',')
-    .map((o) => o.trim())
+    .map((o) => o.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
   const corsOptions = {

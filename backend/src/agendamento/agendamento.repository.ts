@@ -1,7 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Agendamento, RepositorioAgendamento } from '../types';
 import { PrismaService } from 'src/db/prisma.service';
-import { validarServicosDoAgendamento } from './agendamento.validacao';
+import {
+  validarServicosDoAgendamento,
+  validarDataDoAgendamento,
+  normalizarIdsDeServico,
+  duracaoEmMinutos,
+  haConflito,
+} from './agendamento.validacao';
 
 const MINUTOS_POR_SLOT = 30;
 
@@ -65,11 +71,34 @@ export class AgendamentoRepository implements RepositorioAgendamento {
    * profissional válido, combo exclusivo e serviço realizado pelo profissional.
    */
   private async validarRegras(agendamento: Agendamento): Promise<void> {
+    // 1) Formato do payload — evita 500 quando o corpo vem malformado
+    //    (ex.: serviços como objetos em vez de ids).
+    const idsServicos = normalizarIdsDeServico(agendamento.servicos as unknown);
+    if (!idsServicos) {
+      throw new BadRequestException(
+        'Serviços inválidos: envie uma lista de ids de serviço.',
+      );
+    }
+    agendamento.servicos = idsServicos;
+
+    if (!Number.isInteger(agendamento.profissionalId) || agendamento.profissionalId <= 0) {
+      throw new BadRequestException('Profissional inválido.');
+    }
+
+    // 2) Data precisa existir e estar no futuro.
+    const erroData = validarDataDoAgendamento(agendamento.data as unknown as Date);
+    if (erroData) {
+      throw new BadRequestException(erroData);
+    }
+    const inicio = new Date(agendamento.data as unknown as string);
+    agendamento.data = inicio as unknown as Date;
+
+    // 3) Serviços válidos e do mesmo tenant.
     const servicos = await this.prismaService.servico.findMany({
-      where: { id: { in: agendamento.servicos }, tenantId: agendamento.tenantId },
-      select: { id: true, ehCombo: true },
+      where: { id: { in: idsServicos }, tenantId: agendamento.tenantId },
+      select: { id: true, ehCombo: true, qtdeSlots: true },
     });
-    if (servicos.length !== agendamento.servicos.length) {
+    if (servicos.length !== idsServicos.length) {
       throw new BadRequestException('Um ou mais serviços são inválidos.');
     }
 
@@ -81,12 +110,120 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       throw new BadRequestException('Profissional inválido.');
     }
 
+    // 4) Combo exclusivo + serviço realizado pelo profissional.
     const erro = validarServicosDoAgendamento(
       servicos,
       profissional.servicos.map((s) => s.id),
     );
     if (erro) {
       throw new BadRequestException(erro);
+    }
+
+    // 5) Conflito de horário: o profissional não pode ter dois atendimentos
+    //    sobrepostos. Considera a duração de cada agendamento (slots × 30 min).
+    const duracaoMin = duracaoEmMinutos(servicos);
+    await this.garantirHorarioLivre(agendamento, inicio, duracaoMin);
+
+    // 6) Bloqueios de agenda (folga, almoço, férias, feriado).
+    await this.garantirSemBloqueio(agendamento, inicio, duracaoMin);
+  }
+
+  /**
+   * Recusa o agendamento quando o intervalo cai em um bloqueio do profissional
+   * ou da barbearia inteira (profissionalId nulo).
+   */
+  private async garantirSemBloqueio(
+    agendamento: Agendamento,
+    inicio: Date,
+    duracaoMin: number,
+  ): Promise<void> {
+    const fim = new Date(inicio.getTime() + duracaoMin * 60000);
+
+    const bloqueio = await this.prismaService.bloqueio.findFirst({
+      where: {
+        tenantId: agendamento.tenantId,
+        OR: [{ profissionalId: agendamento.profissionalId }, { profissionalId: null }],
+        // Sobreposição: começa antes do fim do atendimento e termina depois do início.
+        inicio: { lt: fim },
+        fim: { gt: inicio },
+      },
+      select: { motivo: true, profissionalId: true },
+    });
+
+    if (bloqueio) {
+      const quem = bloqueio.profissionalId ? 'O profissional' : 'A barbearia';
+      const motivo = bloqueio.motivo ? ` (${bloqueio.motivo})` : '';
+      throw new BadRequestException(
+        `${quem} não está disponível neste horário${motivo}. Escolha outro horário.`,
+      );
+    }
+  }
+
+  /** Bloqueios que afetam um profissional em um dia — usado na disponibilidade. */
+  async buscarBloqueios(
+    profissionalId: number,
+    data: Date,
+  ): Promise<{ inicio: Date; fim: Date }[]> {
+    const inicioDoDia = new Date(data);
+    inicioDoDia.setHours(0, 0, 0, 0);
+    const fimDoDia = new Date(data);
+    fimDoDia.setHours(23, 59, 59, 999);
+
+    const bloqueios = await this.prismaService.bloqueio.findMany({
+      where: {
+        OR: [{ profissionalId }, { profissionalId: null }],
+        inicio: { lte: fimDoDia },
+        fim: { gte: inicioDoDia },
+      },
+      select: { inicio: true, fim: true },
+    });
+
+    return bloqueios.map((b) => ({ inicio: new Date(b.inicio), fim: new Date(b.fim) }));
+  }
+
+  /**
+   * Impede agenda dupla: procura atendimentos do mesmo profissional no mesmo dia
+   * e recusa se algum se sobrepõe ao novo intervalo.
+   */
+  private async garantirHorarioLivre(
+    agendamento: Agendamento,
+    inicio: Date,
+    duracaoMin: number,
+    ignorarId?: number,
+  ): Promise<void> {
+    // Janela de um dia ao redor do horário — barato de consultar e suficiente,
+    // já que um atendimento não passa de algumas horas.
+    const de = new Date(inicio.getTime() - 24 * 60 * 60000);
+    const ate = new Date(inicio.getTime() + 24 * 60 * 60000);
+
+    const existentes = await this.prismaService.agendamento.findMany({
+      where: {
+        profissionalId: agendamento.profissionalId,
+        tenantId: agendamento.tenantId,
+        status: { in: ['agendado', 'confirmado'] },
+        data: { gte: de, lte: ate },
+        ...(ignorarId ? { id: { not: ignorarId } } : {}),
+      },
+      select: { data: true, servicos: { select: { qtdeSlots: true } } },
+    });
+
+    const novo = { inicio, duracaoMin };
+    const conflitante = existentes.find((e) =>
+      haConflito(novo, {
+        inicio: new Date(e.data),
+        duracaoMin: duracaoEmMinutos(e.servicos),
+      }),
+    );
+
+    if (conflitante) {
+      const hora = new Date(conflitante.data).toLocaleTimeString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      throw new BadRequestException(
+        `Este profissional já tem um atendimento às ${hora}. Escolha outro horário.`,
+      );
     }
   }
 

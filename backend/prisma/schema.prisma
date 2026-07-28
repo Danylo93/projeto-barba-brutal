@@ -25,6 +25,10 @@ model Plano {
   maxAgendamentos Int   // máximo de agendamentos por mês
   features    String[]  // features incluídas no plano
   ativo       Boolean   @default(true)
+  /// id do preapproval_plan no Mercado Pago (assinatura recorrente).
+  mpPreapprovalPlanId String? @unique
+  /// Link do checkout de assinatura gerado pelo Mercado Pago.
+  mpInitPoint String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -42,6 +46,13 @@ model Tenant {
   telefone      String
   senha         String?
   endereco      String?
+  /// CPF ou CNPJ da barbearia, só dígitos (e letras, no CNPJ alfanumérico).
+  /// É o que impede a mesma pessoa abrir várias contas com e-mails diferentes
+  /// para renovar o teste grátis — e-mail não verificado não identifica ninguém.
+  documento     String?   @unique
+  /// cpf | cnpj — guardado para exibir formatado sem recalcular.
+  tipoDocumento String?
+  /// @deprecated Use `documento`. Mantido para não quebrar cadastros antigos.
   cnpj          String?   @unique
   dominio       String?   @unique // subdomínio personalizado
   logo          String?   // URL da logo
@@ -57,8 +68,12 @@ model Tenant {
   usuarios      Usuario[]
   profissionais Profissional[]
   servicos      Servico[]
+  chavePix      String?   // chave Pix da barbearia (recebe o clube de assinatura)
   agendamentos  Agendamento[]
   pagamentos    Pagamento[]
+  bloqueios     Bloqueio[]
+  planosClube   PlanoClube[]
+  assinaturasClube AssinaturaClube[]
 
   @@map("tenant")
 }
@@ -72,6 +87,10 @@ model Assinatura {
   emTeste           Boolean   @default(false) // período de teste de 30 dias
   stripeCustomerId  String?   @unique
   stripeSubscriptionId String? @unique
+  /// id do preapproval no Mercado Pago — a assinatura recorrente do barbeiro.
+  mpPreapprovalId   String?   @unique
+  /// recorrente (cartão/Pix pelo Mercado Pago) ou pix_avulso (QR Code manual)
+  meioPagamento     String?
   dataInicio        DateTime
   dataFim           DateTime
   renovacaoAutomatica Boolean @default(true)
@@ -129,6 +148,7 @@ model Usuario {
   updatedAt    DateTime      @updatedAt
   agendamentos Agendamento[]
   profissional Profissional?
+  assinaturasClube AssinaturaClube[]
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
@@ -146,10 +166,13 @@ model Profissional {
   tenantId             Int
   usuarioId            Int?          @unique
   ativo                Boolean       @default(true)
+  /// % do valor do serviço que fica com o profissional (0 a 100).
+  comissaoPercent      Float         @default(0)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   agendamentos         Agendamento[]
   servicos             Servico[]     // serviços que este profissional realiza
+  bloqueios            Bloqueio[]    // folgas, almoço, férias
 
   tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   usuario              Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
@@ -209,4 +232,116 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@map("audit_log")
+}
+
+/// Período em que não se pode agendar: folga, almoço, férias ou feriado.
+/// `profissionalId` nulo bloqueia a barbearia inteira.
+model Bloqueio {
+  id             Int           @id @default(autoincrement())
+  tenantId       Int
+  profissionalId Int?
+  inicio         DateTime      @db.Timestamptz(3)
+  fim            DateTime      @db.Timestamptz(3)
+  motivo         String?
+  createdAt      DateTime      @default(now())
+
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profissional   Profissional? @relation(fields: [profissionalId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, inicio])
+  @@index([profissionalId, inicio])
+  @@map("bloqueio")
+}
+
+/// Prova de consentimento exigida pela LGPD (art. 8º, §1º: cabe ao
+/// controlador comprovar que o consentimento foi obtido).
+///
+/// `titularTipo` diz de quem é o consentimento — 'tenant' (barbearia),
+/// 'usuario' (cliente ou barbeiro) ou 'visitante' (ainda sem conta, só o
+/// banner de cookies). `tenantId` nulo = consentimento dado no site do SaaS.
+model ConsentimentoLgpd {
+  id          Int      @id @default(autoincrement())
+  titularTipo String
+  titularId   Int?
+  tenantId    Int?
+  /// cookies_analise, cookies_marketing, termos_de_uso, politica_privacidade
+  tipo        String
+  /// Versão do texto aceito, para saber a que redação o titular consentiu.
+  versao      String
+  aceito      Boolean
+  /// Identificador anônimo do navegador, para o consentimento de quem ainda não tem conta.
+  visitanteId String?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([titularTipo, titularId])
+  @@index([visitanteId])
+  @@map("consentimento_lgpd")
+}
+
+/// Pedido de exclusão de conta feito pelo titular (art. 18, VI).
+/// Fica registrado mesmo depois de atendido, como prova do atendimento.
+model SolicitacaoExclusao {
+  id          Int       @id @default(autoincrement())
+  titularTipo String
+  titularId   Int
+  tenantId    Int?
+  email       String
+  motivo      String?
+  /// pendente, concluida, recusada
+  status      String    @default("pendente")
+  observacao  String?
+  atendidoEm  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status])
+  @@map("solicitacao_exclusao")
+}
+
+/// Plano do clube de assinatura que a barbearia oferece aos seus clientes.
+model PlanoClube {
+  id          Int      @id @default(autoincrement())
+  tenantId    Int
+  nome        String
+  descricao   String?
+  preco       Float
+  /// Benefícios listados na página do clube (ex.: "2 cortes por mês").
+  beneficios  String[]
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assinaturas AssinaturaClube[]
+
+  @@unique([nome, tenantId])
+  @@map("plano_clube")
+}
+
+/// Assinatura de um cliente no clube da barbearia. Pagamento via Pix
+/// direto para a barbearia; o dono confirma o recebimento no painel.
+model AssinaturaClube {
+  id            Int       @id @default(autoincrement())
+  tenantId      Int
+  usuarioId     Int
+  planoClubeId  Int
+  /// pendente (aguardando Pix), ativa, cancelada
+  status        String    @default("pendente")
+  valor         Float
+  /// Pix copia e cola gerado na contratação.
+  pixCopiaECola String?
+  inicio        DateTime?
+  fim           DateTime?
+  confirmadoEm  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuario       Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  plano         PlanoClube @relation(fields: [planoClubeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([usuarioId])
+  @@map("assinatura_clube")
 }
