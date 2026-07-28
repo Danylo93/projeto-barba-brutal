@@ -42,7 +42,7 @@ const planos = [
             'Agendamentos ilimitados',
             'Gestão de clientes',
             'Relatórios avançados',
-            'Integração WhatsApp',
+            'Robô de WhatsApp (IA)',
             'Marketing digital',
             'API personalizada',
             'Suporte prioritário 24/7',

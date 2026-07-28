@@ -51,6 +51,46 @@ export default function PlanosPage() {
   const [verificando, setVerificando] = useState(false)
   const [copiado, setCopiado] = useState(false)
 
+  // Upsell Domínio
+  const [modalDominioAberto, setModalDominioAberto] = useState(false)
+  const [acaoPendente, setAcaoPendente] = useState<{tipo: 'testar'|'recorrente'|'pix', plano: Plano} | null>(null)
+  
+  const tentarAcao = (tipo: 'testar'|'recorrente'|'pix', plano: Plano) => {
+    if (plano.nome === 'Profissional' || plano.nome === 'Premium') {
+      setAcaoPendente({ tipo, plano })
+      setModalDominioAberto(true)
+    } else {
+      executarAcao(tipo, plano)
+    }
+  }
+
+  const executarAcao = (tipo: 'testar'|'recorrente'|'pix', plano: Plano) => {
+    if (tipo === 'testar') testarPlano(plano)
+    else if (tipo === 'recorrente') assinarRecorrente(plano)
+    else if (tipo === 'pix') abrirPix(plano)
+  }
+
+  const gerarPixDominio = async () => {
+    setModalDominioAberto(false)
+    if (!isTenant) return
+    setPixAberto(true)
+    setPixData(null)
+    setPixErro('')
+    setPixLoading(true)
+    setCopiado(false)
+    try {
+      const resposta = await httpPost('/assinaturas/me/dominio/pix', {})
+      if (resposta?.statusCode >= 400 || resposta?.message) {
+        throw new Error(resposta.message || 'Não foi possível gerar o Pix do domínio')
+      }
+      setPixData(resposta)
+    } catch (err) {
+      setPixErro(err instanceof Error ? err.message : 'Erro ao gerar o Pix do domínio')
+    } finally {
+      setPixLoading(false)
+    }
+  }
+
   const carregar = useCallback(async () => {
     try {
       setLoading(true)
@@ -270,7 +310,7 @@ export default function PlanosPage() {
                       emTeste ? (
                         <>
                           <button
-                            onClick={() => assinarRecorrente(plano)}
+                            onClick={() => tentarAcao('recorrente', plano)}
                             disabled={salvandoId !== null}
                             className="w-full py-2.5 rounded-lg bg-yellow-400 text-zinc-900 font-semibold hover:bg-yellow-300 disabled:opacity-60 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                           >
@@ -278,7 +318,7 @@ export default function PlanosPage() {
                             {salvandoId === plano.id ? 'Abrindo...' : 'Assinar com cartão ou Pix'}
                           </button>
                           <button
-                            onClick={() => abrirPix(plano)}
+                            onClick={() => tentarAcao('pix', plano)}
                             className="w-full py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 text-sm"
                           >
                             <QrCode size={16} /> Pagar um mês por Pix
@@ -295,14 +335,17 @@ export default function PlanosPage() {
                     ) : (
                       <>
                         <button
-                          onClick={() => testarPlano(plano)}
+                          onClick={() => tentarAcao('testar', plano)}
                           disabled={salvandoId !== null}
                           className="w-full py-2.5 rounded-lg bg-yellow-400 text-zinc-900 font-semibold hover:bg-yellow-300 disabled:opacity-60 transition-colors"
                         >
                           {salvandoId === plano.id ? 'Ativando...' : 'Testar 30 dias grátis'}
                         </button>
                         <button
-                          onClick={() => assinarRecorrente(plano)}
+                          onClick={() => {
+                            setAcaoPendente({ tipo: 'recorrente', plano })
+                            setModalDominioAberto(true)
+                          }}
                           disabled={salvandoId !== null}
                           className="w-full py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-60 transition-colors flex items-center justify-center gap-2 text-sm"
                         >
@@ -391,6 +434,43 @@ export default function PlanosPage() {
             </button>
           </div>
         )}
+      </Modal>
+
+      {/* Modal de Upsell do Domínio Próprio */}
+      <Modal
+        aberto={modalDominioAberto}
+        onFechar={() => setModalDominioAberto(false)}
+        titulo="Dê um toque profissional à sua Barbearia!"
+      >
+        <div className="p-2 sm:p-6">
+          <div className="text-center mb-6">
+            <div className="mx-auto w-16 h-16 bg-yellow-400/10 text-yellow-400 rounded-full flex items-center justify-center mb-4">
+              <Crown size={32} />
+            </div>
+            <p className="text-zinc-400 text-sm">
+              Que tal ter um link como <strong>suabarbearia.com.br</strong> ao invés do padrão? 
+              Destaque-se da concorrência com um domínio próprio por apenas <strong className="text-white">R$ 59,90 (taxa única)</strong>.
+            </p>
+          </div>
+          
+          <div className="flex flex-col gap-3 mt-8">
+            <button
+              onClick={() => gerarPixDominio()}
+              className="w-full py-3 rounded-xl bg-yellow-400 text-zinc-900 font-bold hover:bg-yellow-300 transition-colors flex justify-center items-center gap-2"
+            >
+              Sim, quero um domínio próprio
+            </button>
+            <button
+              onClick={() => {
+                setModalDominioAberto(false)
+                if (acaoPendente) executarAcao(acaoPendente.tipo, acaoPendente.plano)
+              }}
+              className="w-full py-3 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors font-medium"
+            >
+              Não, quero apenas assinar o plano agora
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   )

@@ -71,9 +71,61 @@ export class NotificacaoService {
             `Data: ${quando}\nServiços: ${servicos}`,
         );
       }
+
+      await this.dispararWebhook(ag, 'agendamento_criado');
     } catch (e: any) {
       this.logger.warn(`Falha ao notificar agendamento ${agendamentoId}: ${e?.message}`);
     }
+  }
+
+  /** Dispara webhook e notifica cancelamento */
+  async notificarCancelamentoAgendamento(agendamento: any): Promise<void> {
+    try {
+      const ag = await this.prisma.agendamento.findUnique({
+        where: { id: agendamento.id },
+        include: { tenant: true, usuario: true, profissional: true, servicos: true },
+      });
+      if (!ag) return;
+      
+      await this.dispararWebhook(ag, 'agendamento_cancelado');
+    } catch(e: any) {
+      this.logger.warn(`Falha ao notificar cancelamento do agendamento ${agendamento.id}: ${e?.message}`);
+    }
+  }
+
+  /** Função interna para disparar Webhook/n8n/Evolution */
+  private async dispararWebhook(agendamentoData: any, evento: string) {
+      const configObj = (agendamentoData.tenant?.configuracoes as any) || {};
+      const webhookUrl = configObj.webhookUrl;
+      const evolutionToken = configObj.evolutionToken;
+
+      if (!webhookUrl) return;
+
+      try {
+          await fetch(webhookUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(evolutionToken ? { 'apikey': evolutionToken } : {})
+              },
+              body: JSON.stringify({
+                  evento,
+                  agendamento: {
+                      id: agendamentoData.id,
+                      data: agendamentoData.data,
+                      status: agendamentoData.status,
+                      cliente: agendamentoData.usuario?.nome,
+                      telefone: agendamentoData.usuario?.telefone,
+                      email: agendamentoData.usuario?.email,
+                      profissional: agendamentoData.profissional?.nome,
+                      servicos: agendamentoData.servicos?.map((s: any) => s.nome),
+                  },
+                  tenantId: agendamentoData.tenantId,
+              })
+          });
+      } catch(e: any) {
+          this.logger.warn(`Falha ao disparar webhook para tenant ${agendamentoData.tenantId}: ${e.message}`);
+      }
   }
 
   private async enviarEmail(to: string, subject: string, text: string): Promise<void> {

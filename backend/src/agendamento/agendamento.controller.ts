@@ -120,6 +120,7 @@ export class AgendamentoController {
       throw new HttpException('Não é possível excluir um agendamento já concluído', 400);
     }
     await this.repo.excluir(+id, tenant.id);
+    this.notificacao.notificarCancelamentoAgendamento(agendamento).catch(() => undefined);
   }
 
   @Patch(':id/status')
@@ -140,6 +141,10 @@ export class AgendamentoController {
       throw new HttpException('Não é possível reverter o status de um agendamento concluído', 400);
     }
     await this.repo.atualizarStatus(+id, tenant.id, status);
+    
+    if (status === 'cancelado') {
+      this.notificacao.notificarCancelamentoAgendamento(agendamento).catch(() => undefined);
+    }
   }
 
   @Patch(':id/reagendar')

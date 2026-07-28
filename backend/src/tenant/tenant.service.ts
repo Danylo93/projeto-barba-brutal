@@ -379,4 +379,15 @@ export class TenantService {
       },
     };
   }
+
+  async generateApiKey(tenantId: number) {
+    const { randomBytes } = await import('crypto');
+    const token = randomBytes(32).toString('hex');
+    const apiKey = `bb_${token}`; // bb_ para Barba Brutal
+
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { apiKey },
+    });
+  }
 }

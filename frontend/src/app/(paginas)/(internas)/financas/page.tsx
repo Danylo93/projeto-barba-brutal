@@ -27,6 +27,8 @@ export default function FinancasPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [planoNome, setPlanoNome] = useState<string>('Básico')
+  const [abaAtual, setAbaAtual] = useState<'basico' | 'comissoes' | 'avancado'>('basico')
 
   const isTenant = usuario?.tipo === 'tenant'
   const isEmployeeBarber = !!usuario?.barbeiro && !isTenant
@@ -41,6 +43,15 @@ export default function FinancasPage() {
       const uri = 'agendamentos/barbeiro/meus-horarios'
       const resposta = await httpGet(uri)
       setAgendamentos(Array.isArray(resposta) ? resposta : [])
+
+      if (isTenant && usuario.tenantId) {
+        const tenantInfo = await httpGet(`tenants/${usuario.tenantId}`)
+        const nomePlano = tenantInfo?.assinatura?.plano?.nome || 'Básico'
+        setPlanoNome(nomePlano)
+        if (nomePlano === 'Profissional' || nomePlano === 'Premium') {
+          setAbaAtual('comissoes')
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar finanças')
       setAgendamentos([])
@@ -65,17 +76,77 @@ export default function FinancasPage() {
     .filter((a) => a.status === 'concluido' || a.status === 'confirmado')
     .length
 
-  // Dono da barbearia: vê o relatório de comissões da equipe.
+  // Dono da barbearia: vê relatórios baseados no plano
   if (isTenant) {
+    const isBasico = planoNome === 'Básico' || planoNome === 'Gratuito'
+    const isProfissional = planoNome === 'Profissional' || planoNome === 'Premium'
+    const isPremium = planoNome === 'Premium'
+
     return (
       <div className="flex flex-col bg-zinc-900 min-h-screen">
         <Cabecalho
           titulo="Financeiro"
-          descricao="Faturamento e comissões da sua equipe."
+          descricao={`Faturamento, relatórios e comissões. (Plano ${planoNome})`}
         />
-        <div className="container mx-auto flex max-w-5xl flex-col gap-12 px-4 py-10 md:px-0">
-          <RelatorioComissoes />
-          <div className="border-t border-zinc-800 pt-10">
+        <div className="container mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 md:px-0">
+          {/* Navegação de Abas Baseada no Plano */}
+          <div className="flex border-b border-zinc-800 mb-6">
+            <button
+              onClick={() => setAbaAtual('basico')}
+              className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'basico' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Dashboard Básico
+            </button>
+            <button
+              onClick={() => isProfissional ? setAbaAtual('comissoes') : null}
+              disabled={!isProfissional}
+              className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'comissoes' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500'} ${!isProfissional ? 'opacity-50 cursor-not-allowed' : 'hover:text-zinc-300'}`}
+              title={!isProfissional ? 'Exclusivo para planos Profissional e Premium' : ''}
+            >
+              Comissões da Equipe {!isProfissional && '🔒'}
+            </button>
+            <button
+              onClick={() => isPremium ? setAbaAtual('avancado') : null}
+              disabled={!isPremium}
+              className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'avancado' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500'} ${!isPremium ? 'opacity-50 cursor-not-allowed' : 'hover:text-zinc-300'}`}
+              title={!isPremium ? 'Exclusivo para plano Premium' : ''}
+            >
+              Relatório Completo {!isPremium && '🔒'}
+            </button>
+          </div>
+
+          {abaAtual === 'basico' && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 flex flex-col items-center justify-center text-center">
+              <TrendingUp size={48} className="text-zinc-700 mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">Visão Geral de Agendamentos</h3>
+              <p className="text-zinc-400 max-w-md">No plano básico você pode acompanhar no dashboard inicial a quantidade de agendamentos realizados. Para análises de comissão, faça upgrade para o Profissional.</p>
+            </div>
+          )}
+
+          {abaAtual === 'comissoes' && isProfissional && (
+            <RelatorioComissoes />
+          )}
+
+          {abaAtual === 'avancado' && isPremium && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 flex flex-col items-center justify-center text-center relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-600 to-yellow-400"></div>
+              <DollarSign size={48} className="text-yellow-500 mb-4" />
+              <h3 className="text-2xl font-bold text-white mb-2">Relatórios Avançados (Premium)</h3>
+              <p className="text-zinc-400 max-w-lg mb-6">
+                Aqui você visualiza métricas de Ticket Médio, Receita Diária, Fluxo de Caixa e Projeção de Crescimento da Barbearia.
+              </p>
+              <div className="flex gap-4">
+                <button className="px-6 py-2 bg-yellow-400 text-zinc-950 font-bold rounded-lg hover:bg-yellow-300 transition-colors">
+                  Exportar PDF
+                </button>
+                <button className="px-6 py-2 bg-zinc-800 text-zinc-300 font-bold rounded-lg border border-zinc-700 hover:bg-zinc-700 transition-colors">
+                  Exportar Excel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t border-zinc-800 pt-10 mt-6">
             <GestaoBloqueios ehDono />
           </div>
         </div>

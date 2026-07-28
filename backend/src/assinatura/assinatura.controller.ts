@@ -94,6 +94,12 @@ export class AssinaturaController {
     return this.assinaturaService.criarPagamentoPix(exigirTenant(user), data?.planoId);
   }
 
+  @Post('me/dominio/pix')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  criarPixDominio(@CurrentUser() user: any) {
+    return this.assinaturaService.criarPagamentoPixDominio(exigirTenant(user));
+  }
+
   @Get('me/pix/:id')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   consultarPix(@CurrentUser() user: any, @Param('id', ParseIntPipe) id: number) {

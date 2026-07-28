@@ -44,6 +44,12 @@ export class TenantController {
     return this.tenantService.update(user.id, body);
   }
 
+  @Post('me/api-key')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  generateApiKey(@CurrentUser() user: any) {
+    return this.tenantService.generateApiKey(user.id);
+  }
+
   /** Relatório de comissões da equipe (?mes=2026-07; padrão: mês atual). */
   @Get('me/comissoes')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)

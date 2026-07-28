@@ -41,7 +41,7 @@ const plans = [
       'Barbeiros ilimitados',
       'Agendamentos ilimitados',
       'Relatórios completos',
-      'Integração WhatsApp',
+      'Robô de WhatsApp (IA)',
       'Suporte prioritário 24/7',
     ],
     popular: false,

@@ -42,10 +42,15 @@ export default function ConfiguracoesPage() {
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
     const [sucesso, setSucesso] = useState(false)
+    const [abaAtual, setAbaAtual] = useState<'geral' | 'integracoes'>('geral')
 
     const [horarios, setHorarios] = useState<DiaHorario[]>(horariosPadrao())
     const [corPrimaria, setCorPrimaria] = useState('#09090b')
     const [corSecundaria, setCorSecundaria] = useState('#f59e0b')
+    
+    // Integrações
+    const [webhookUrl, setWebhookUrl] = useState('')
+    const [evolutionToken, setEvolutionToken] = useState('')
 
     useEffect(() => {
         if (token) fetchConfiguracoes()
@@ -59,6 +64,8 @@ export default function ConfiguracoesPage() {
             const conf = response?.configuracoes
             if (response?.corPrimaria) setCorPrimaria(response.corPrimaria)
             if (response?.corSecundaria) setCorSecundaria(response.corSecundaria)
+            if (conf?.webhookUrl) setWebhookUrl(conf.webhookUrl)
+            if (conf?.evolutionToken) setEvolutionToken(conf.evolutionToken)
             // Deriva o horário de cada dia (aceita formato novo e o antigo).
             setHorarios(DIAS_SEMANA.map((d) => horarioDoDia(conf, d.id)))
         } catch (err) {
@@ -103,6 +110,8 @@ export default function ConfiguracoesPage() {
             const diasAbertos = horarios.filter((h) => h.aberto).map((h) => h.dia)
             const configuracoes = {
                 horarios,
+                webhookUrl,
+                evolutionToken,
                 // Mantém as chaves antigas por compatibilidade com leitores legados.
                 diasAbertos,
                 horaAbertura: (horarios.find((h) => h.aberto) ?? horarios[1]).abertura,
@@ -144,6 +153,20 @@ export default function ConfiguracoesPage() {
                 descricao="Defina o horário de funcionamento de cada dia da semana."
             />
             <div className="container max-w-3xl mx-auto py-10 px-4">
+                <div className="flex border-b border-zinc-800 mb-8">
+                    <button
+                        onClick={() => setAbaAtual('geral')}
+                        className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'geral' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        Geral
+                    </button>
+                    <button
+                        onClick={() => setAbaAtual('integracoes')}
+                        className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'integracoes' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        Integrações (WhatsApp/n8n)
+                    </button>
+                </div>
 
                 {error && (
                     <motion.div
@@ -166,7 +189,9 @@ export default function ConfiguracoesPage() {
                     </motion.div>
                 )}
 
-                <motion.div
+                {abaAtual === 'geral' && (
+                    <div className="flex flex-col gap-8 animate-slide-up">
+                        <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
@@ -305,6 +330,49 @@ export default function ConfiguracoesPage() {
                         </div>
                     </div>
                 </motion.div>
+                </div>
+                )}
+
+                {abaAtual === 'integracoes' && (
+                    <div className="flex flex-col gap-8 animate-slide-up">
+                        <div className="bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-6 sm:p-8">
+                            <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                                <AlertCircle size={20} className="text-yellow-400" /> Webhooks e Robôs
+                            </h2>
+                            <p className="text-zinc-400 text-sm mb-6">
+                                Conecte sua barbearia a sistemas de IA (como n8n ou Evolution API). O sistema irá notificar esses endpoints em tempo real sobre novos agendamentos e cancelamentos.
+                            </p>
+
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-300 mb-1">
+                                        URL do Webhook (n8n / Make / etc)
+                                    </label>
+                                    <input
+                                        type="url"
+                                        placeholder="https://seu-n8n.com/webhook/12345"
+                                        value={webhookUrl}
+                                        onChange={(e) => setWebhookUrl(e.target.value)}
+                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-400 transition-colors"
+                                    />
+                                    <p className="text-xs text-zinc-500 mt-1">Nós enviaremos um POST para esta URL a cada novo agendamento.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-300 mb-1">
+                                        Token da Evolution API (Opcional)
+                                    </label>
+                                    <input
+                                        type="password"
+                                        placeholder="Seu token da API do WhatsApp"
+                                        value={evolutionToken}
+                                        onChange={(e) => setEvolutionToken(e.target.value)}
+                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-400 transition-colors"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="mt-8 pt-6 border-t border-zinc-800/80 flex justify-end">
                         <button

@@ -227,6 +227,63 @@ export class AssinaturaService {
   }
 
   /**
+   * Cria uma cobrança Pix para o Adicional de Domínio Próprio.
+   */
+  async criarPagamentoPixDominio(tenantId: number) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { assinatura: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant não encontrado');
+
+    const idPlano = tenant.assinatura?.planoId;
+    if (!idPlano) throw new BadRequestException('Você precisa de um plano para adicionar domínio.');
+
+    if (!this.mpToken) {
+      throw new BadRequestException(
+        'Pagamento Pix indisponível: configure MERCADO_PAGO_ACCESS_TOKEN no servidor.',
+      );
+    }
+
+    const valorDominio = 59.90;
+
+    const mp = await this.mpFetch('/v1/payments', {
+      method: 'POST',
+      headers: { 'X-Idempotency-Key': `dominio-${tenantId}-${Date.now()}` },
+      body: JSON.stringify({
+        transaction_amount: valorDominio,
+        description: `Barba Brutal - Adicional Domínio Próprio`,
+        payment_method_id: 'pix',
+        payer: { email: tenant.email, first_name: tenant.nome },
+        metadata: { tenantId, dominio: true },
+      }),
+    });
+
+    const td = mp?.point_of_interaction?.transaction_data ?? {};
+    const pagamento = await this.prisma.pagamento.create({
+      data: {
+        tenantId,
+        planoId: idPlano,
+        valor: valorDominio,
+        metodo: 'pix_dominio',
+        status: mp.status || 'pending',
+        mpPaymentId: String(mp.id),
+        qrCode: td.qr_code || null,
+      },
+    });
+
+    return {
+      pagamentoId: pagamento.id,
+      status: pagamento.status,
+      valor: valorDominio,
+      plano: 'Domínio Próprio (Taxa Única)',
+      qrCode: td.qr_code || null,
+      qrCodeBase64: td.qr_code_base64 || null,
+      ticketUrl: td.ticket_url || null,
+    };
+  }
+
+  /**
    * Consulta o status de um pagamento; se aprovado, ativa a assinatura.
    */
   async consultarPagamento(tenantId: number, pagamentoId: number) {
@@ -251,7 +308,9 @@ export class AssinaturaService {
     }
 
     if (pagamento.status === 'approved') {
-      await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
+      if (pagamento.metodo !== 'pix_dominio') {
+        await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
+      }
     }
 
     return { pagamentoId: pagamento.id, status: pagamento.status };

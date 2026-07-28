@@ -103,10 +103,12 @@ export default function PainelNav() {
             { href: '/servicos', rotulo: 'Serviços' },
             { href: '/financas', rotulo: 'Financeiro' },
             { href: '/clube', rotulo: 'Clube' },
+            { href: '/marketing', rotulo: 'Marketing' },
         ]
         conta = [
             { href: '/assinatura', rotulo: 'Meu Plano' },
             { href: '/configuracoes', rotulo: 'Configurações' },
+            { href: '/api-key', rotulo: 'API Key' },
             { href: '/meus-dados', rotulo: 'Meus dados (LGPD)' },
         ]
     } else if (isEmployeeBarber) {
