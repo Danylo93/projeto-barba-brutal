@@ -23,6 +23,13 @@ export class NotificacaoService {
         auth: process.env.SMTP_USER
           ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
           : undefined,
+        // Sem estes limites o nodemailer espera o SO desistir do socket — em
+        // produção isso deu 2 minutos de requisição pendurada quando o SMTP
+        // estava inalcançável. 10s é tempo de sobra para um servidor que
+        // funciona e curto o bastante para não segurar ninguém.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
       });
     } else {
       this.transporter = null;
@@ -152,6 +159,25 @@ export class NotificacaoService {
   /** Atalho para os templates de `templates.ts`. */
   async enviarTemplate(to: string, email: Email): Promise<void> {
     await this.enviarEmail(to, email.assunto, email.texto, email.html);
+  }
+
+  /**
+   * Dispara o e-mail sem segurar a resposta HTTP, e sem deixar a falha subir.
+   *
+   * Existe porque esperar o SMTP dentro da requisição criou um problema pior
+   * que o e-mail não chegar: com o servidor fora do ar, o pedido de
+   * recuperação ficava 2 minutos pendurado e terminava em 500 — enquanto um
+   * e-mail sem conta respondia 201 na hora. A diferença de resposta entregava
+   * quais e-mails têm cadastro, que é exatamente o que a tela evita dizer.
+   */
+  enviarTemplateEmSegundoPlano(to: string, email: Email): void {
+    this.enviarTemplate(to, email).catch((erro) =>
+      this.logger.error(
+        `Falha ao enviar "${email.assunto}" para ${to}: ${
+          erro instanceof Error ? erro.message : erro
+        }`,
+      ),
+    );
   }
 
   /** true quando há SMTP configurado — sem isso, o e-mail só vai para o log. */

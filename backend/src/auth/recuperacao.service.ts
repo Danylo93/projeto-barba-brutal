@@ -94,7 +94,11 @@ export class RecuperacaoService {
       `${this.urlDoSite}/redefinir-senha?token=${token}` +
       (usuario ? `&tenant=${usuario.tenantId}` : '');
 
-    await this.notificacao.enviarTemplate(
+    // Em segundo plano de propósito. Esperar o SMTP aqui faz a resposta
+    // demorar só quando a conta existe — e esse atraso conta para quem está
+    // do outro lado quais e-mails têm cadastro, justamente o que a mensagem
+    // genérica esconde.
+    this.notificacao.enviarTemplateEmSegundoPlano(
       destino.email,
       emailRecuperacaoSenha({
         nome: destino.nome,

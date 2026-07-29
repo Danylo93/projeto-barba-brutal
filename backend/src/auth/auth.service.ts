@@ -315,12 +315,10 @@ export class AuthService {
       .split(',')[0]
       .trim()
       .replace(/\/+$/, '');
-    this.notificacao
-      .enviarTemplate(
-        tenant.email,
-        emailBoasVindas({ nomeBarbearia: tenant.nome, urlPlanos: `${site}/planos` }),
-      )
-      .catch(() => undefined);
+    this.notificacao.enviarTemplateEmSegundoPlano(
+      tenant.email,
+      emailBoasVindas({ nomeBarbearia: tenant.nome, urlPlanos: `${site}/planos` }),
+    );
 
     const payload = {
       id: tenant.id,
