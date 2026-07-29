@@ -219,7 +219,7 @@ export default function ContactPage() {
                                         </div>
                                         <div className="ml-3">
                                             <p className="text-sm font-medium text-gray-900">Email</p>
-                                            <p className="text-sm text-gray-600">suporte@barbabrutal.com</p>
+                                            <p className="text-sm text-gray-600">suporte@barbeariabrutal.com</p>
                                         </div>
                                     </div>
 

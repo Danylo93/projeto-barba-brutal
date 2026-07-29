@@ -11,7 +11,7 @@ import useBarbearia from '@/data/hooks/useBarbearia'
 
 export default function Rodape() {
     const barbearia = useBarbearia()
-    const emailContato = barbearia?.email || 'suporte@barbabrutal.com.br'
+    const emailContato = barbearia?.email || 'suporte@barbeariabrutal.com'
     return (
         <footer className="flex items-center bg-black">
             <div className="container flex flex-col gap-7 py-10">
