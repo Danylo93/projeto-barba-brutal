@@ -104,6 +104,11 @@ const notificacao = {
     enviados.push({ para, email });
     return Promise.resolve();
   }),
+  // Espelha o serviço de verdade: dispara e engole a falha, sem devolver
+  // promessa para o chamador esperar.
+  enviarTemplateEmSegundoPlano: jest.fn((para: string, email: any) => {
+    notificacao.enviarTemplate(para, email).catch(() => undefined);
+  }),
   emailAtivo: true,
 };
 
@@ -117,6 +122,7 @@ beforeEach(() => {
   prisma = fakePrisma();
   enviados = [];
   notificacao.enviarTemplate.mockClear();
+  notificacao.enviarTemplateEmSegundoPlano.mockClear();
   process.env.FRONTEND_URL = 'https://barbeariabrutal.vercel.app';
   service = new RecuperacaoService(prisma as any, notificacao as any);
 });
@@ -198,6 +204,38 @@ describe('RecuperacaoService.solicitar', () => {
   it('e-mail vazio não estoura', async () => {
     await expect(service.solicitar('')).resolves.toHaveProperty('ok', true);
     expect(prisma.pedidos).toHaveLength(0);
+  });
+
+  /*
+   * Estes dois travam um bug que chegou a produção: a resposta esperava o
+   * SMTP. Com o servidor fora do ar, e-mail COM conta pendurava 2 minutos e
+   * terminava em 500, enquanto e-mail SEM conta respondia na hora. A diferença
+   * entregava quais e-mails têm cadastro — o oposto do que a mensagem
+   * genérica promete.
+   */
+  it('não espera o e-mail sair para responder', async () => {
+    prisma.tenants.push({ id: 1, nome: 'Marcão', email: 'marcao@x.app', ativo: true });
+
+    let liberar: () => void = () => undefined;
+    const travado = new Promise<void>((r) => (liberar = r));
+    notificacao.enviarTemplate.mockReturnValueOnce(travado as any);
+
+    // Sem timeout de teste: se voltasse a esperar, isto nunca resolveria.
+    await expect(service.solicitar('marcao@x.app')).resolves.toHaveProperty('ok', true);
+    liberar();
+  });
+
+  it('SMTP quebrado não vira erro para quem pediu', async () => {
+    prisma.tenants.push({ id: 1, nome: 'Marcão', email: 'marcao@x.app', ativo: true });
+    notificacao.enviarTemplate.mockRejectedValueOnce(new Error('ECONNREFUSED') as any);
+
+    const comConta = await service.solicitar('marcao@x.app');
+    const semConta = await service.solicitar('ninguem@x.app');
+
+    // Mesma resposta nos dois casos, mesmo com o envio falhando.
+    expect(comConta).toEqual(semConta);
+    // E o pedido continua gravado: o link existe se o suporte precisar reenviar.
+    expect(prisma.pedidos).toHaveLength(1);
   });
 });
 

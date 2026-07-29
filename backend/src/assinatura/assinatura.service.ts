@@ -179,21 +179,19 @@ export class AssinaturaService {
       );
     }
 
+    // O e-mail vai em segundo plano: o barbeiro acabou de clicar em "contratar"
+    // e não pode esperar o SMTP para ver o plano liberado.
     if (tenant.email) {
-      envios.push(
-        this.notificacao
-          .enviarTemplate(
-            tenant.email,
-            emailPlanoContratado({
-              nomeBarbearia: tenant.nome,
-              nomePlano: plano.nome,
-              preco: plano.preco,
-              validoAte: fimDoTeste,
-              emTeste,
-              urlPainel: `${this.urlDoSite}/dashboard`,
-            }),
-          )
-          .catch(registrarFalha('e-mail')),
+      this.notificacao.enviarTemplateEmSegundoPlano(
+        tenant.email,
+        emailPlanoContratado({
+          nomeBarbearia: tenant.nome,
+          nomePlano: plano.nome,
+          preco: plano.preco,
+          validoAte: fimDoTeste,
+          emTeste,
+          urlPainel: `${this.urlDoSite}/dashboard`,
+        }),
       );
     }
 
