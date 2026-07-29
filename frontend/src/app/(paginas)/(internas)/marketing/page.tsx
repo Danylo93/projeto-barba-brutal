@@ -44,7 +44,7 @@ export default function MarketingPage() {
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-10 flex flex-col items-center justify-center text-center">
                     <Tag size={48} className="text-zinc-700 mb-4" />
                     <h3 className="text-xl font-bold text-white mb-2">Nenhum cupom criado ainda</h3>
-<p className="text-zinc-400 max-w-md">Estamos preparando os cupons. Em breve você vai poder criar códigos como <span className="font-mono text-zinc-300">BEMVINDO10</span> e atrair agendamentos novos.</p>
+                    <p className="text-zinc-400 max-w-md">Estamos preparando os cupons. Em breve você vai poder criar códigos como <span className="font-mono text-zinc-300">BEMVINDO10</span> e atrair agendamentos novos.</p>
                 </div>
             </div>
         </div>

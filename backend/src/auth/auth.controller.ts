@@ -1,11 +1,16 @@
 import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { RecuperacaoService } from './recuperacao.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly recuperacao: RecuperacaoService,
+  ) {}
 
   @Post('tenant/login')
   loginTenant(@Body() data: { email: string; senha: string }) {
@@ -51,14 +56,25 @@ export class AuthController {
     return this.authService.loginAdmin(data.email, data.senha);
   }
 
+  /*
+   * Apelidos das rotas antigas de recuperação de senha.
+   *
+   * A implementação de verdade mora em `RecuperacaoService` (/auth/senha/*),
+   * que guarda o hash do token em vez do token e tem limite próprio de
+   * tentativas. Estas duas rotas continuam de pé só para o frontend que já
+   * está no ar não tomar 404 enquanto o deploy novo não sobe — o corpo aceita
+   * tanto `senha` quanto o `novaSenha` que a versão antiga mandava.
+   */
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('recuperar-senha')
   recuperarSenha(@Body() data: { email: string; tenantId?: number }) {
-    return this.authService.recuperarSenha(data.email, data.tenantId);
+    return this.recuperacao.solicitar(data?.email, data?.tenantId);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('redefinir-senha')
-  redefinirSenha(@Body() data: { token: string; novaSenha: string; tenantId?: number }) {
-    return this.authService.redefinirSenha(data.token, data.novaSenha, data.tenantId);
+  redefinirSenha(@Body() data: { token: string; senha?: string; novaSenha?: string }) {
+    return this.recuperacao.redefinir(data?.token, data?.senha ?? data?.novaSenha);
   }
 
   @Get('profile')

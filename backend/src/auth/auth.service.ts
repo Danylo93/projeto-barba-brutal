@@ -4,9 +4,9 @@ import { PrismaService } from '../db/prisma.service';
 import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
 import { escolherCorMarca, COR_PRIMARIA_PADRAO } from '../tenant/cores-marca';
 import { limparDocumento, tipoDoDocumento } from '../common/documento';
-import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
 import { NotificacaoService } from '../notificacao/notificacao.service';
+import { emailBoasVindas } from '../notificacao/templates';
+import * as bcrypt from 'bcrypt';
 
 /** Valida formato de e-mail. */
 function validarEmail(email: string): boolean {
@@ -309,6 +309,19 @@ export class AuthService {
       },
     });
 
+    // Boas-vindas não pode derrubar o cadastro: se o SMTP cair, a barbearia
+    // ainda entra no sistema. Por isso o erro só vira log.
+    const site = (process.env.FRONTEND_URL || 'http://localhost:3000')
+      .split(',')[0]
+      .trim()
+      .replace(/\/+$/, '');
+    this.notificacao
+      .enviarTemplate(
+        tenant.email,
+        emailBoasVindas({ nomeBarbearia: tenant.nome, urlPlanos: `${site}/planos` }),
+      )
+      .catch(() => undefined);
+
     const payload = {
       id: tenant.id,
       tenantId: tenant.id,
@@ -383,111 +396,4 @@ export class AuthService {
     };
   }
 
-  async recuperarSenha(email: string, tenantId?: number) {
-    if (!validarEmail(email)) {
-      throw new BadRequestException('E-mail inválido.');
-    }
-
-    // Tenta encontrar a conta
-    let conta: { id: number; nome: string } | null = null
-    let tipo: 'tenant' | 'usuario' = 'usuario'
-
-    if (tenantId) {
-      const usuario = await this.prisma.usuario.findFirst({
-        where: { email, tenantId },
-        select: { id: true, nome: true },
-      })
-      if (usuario) {
-        conta = usuario
-        tipo = 'usuario'
-      }
-    } else {
-      const tenant = await this.prisma.tenant.findUnique({
-        where: { email },
-        select: { id: true, nome: true },
-      })
-      if (tenant) {
-        conta = tenant
-        tipo = 'tenant'
-      }
-    }
-
-    // Não revela se a conta existe ou não (segurança)
-    if (!conta) {
-      return { message: 'Se o e-mail estiver cadastrado, você receberá as instruções em breve.' }
-    }
-
-    // Remove tokens anteriores desse e-mail
-    await this.prisma.tokenRecuperacaoSenha.deleteMany({
-      where: { email, usado: false },
-    })
-
-    const token = crypto.randomBytes(32).toString('hex')
-    const expiracao = new Date(Date.now() + 60 * 60 * 1000) // 1 hora
-
-    await this.prisma.tokenRecuperacaoSenha.create({
-      data: { email, token, expiracao },
-    })
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-    const params = tipo === 'usuario' && tenantId ? `?token=${token}&tenant=${tenantId}` : `?token=${token}`
-    const link = `${frontendUrl}/redefinir-senha${params}`
-
-    this.notificacao.enviarEmail(
-      email,
-      'Recuperação de senha — Barba Brutal',
-      `Olá ${conta.nome},\n\nRecebemos um pedido de recuperação de senha.\n\nClique no link abaixo para redefinir sua senha:\n${link}\n\nEste link é válido por 1 hora.\n\nSe não foi você quem pediu, ignore este e-mail.\n\n— Equipe Barba Brutal`,
-    ).catch(() => {
-      // Falha no e-mail não impede a resposta — o token foi gerado e pode ser
-      // reenviado manualmente se necessário.
-    })
-
-    return { message: 'Se o e-mail estiver cadastrado, você receberá as instruções em breve.' }
-  }
-
-  async redefinirSenha(token: string, novaSenha: string, tenantId?: number) {
-    if (novaSenha.length < 6) {
-      throw new BadRequestException('A nova senha deve ter no mínimo 6 caracteres.')
-    }
-
-    const registro = await this.prisma.tokenRecuperacaoSenha.findUnique({
-      where: { token },
-    })
-
-    if (!registro || registro.usado || registro.expiracao < new Date()) {
-      throw new BadRequestException('Token inválido ou expirado. Solicite uma nova recuperação de senha.')
-    }
-
-    const senhaHash = await bcrypt.hash(novaSenha, 10)
-
-    if (tenantId) {
-      await this.prisma.usuario.update({
-        where: { email_tenantId: { email: registro.email, tenantId } },
-        data: { senha: senhaHash },
-      })
-    } else {
-      const tenant = await this.prisma.tenant.findUnique({
-        where: { email: registro.email },
-        select: { id: true },
-      })
-
-      if (tenant) {
-        await this.prisma.tenant.update({
-          where: { id: tenant.id },
-          data: { senha: senhaHash },
-        })
-      } else {
-        throw new BadRequestException(
-          'Token inválido ou expirado. Solicite uma nova recuperação de senha.',
-        )
-      }
-    }
-
-    await this.prisma.tokenRecuperacaoSenha.update({
-      where: { id: registro.id },
-      data: { usado: true },
-    })
-
-    return { message: 'Senha redefinida com sucesso.' }
-  }
 }

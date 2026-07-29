@@ -352,20 +352,6 @@ model AssinaturaClube {
   @@map("assinatura_clube")
 }
 
-/// Token de recuperação de senha enviado por e-mail.
-/// Válido por 1 hora. Usado para tenant (dono), cliente e barbeiro.
-model TokenRecuperacaoSenha {
-  id        Int      @id @default(autoincrement())
-  email     String
-  token     String   @unique
-  expiracao DateTime
-  usado     Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@index([token])
-  @@map("token_recuperacao_senha")
-}
-
 /// Cupons de Desconto (Módulo de Marketing)
 model Cupom {
   id          Int       @id @default(autoincrement())
@@ -384,4 +370,22 @@ model Cupom {
 
   @@unique([codigo, tenantId])
   @@map("cupom")
+}
+
+/// Pedido de redefinição de senha.
+///
+/// Guarda o HASH do token, nunca o token: quem conseguir ler a tabela não
+/// consegue usar o link. Um pedido em aberto por conta, uso único, 1 hora.
+model RecuperacaoSenha {
+  id          Int       @id @default(autoincrement())
+  /// tenant (dono da barbearia) ou usuario (cliente/barbeiro)
+  titularTipo String
+  titularId   Int
+  tokenHash   String    @unique
+  expiraEm    DateTime
+  usadoEm     DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([titularTipo, titularId])
+  @@map("recuperacao_senha")
 }
