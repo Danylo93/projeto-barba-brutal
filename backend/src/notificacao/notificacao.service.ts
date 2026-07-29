@@ -1,19 +1,40 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { Email, emailAgendamentoConfirmado } from './templates';
+import {
+  URL_RESEND,
+  chaveDoResend,
+  corpoDoEnvio,
+  interpretarResposta,
+  remetente,
+} from './resend';
 import { PrismaService } from '../db/prisma.service';
 
+/** Por onde o e-mail sai deste servidor. */
+export type CanalDeEmail = 'resend' | 'smtp' | 'nenhum';
+
 /**
- * Envio de notificações de agendamento (e-mail). É opcional e não bloqueante:
- * sem SMTP configurado (variáveis SMTP_*), apenas registra em log e segue.
- * WhatsApp fica como link pronto (wa.me) para envio manual/integração futura.
+ * Envio de notificações (e-mail). É opcional e não bloqueante: sem canal
+ * configurado, apenas registra em log e segue. WhatsApp fica como link pronto
+ * (wa.me) para envio manual/integração futura.
+ *
+ * Há dois canais, nesta ordem:
+ *
+ * 1. **Resend** (`RESEND_API_KEY`), por HTTPS na 443. É o que funciona onde
+ *    estamos hospedados: o Render bloqueia a saída nas portas de SMTP nos
+ *    serviços do plano free, e o smtp.gmail.com dava "Connection timeout".
+ * 2. **SMTP** (`SMTP_HOST`), que continua de pé para rodar local e para o dia
+ *    em que o serviço for pago.
  */
 @Injectable()
 export class NotificacaoService {
   private readonly logger = new Logger(NotificacaoService.name);
   private readonly transporter: nodemailer.Transporter | null;
+  private readonly resendKey: string | undefined;
 
   constructor(private readonly prisma: PrismaService) {
+    this.resendKey = chaveDoResend();
+
     const host = process.env.SMTP_HOST;
     if (host) {
       this.transporter = nodemailer.createTransport({
@@ -34,6 +55,15 @@ export class NotificacaoService {
     } else {
       this.transporter = null;
     }
+
+    this.logger.log(`Canal de e-mail: ${this.canal}`);
+  }
+
+  /** Qual canal está valendo agora. */
+  get canal(): CanalDeEmail {
+    if (this.resendKey) return 'resend';
+    if (this.transporter) return 'smtp';
+    return 'nenhum';
   }
 
   /** Notifica cliente e barbeiro sobre um novo agendamento. Nunca lança. */
@@ -146,14 +176,43 @@ export class NotificacaoService {
     text: string,
     html?: string,
   ): Promise<void> {
-    if (!this.transporter) {
-      this.logger.log(`[e-mail desativado] Para ${to}: ${subject}`);
+    if (this.resendKey) {
+      await this.enviarPeloResend(to, subject, text, html);
       return;
     }
-    const from = process.env.SMTP_FROM || 'no-reply@barbabrutal.app';
-    // Manda os dois: o texto puro é o que aparece na prévia da caixa de
-    // entrada e o que o filtro de spam lê quando o cliente bloqueia HTML.
-    await this.transporter.sendMail({ from, to, subject, text, html });
+    if (this.transporter) {
+      // Manda os dois: o texto puro é o que aparece na prévia da caixa de
+      // entrada e o que o filtro de spam lê quando o cliente bloqueia HTML.
+      await this.transporter.sendMail({ from: remetente(), to, subject, text, html });
+      return;
+    }
+    this.logger.log(`[e-mail desativado] Para ${to}: ${subject}`);
+  }
+
+  /** POST único na API do Resend — sem SDK, para não crescer a dependência. */
+  private async enviarPeloResend(
+    to: string,
+    subject: string,
+    text: string,
+    html?: string,
+  ): Promise<void> {
+    const resposta = await fetch(URL_RESEND, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(
+        corpoDoEnvio({ de: remetente(), para: to, assunto: subject, texto: text, html }),
+      ),
+      // Mesma razão dos timeouts do SMTP: nada pode ficar pendurado esperando
+      // uma rede que não responde.
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    const corpo = await resposta.json().catch(() => ({}));
+    const resultado = interpretarResposta(resposta.status, corpo);
+    if (!resultado.ok) throw new Error(resultado.erro);
   }
 
   /** Atalho para os templates de `templates.ts`. */
@@ -180,25 +239,43 @@ export class NotificacaoService {
     );
   }
 
-  /** true quando há SMTP configurado — sem isso, o e-mail só vai para o log. */
+  /** true quando há canal configurado — sem isso, o e-mail só vai para o log. */
   get emailAtivo(): boolean {
-    return !!this.transporter;
+    return this.canal !== 'nenhum';
   }
 
   /**
-   * Abre a conexão com o SMTP e devolve o motivo se não fechar.
+   * Confere se o canal ativo responde, e devolve o motivo quando não responde.
    *
-   * Serve ao `/health/smtp`: sem isso, a única forma de descobrir que o e-mail
+   * Serve ao `/health/email`: sem isso, a única forma de descobrir que o e-mail
    * não sai é um barbeiro reclamar que o link de recuperação não chegou.
    */
   async testarConexao(): Promise<{ ok: boolean; erro?: string }> {
-    if (!this.transporter) return { ok: false, erro: 'SMTP_HOST não configurado' };
-    try {
-      await this.transporter.verify();
-      return { ok: true };
-    } catch (erro: any) {
-      return { ok: false, erro: erro?.message || String(erro) };
+    if (this.resendKey) {
+      try {
+        // Endpoint de domínios: confirma que a chave é válida sem gastar envio.
+        const r = await fetch('https://api.resend.com/domains', {
+          headers: { Authorization: `Bearer ${this.resendKey}` },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (r.ok) return { ok: true };
+        const corpo = await r.json().catch(() => ({}));
+        return { ok: false, erro: interpretarResposta(r.status, corpo).erro };
+      } catch (erro: any) {
+        return { ok: false, erro: erro?.message || String(erro) };
+      }
     }
+
+    if (this.transporter) {
+      try {
+        await this.transporter.verify();
+        return { ok: true };
+      } catch (erro: any) {
+        return { ok: false, erro: erro?.message || String(erro) };
+      }
+    }
+
+    return { ok: false, erro: 'Nenhum canal configurado (RESEND_API_KEY ou SMTP_HOST)' };
   }
 
   /** Link wa.me pronto para enviar uma mensagem (integração WhatsApp futura). */
