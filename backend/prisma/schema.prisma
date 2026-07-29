@@ -371,3 +371,21 @@ model Cupom {
   @@unique([codigo, tenantId])
   @@map("cupom")
 }
+
+/// Pedido de redefinição de senha.
+///
+/// Guarda o HASH do token, nunca o token: quem conseguir ler a tabela não
+/// consegue usar o link. Um pedido em aberto por conta, uso único, 1 hora.
+model RecuperacaoSenha {
+  id          Int       @id @default(autoincrement())
+  /// tenant (dono da barbearia) ou usuario (cliente/barbeiro)
+  titularTipo String
+  titularId   Int
+  tokenHash   String    @unique
+  expiraEm    DateTime
+  usadoEm     DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([titularTipo, titularId])
+  @@map("recuperacao_senha")
+}

@@ -4,6 +4,8 @@ import { PrismaService } from '../db/prisma.service';
 import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
 import { escolherCorMarca, COR_PRIMARIA_PADRAO } from '../tenant/cores-marca';
 import { limparDocumento, tipoDoDocumento } from '../common/documento';
+import { NotificacaoService } from '../notificacao/notificacao.service';
+import { emailBoasVindas } from '../notificacao/templates';
 import * as bcrypt from 'bcrypt';
 
 /** Valida formato de e-mail. */
@@ -49,6 +51,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private subscriptionValidation: SubscriptionValidationService,
+    private notificacao: NotificacaoService,
   ) {}
 
   async loginTenant(email: string, senha: string) {
@@ -257,6 +260,19 @@ export class AuthService {
         dominio: slug,
       },
     });
+
+    // Boas-vindas não pode derrubar o cadastro: se o SMTP cair, a barbearia
+    // ainda entra no sistema. Por isso o erro só vira log.
+    const site = (process.env.FRONTEND_URL || 'http://localhost:3000')
+      .split(',')[0]
+      .trim()
+      .replace(/\/+$/, '');
+    this.notificacao
+      .enviarTemplate(
+        tenant.email,
+        emailBoasVindas({ nomeBarbearia: tenant.nome, urlPlanos: `${site}/planos` }),
+      )
+      .catch(() => undefined);
 
     const payload = {
       id: tenant.id,

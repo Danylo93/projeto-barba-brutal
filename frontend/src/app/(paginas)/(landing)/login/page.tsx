@@ -314,6 +314,17 @@ function LoginContent() {
                     </label>
                 )}
 
+                {/* Só no modo entrar: quem está criando conta não esqueceu senha
+                    nenhuma, e o link ali embaixo só confundiria. */}
+                {modo === 'entrar' && (
+                    <Link
+                        href={contextoBarbearia ? `/recuperar-senha?tenant=${tenantId}` : '/recuperar-senha'}
+                        className="-mt-1 self-end text-sm text-zinc-400 transition-colors hover:text-yellow-400"
+                    >
+                        Esqueci minha senha
+                    </Link>
+                )}
+
                 <button
                     type="submit"
                     disabled={loading}

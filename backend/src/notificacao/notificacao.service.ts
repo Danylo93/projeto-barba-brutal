@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import { PrismaService } from 'src/db/prisma.service';
+import { Email, emailAgendamentoConfirmado } from './templates';
+import { PrismaService } from '../db/prisma.service';
 
 /**
  * Envio de notificações de agendamento (e-mail). É opcional e não bloqueante:
@@ -52,13 +53,16 @@ export class NotificacaoService {
       const profissional = ag.profissional?.nome ?? '';
 
       if (ag.usuario?.email) {
-        await this.enviarEmail(
+        await this.enviarTemplate(
           ag.usuario.email,
-          `Agendamento confirmado — ${barbearia}`,
-          `Olá ${ag.usuario.nome || ''},\n\n` +
-            `Seu horário na ${barbearia} está confirmado.\n` +
-            `Data: ${quando}\nProfissional: ${profissional}\nServiços: ${servicos}\n\n` +
-            `Até logo!`,
+          emailAgendamentoConfirmado({
+            nomeCliente: ag.usuario.nome || 'cliente',
+            nomeBarbearia: barbearia,
+            servicos,
+            profissional,
+            quando: new Date(ag.data),
+            endereco: ag.tenant?.endereco,
+          }),
         );
       }
 
@@ -128,13 +132,31 @@ export class NotificacaoService {
       }
   }
 
-  private async enviarEmail(to: string, subject: string, text: string): Promise<void> {
+  /** Público porque a recuperação de senha também precisa mandar e-mail. */
+  async enviarEmail(
+    to: string,
+    subject: string,
+    text: string,
+    html?: string,
+  ): Promise<void> {
     if (!this.transporter) {
       this.logger.log(`[e-mail desativado] Para ${to}: ${subject}`);
       return;
     }
     const from = process.env.SMTP_FROM || 'no-reply@barbabrutal.app';
-    await this.transporter.sendMail({ from, to, subject, text });
+    // Manda os dois: o texto puro é o que aparece na prévia da caixa de
+    // entrada e o que o filtro de spam lê quando o cliente bloqueia HTML.
+    await this.transporter.sendMail({ from, to, subject, text, html });
+  }
+
+  /** Atalho para os templates de `templates.ts`. */
+  async enviarTemplate(to: string, email: Email): Promise<void> {
+    await this.enviarEmail(to, email.assunto, email.texto, email.html);
+  }
+
+  /** true quando há SMTP configurado — sem isso, o e-mail só vai para o log. */
+  get emailAtivo(): boolean {
+    return !!this.transporter;
   }
 
   /** Link wa.me pronto para enviar uma mensagem (integração WhatsApp futura). */

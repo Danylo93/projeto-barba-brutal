@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from '../db/prisma.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { mensagemPlanoContratado } from '../whatsapp/mensagens';
+import { NotificacaoService } from '../notificacao/notificacao.service';
+import { emailPlanoContratado } from '../notificacao/templates';
 import {
   corpoDaAssinatura,
   corpoDoPlano,
@@ -17,6 +19,7 @@ export class AssinaturaService {
   constructor(
     private prisma: PrismaService,
     private whatsapp: WhatsappService,
+    private notificacao: NotificacaoService,
   ) {}
 
   async cancelSubscription(tenantId: number) {
@@ -101,7 +104,7 @@ export class AssinaturaService {
         data: { testeGratisUsadoEm: agora },
       });
 
-      await this.avisarNoWhatsapp(tenantId, plano, dataFim, true);
+      await this.avisarPlanoContratado(tenantId, plano, dataFim, true);
       return criada;
     }
 
@@ -119,7 +122,7 @@ export class AssinaturaService {
       include: { plano: true },
     });
 
-    await this.avisarNoWhatsapp(
+    await this.avisarPlanoContratado(
       tenantId,
       plano,
       trocada.dataFim,
@@ -129,41 +132,72 @@ export class AssinaturaService {
   }
 
   /**
-   * Manda no WhatsApp do dono o plano que ele acabou de fechar.
+   * Avisa o dono do plano que ele acabou de fechar, no WhatsApp e por e-mail.
    *
-   * Nunca propaga erro: se a mensagem falhar, o barbeiro já tem o plano e não
-   * pode ver a contratação quebrar por causa de um envio.
+   * Nunca propaga erro: se o aviso falhar, o barbeiro já tem o plano e não
+   * pode ver a contratação quebrar por causa de um envio. Os dois canais são
+   * independentes de propósito — Evolution fora do ar não pode impedir o
+   * e-mail, que é o comprovante que fica (WhatsApp some no meio da conversa).
    */
-  private async avisarNoWhatsapp(
+  private async avisarPlanoContratado(
     tenantId: number,
     plano: { nome: string; preco: number },
     fimDoTeste: Date,
     emTeste: boolean,
   ) {
-    try {
-      const tenant = await this.prisma.tenant.findUnique({
+    const tenant = await this.prisma.tenant
+      .findUnique({
         where: { id: tenantId },
-        select: { nome: true, telefone: true },
-      });
-      if (!tenant?.telefone) return;
+        select: { nome: true, telefone: true, email: true },
+      })
+      .catch(() => null);
+    if (!tenant) return;
 
-      await this.whatsapp.enviarTexto(
-        tenant.telefone,
-        mensagemPlanoContratado({
-          nomeBarbearia: tenant.nome,
-          nomePlano: plano.nome,
-          preco: plano.preco,
-          fimDoTeste,
-          emTeste,
-        }),
-      );
-    } catch (erro) {
+    const registrarFalha = (canal: string) => (erro: unknown) =>
       this.logger.error(
-        `Falha ao avisar o plano no WhatsApp (tenant ${tenantId}): ${
+        `Falha ao avisar o plano por ${canal} (tenant ${tenantId}): ${
           erro instanceof Error ? erro.message : erro
         }`,
       );
+
+    const envios: Promise<unknown>[] = [];
+
+    if (tenant.telefone) {
+      envios.push(
+        this.whatsapp
+          .enviarTexto(
+            tenant.telefone,
+            mensagemPlanoContratado({
+              nomeBarbearia: tenant.nome,
+              nomePlano: plano.nome,
+              preco: plano.preco,
+              fimDoTeste,
+              emTeste,
+            }),
+          )
+          .catch(registrarFalha('WhatsApp')),
+      );
     }
+
+    if (tenant.email) {
+      envios.push(
+        this.notificacao
+          .enviarTemplate(
+            tenant.email,
+            emailPlanoContratado({
+              nomeBarbearia: tenant.nome,
+              nomePlano: plano.nome,
+              preco: plano.preco,
+              validoAte: fimDoTeste,
+              emTeste,
+              urlPainel: `${this.urlDoSite}/dashboard`,
+            }),
+          )
+          .catch(registrarFalha('e-mail')),
+      );
+    }
+
+    await Promise.all(envios);
   }
 
   // ─────────────────────────── Pix (Mercado Pago) ───────────────────────────
@@ -371,7 +405,7 @@ export class AssinaturaService {
       where: { id: planoId },
       select: { nome: true, preco: true },
     });
-    if (plano) await this.avisarNoWhatsapp(tenantId, plano, dataFim, false);
+    if (plano) await this.avisarPlanoContratado(tenantId, plano, dataFim, false);
   }
 
   // ───────────────── Assinatura recorrente (cartão ou Pix) ─────────────────
@@ -672,7 +706,7 @@ export class AssinaturaService {
       where: { id: ref.planoId },
       select: { nome: true, preco: true },
     });
-    if (plano) await this.avisarNoWhatsapp(ref.tenantId, plano, fim, false);
+    if (plano) await this.avisarPlanoContratado(ref.tenantId, plano, fim, false);
   }
 
   /** Caiu a mensalidade: estende a validade por mais 30 dias. */
