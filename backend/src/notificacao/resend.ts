@@ -90,3 +90,58 @@ export function remetente(): string | undefined {
 export const SEM_REMETENTE =
   'EMAIL_FROM não definido. Use um endereço de um domínio verificado no ' +
   'Resend (ex.: contato@seudominio.com.br) — sem isso a API recusa o envio.';
+
+/**
+ * A chave é válida, só não tem permissão para o endpoint consultado?
+ *
+ * Chave do tipo "Sending access" envia e-mail mas não lista domínios. Como o
+ * teste de conexão consulta a listagem, uma chave perfeitamente boa voltava
+ * como quebrada — o diagnóstico acusava justamente o contrário do que era.
+ * Uma chave inválida responde outra coisa ("API key is invalid"), então dá
+ * para separar os dois casos.
+ */
+export function ehChaveSoDeEnvio(erro: string | undefined): boolean {
+  return /restricted to only send/i.test(erro || '');
+}
+
+/**
+ * Domínios que o Resend nunca vai aceitar como remetente: são públicos, e
+ * verificação exige provar que o domínio é seu.
+ *
+ * Vale avisar antes de tentar enviar, porque o sintoma no ar é péssimo — o
+ * e-mail simplesmente não chega, e o 403 fica só no log.
+ */
+const DOMINIOS_PUBLICOS = [
+  'gmail.com',
+  'googlemail.com',
+  'hotmail.com',
+  'outlook.com',
+  'live.com',
+  'yahoo.com',
+  'yahoo.com.br',
+  'icloud.com',
+  'bol.com.br',
+  'uol.com.br',
+  'terra.com.br',
+];
+
+/** Devolve o problema do remetente, ou undefined se ele estiver plausível. */
+export function problemaDoRemetente(de: string | undefined): string | undefined {
+  if (!de) return SEM_REMETENTE;
+
+  // Aceita tanto "fulano@x.com" quanto "Nome <fulano@x.com>".
+  const endereco = (/<([^>]+)>/.exec(de)?.[1] ?? de).trim().toLowerCase();
+  const dominio = endereco.split('@')[1];
+  if (!dominio) return `EMAIL_FROM não parece um e-mail válido: "${de}"`;
+
+  if (DOMINIOS_PUBLICOS.includes(dominio)) {
+    return (
+      `EMAIL_FROM está em "${dominio}", que é um domínio público e não pode ` +
+      'ser verificado no Resend — todo envio vai falhar com 403. Use um ' +
+      'endereço de domínio próprio, ou onboarding@resend.dev para testar ' +
+      '(este só entrega no e-mail dono da conta do Resend).'
+    );
+  }
+
+  return undefined;
+}

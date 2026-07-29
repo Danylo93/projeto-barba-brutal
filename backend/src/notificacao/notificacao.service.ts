@@ -2,11 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { Email, emailAgendamentoConfirmado } from './templates';
 import {
-  SEM_REMETENTE,
   URL_RESEND,
   chaveDoResend,
   corpoDoEnvio,
+  ehChaveSoDeEnvio,
   interpretarResposta,
+  problemaDoRemetente,
   remetente,
 } from './resend';
 import { PrismaService } from '../db/prisma.service';
@@ -204,7 +205,8 @@ export class NotificacaoService {
     html?: string,
   ): Promise<void> {
     const de = remetente();
-    if (!de) throw new Error(SEM_REMETENTE);
+    const problema = problemaDoRemetente(de);
+    if (problema) throw new Error(problema);
 
     const resposta = await fetch(URL_RESEND, {
       method: 'POST',
@@ -262,7 +264,9 @@ export class NotificacaoService {
    */
   async testarConexao(): Promise<{ ok: boolean; erro?: string }> {
     if (this.resendKey) {
-      if (!remetente()) return { ok: false, erro: SEM_REMETENTE };
+      const problema = problemaDoRemetente(remetente());
+      if (problema) return { ok: false, erro: problema };
+
       try {
         // Endpoint de domínios: confirma que a chave é válida sem gastar envio.
         const r = await fetch('https://api.resend.com/domains', {
@@ -270,8 +274,15 @@ export class NotificacaoService {
           signal: AbortSignal.timeout(15_000),
         });
         if (r.ok) return { ok: true };
+
         const corpo = await r.json().catch(() => ({}));
-        return { ok: false, erro: interpretarResposta(r.status, corpo).erro };
+        const erro = interpretarResposta(r.status, corpo).erro;
+
+        // Chave de "Sending access" envia mas não lista domínios. Reportar
+        // isso como falha acusava o contrário do que era: a chave está boa.
+        if (ehChaveSoDeEnvio(erro)) return { ok: true };
+
+        return { ok: false, erro };
       } catch (erro: any) {
         return { ok: false, erro: erro?.message || String(erro) };
       }

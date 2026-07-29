@@ -1,4 +1,11 @@
-import { corpoDoEnvio, interpretarResposta, chaveDoResend, remetente } from './resend';
+import {
+  chaveDoResend,
+  corpoDoEnvio,
+  ehChaveSoDeEnvio,
+  interpretarResposta,
+  problemaDoRemetente,
+  remetente,
+} from './resend';
 
 describe('corpoDoEnvio', () => {
   const base = {
@@ -111,5 +118,71 @@ describe('configuração', () => {
     delete process.env.EMAIL_FROM;
     delete process.env.SMTP_FROM;
     expect(remetente()).toBeUndefined();
+  });
+});
+
+describe('ehChaveSoDeEnvio', () => {
+  // Chave de "Sending access" envia mas não lista domínios. Reportar isso
+  // como falha acusava o contrário do que era: a chave está boa.
+  it('reconhece a chave restrita a envio', () => {
+    expect(
+      ehChaveSoDeEnvio('Resend respondeu 401: This API key is restricted to only send emails'),
+    ).toBe(true);
+  });
+
+  it('chave inválida de verdade não é confundida com restrita', () => {
+    expect(ehChaveSoDeEnvio('Resend respondeu 401: API key is invalid')).toBe(false);
+  });
+
+  it('sem erro nenhum, não é o caso', () => {
+    expect(ehChaveSoDeEnvio(undefined)).toBe(false);
+  });
+});
+
+describe('problemaDoRemetente', () => {
+  it('domínio próprio passa', () => {
+    expect(problemaDoRemetente('contato@barbeariabrutal.com.br')).toBeUndefined();
+  });
+
+  it('formato "Nome <e-mail>" também passa', () => {
+    expect(
+      problemaDoRemetente('Barbearia Brutal <contato@barbeariabrutal.com.br>'),
+    ).toBeUndefined();
+  });
+
+  it('a caixa de teste do Resend passa', () => {
+    expect(problemaDoRemetente('onboarding@resend.dev')).toBeUndefined();
+  });
+
+  // O sintoma em produção é péssimo: o e-mail não chega e o 403 fica só no
+  // log. Melhor barrar antes, dizendo o porquê.
+  it('gmail é barrado, com o motivo', () => {
+    const p = problemaDoRemetente('agenciafwdigital@gmail.com');
+    expect(p).toContain('gmail.com');
+    expect(p).toContain('domínio público');
+  });
+
+  it('outros provedores públicos também', () => {
+    for (const e of ['x@hotmail.com', 'x@outlook.com', 'x@yahoo.com.br', 'x@uol.com.br']) {
+      expect(problemaDoRemetente(e)).toContain('domínio público');
+    }
+  });
+
+  it('dentro de "Nome <...>" o gmail também é pego', () => {
+    expect(problemaDoRemetente('Barbearia <agenciafwdigital@gmail.com>')).toContain(
+      'domínio público',
+    );
+  });
+
+  it('maiúscula não engana', () => {
+    expect(problemaDoRemetente('X@GMAIL.COM')).toContain('domínio público');
+  });
+
+  it('sem remetente, cobra a variável', () => {
+    expect(problemaDoRemetente(undefined)).toContain('EMAIL_FROM');
+  });
+
+  it('texto que não é e-mail é recusado', () => {
+    expect(problemaDoRemetente('barbearia brutal')).toContain('não parece um e-mail');
   });
 });
