@@ -120,7 +120,7 @@ export function SubscriptionErrorModal({
         <div className="mt-4 text-center text-sm text-gray-600">
           <p>
             Precisa de ajuda?{' '}
-            <a href="mailto:suporte@barbabrutal.app" className="text-blue-600 hover:underline">
+            <a href="mailto:suporte@barbeariabrutal.com" className="text-blue-600 hover:underline">
               Contate o suporte
             </a>
           </p>

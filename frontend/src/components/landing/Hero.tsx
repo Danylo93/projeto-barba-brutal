@@ -88,7 +88,7 @@ function DashboardMockup() {
           <span className="w-3 h-3 rounded-full bg-green-500/70" />
           <div className="ml-3 flex-1 max-w-xs h-6 rounded-md bg-zinc-800 flex items-center px-3">
             <span className="text-[10px] text-zinc-500 truncate">
-              barbabrutal.app/dashboard
+              barbeariabrutal.com/dashboard
             </span>
           </div>
         </div>
