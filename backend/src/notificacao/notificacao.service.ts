@@ -185,6 +185,22 @@ export class NotificacaoService {
     return !!this.transporter;
   }
 
+  /**
+   * Abre a conexão com o SMTP e devolve o motivo se não fechar.
+   *
+   * Serve ao `/health/smtp`: sem isso, a única forma de descobrir que o e-mail
+   * não sai é um barbeiro reclamar que o link de recuperação não chegou.
+   */
+  async testarConexao(): Promise<{ ok: boolean; erro?: string }> {
+    if (!this.transporter) return { ok: false, erro: 'SMTP_HOST não configurado' };
+    try {
+      await this.transporter.verify();
+      return { ok: true };
+    } catch (erro: any) {
+      return { ok: false, erro: erro?.message || String(erro) };
+    }
+  }
+
   /** Link wa.me pronto para enviar uma mensagem (integração WhatsApp futura). */
   linkWhatsApp(telefone: string | undefined, mensagem: string): string | null {
     const num = (telefone || '').replace(/\D/g, '');
