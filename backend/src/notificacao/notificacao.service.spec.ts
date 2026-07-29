@@ -131,4 +131,29 @@ describe('NotificacaoService com Resend', () => {
     expect(r.ok).toBe(false);
     expect(r.erro).toContain('API key is invalid');
   });
+
+  describe('sem EMAIL_FROM', () => {
+    beforeEach(() => {
+      delete process.env.EMAIL_FROM;
+      delete process.env.SMTP_FROM;
+    });
+
+    // O Resend recusa remetente de domínio não verificado. Falhar aqui, com o
+    // nome da variável que falta, é muito melhor do que mandar e tomar 403.
+    it('nem tenta enviar, e diz qual variável falta', async () => {
+      responderCom(200, { id: 'x' });
+      await expect(
+        criar().enviarEmail('marcao@x.app', 'Assunto', 'texto'),
+      ).rejects.toThrow(/EMAIL_FROM/);
+      expect(chamadas).toHaveLength(0);
+    });
+
+    it('o health também acusa antes de gastar chamada', async () => {
+      responderCom(200, { data: [] });
+      const r = await criar().testarConexao();
+      expect(r.ok).toBe(false);
+      expect(r.erro).toContain('EMAIL_FROM');
+      expect(chamadas).toHaveLength(0);
+    });
+  });
 });

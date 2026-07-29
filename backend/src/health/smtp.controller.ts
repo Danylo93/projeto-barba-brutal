@@ -38,7 +38,7 @@ export class SmtpController {
 
     const detalhes =
       canal === 'resend'
-        ? { via: 'API HTTP (443)' }
+        ? { via: 'API HTTP (443)' as const }
         : {
             via: 'SMTP',
             host: process.env.SMTP_HOST,
@@ -50,7 +50,7 @@ export class SmtpController {
     return {
       canal,
       ...detalhes,
-      remetente: remetente(),
+      remetente: remetente() ?? '(não definido)',
       conecta: resultado.ok,
       ...(resultado.ok ? {} : { problema: resultado.erro }),
     };

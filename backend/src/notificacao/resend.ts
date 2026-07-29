@@ -73,13 +73,20 @@ export function chaveDoResend(): string | undefined {
 }
 
 /**
- * Remetente. Precisa ser de domínio verificado no Resend — `EMAIL_FROM` é o
- * nome certo; `SMTP_FROM` é aceito para não obrigar a mexer no que já existe.
+ * Remetente configurado, ou undefined.
+ *
+ * Não tem valor padrão de propósito. O endereço precisa estar num domínio
+ * verificado no Resend, e chutar um domínio aqui só trocaria um erro claro
+ * ("EMAIL_FROM não definido") por um 403 obscuro no meio do envio — ou, pior,
+ * por e-mail saindo de um endereço que não é o da empresa.
+ *
+ * `SMTP_FROM` é aceito para não obrigar a mexer no que já está configurado.
  */
-export function remetente(): string {
-  return (
-    process.env.EMAIL_FROM?.trim() ||
-    process.env.SMTP_FROM?.trim() ||
-    'no-reply@barbabrutal.com.br'
-  );
+export function remetente(): string | undefined {
+  return process.env.EMAIL_FROM?.trim() || process.env.SMTP_FROM?.trim() || undefined;
 }
+
+/** Mensagem única para quando falta o remetente, usada no envio e no health. */
+export const SEM_REMETENTE =
+  'EMAIL_FROM não definido. Use um endereço de um domínio verificado no ' +
+  'Resend (ex.: contato@seudominio.com.br) — sem isso a API recusa o envio.';

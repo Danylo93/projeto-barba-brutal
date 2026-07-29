@@ -104,9 +104,12 @@ describe('configuração', () => {
     expect(remetente()).toBe('agenciafwdigital@gmail.com');
   });
 
-  it('sem nenhum dos dois, cai num remetente do domínio próprio', () => {
+  // Sem padrão de propósito: chutar um domínio trocaria um erro claro por um
+  // 403 obscuro no meio do envio, ou faria o e-mail sair de um endereço que
+  // não é o da empresa.
+  it('sem nenhum dos dois, não inventa remetente', () => {
     delete process.env.EMAIL_FROM;
     delete process.env.SMTP_FROM;
-    expect(remetente()).toContain('@barbabrutal.com.br');
+    expect(remetente()).toBeUndefined();
   });
 });

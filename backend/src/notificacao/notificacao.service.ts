@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { Email, emailAgendamentoConfirmado } from './templates';
 import {
+  SEM_REMETENTE,
   URL_RESEND,
   chaveDoResend,
   corpoDoEnvio,
@@ -183,7 +184,13 @@ export class NotificacaoService {
     if (this.transporter) {
       // Manda os dois: o texto puro é o que aparece na prévia da caixa de
       // entrada e o que o filtro de spam lê quando o cliente bloqueia HTML.
-      await this.transporter.sendMail({ from: remetente(), to, subject, text, html });
+      await this.transporter.sendMail({
+        from: remetente() || process.env.SMTP_USER,
+        to,
+        subject,
+        text,
+        html,
+      });
       return;
     }
     this.logger.log(`[e-mail desativado] Para ${to}: ${subject}`);
@@ -196,6 +203,9 @@ export class NotificacaoService {
     text: string,
     html?: string,
   ): Promise<void> {
+    const de = remetente();
+    if (!de) throw new Error(SEM_REMETENTE);
+
     const resposta = await fetch(URL_RESEND, {
       method: 'POST',
       headers: {
@@ -203,7 +213,7 @@ export class NotificacaoService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(
-        corpoDoEnvio({ de: remetente(), para: to, assunto: subject, texto: text, html }),
+        corpoDoEnvio({ de, para: to, assunto: subject, texto: text, html }),
       ),
       // Mesma razão dos timeouts do SMTP: nada pode ficar pendurado esperando
       // uma rede que não responde.
@@ -252,6 +262,7 @@ export class NotificacaoService {
    */
   async testarConexao(): Promise<{ ok: boolean; erro?: string }> {
     if (this.resendKey) {
+      if (!remetente()) return { ok: false, erro: SEM_REMETENTE };
       try {
         // Endpoint de domínios: confirma que a chave é válida sem gastar envio.
         const r = await fetch('https://api.resend.com/domains', {
