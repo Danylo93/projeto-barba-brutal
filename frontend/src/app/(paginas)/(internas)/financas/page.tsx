@@ -58,7 +58,7 @@ export default function FinancasPage() {
     } finally {
       setLoading(false)
     }
-  }, [httpGet, usuario, isEmployeeBarber])
+  }, [httpGet, usuario, isEmployeeBarber, isTenant])
 
   useEffect(() => {
     carregar()

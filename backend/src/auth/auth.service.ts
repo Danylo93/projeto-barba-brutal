@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../db/prisma.service';
 import { SubscriptionValidationService } from '../common/services/subscription-validation.service';
@@ -70,15 +70,33 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    // Verificar se a senha está correta (assumindo que a senha está hasheada)
     const senhaValida = await bcrypt.compare(senha, tenant.senha || '');
     if (!senhaValida) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    // ✅ VALIDAR ASSINATURA ATIVA PARA TENANT/OWNER
-    // O owner precisa ter um plano ativo para acessar o sistema
-    await this.subscriptionValidation.validateTenantSubscription(tenant.id);
+    // Valida assinatura usando os dados já carregados
+    const assinatura = tenant.assinatura
+    if (!assinatura) {
+      throw new BadRequestException(
+        'Sua barbearia não possui um plano ativo. Por favor, adquira um plano para continuar.',
+      )
+    }
+    if (assinatura.status !== 'active' && assinatura.status !== 'trialing') {
+      throw new BadRequestException(
+        `Sua assinatura está com status "${assinatura.status}". Por favor, regularize sua situação para continuar.`,
+      )
+    }
+    if (assinatura.dataFim < new Date()) {
+      throw new BadRequestException(
+        'Sua assinatura expirou. Por favor, renove seu plano para continuar.',
+      )
+    }
+    if (!assinatura.plano.ativo) {
+      throw new BadRequestException(
+        'O plano associado à sua assinatura não está mais disponível.',
+      )
+    }
 
     const payload = {
       id: tenant.id,
@@ -87,13 +105,9 @@ export class AuthService {
       email: tenant.email,
     };
 
-    // Obter informações da assinatura para retornar
-    const subscriptionStatus = await this.subscriptionValidation.getSubscriptionStatus(tenant.id);
-
     return {
       access_token: this.jwtService.sign(payload),
       tenant: semSenha(tenant),
-      subscription: subscriptionStatus,
     };
   }
 
@@ -107,13 +121,24 @@ export class AuthService {
       },
       include: {
         tenant: {
-          include: {
+          select: {
+            id: true,
+            nome: true,
+            ativo: true,
             assinatura: {
-              include: {
-                plano: true,
+              select: {
+                status: true,
+                dataFim: true,
+                emTeste: true,
+                plano: {
+                  select: { nome: true, ativo: true },
+                },
               },
             },
           },
+        },
+        profissional: {
+          select: { id: true, nome: true },
         },
       },
     });
@@ -127,16 +152,34 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    // A barbearia (tenant) precisa estar ativa para o cliente/barbeiro acessar.
     if (!usuario.tenant?.ativo) {
       throw new UnauthorizedException(
         'Esta barbearia está indisponível no momento. Fale com a barbearia.',
       );
     }
 
-    // ✅ VALIDAR ASSINATURA ATIVA DO TENANT
-    // O barbeiro só pode logar se o owner/tenant tiver um plano ativo
-    await this.subscriptionValidation.validateTenantSubscription(tenantId);
+    // Valida assinatura usando os dados já carregados
+    const assinatura = usuario.tenant.assinatura
+    if (!assinatura) {
+      throw new BadRequestException(
+        'Sua barbearia não possui um plano ativo. Por favor, adquira um plano para continuar.',
+      )
+    }
+    if (assinatura.status !== 'active' && assinatura.status !== 'trialing') {
+      throw new BadRequestException(
+        `Sua assinatura está com status "${assinatura.status}". Por favor, regularize sua situação para continuar.`,
+      )
+    }
+    if (assinatura.dataFim < new Date()) {
+      throw new BadRequestException(
+        'Sua assinatura expirou. Por favor, renove seu plano para continuar.',
+      )
+    }
+    if (!assinatura.plano.ativo) {
+      throw new BadRequestException(
+        'O plano associado à sua assinatura não está mais disponível.',
+      )
+    }
 
     const payload = {
       id: usuario.id,
@@ -146,13 +189,18 @@ export class AuthService {
       barbeiro: usuario.barbeiro,
     };
 
-    // Obter informações da assinatura para retornar
-    const subscriptionStatus = await this.subscriptionValidation.getSubscriptionStatus(tenantId);
-
     return {
       access_token: this.jwtService.sign(payload),
-      usuario: { ...semSenha(usuario), tenant: semSenha(usuario.tenant) },
-      subscription: subscriptionStatus,
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        telefone: usuario.telefone,
+        barbeiro: usuario.barbeiro,
+        tenantId: usuario.tenantId,
+        tenant: usuario.tenant,
+        profissional: usuario.profissional,
+      },
     };
   }
 
@@ -347,4 +395,5 @@ export class AuthService {
       usuario: { ...semSenha(usuario), tenant: semSenha(usuario.tenant) },
     };
   }
+
 }

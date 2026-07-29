@@ -17,6 +17,16 @@ const nextConfig = {
   // Proxy same-origin: o client chama /api-backend/* e a Vercel encaminha
   // para o backend real (server-side). Assim as chamadas do navegador não
   // dependem de NEXT_PUBLIC_URL_BASE nem de CORS.
+  // A tela de recuperação mora em /recuperar-senha. /esqueci-senha existiu por
+  // algumas horas e pode ter ido em e-mail ou ficado salva — 404 para quem já
+  // está sem conseguir entrar é o pior desfecho possível. O Next mantém a
+  // query string (?tenant=) sozinho.
+  async redirects() {
+    return [
+      { source: '/esqueci-senha', destination: '/recuperar-senha', permanent: true },
+    ];
+  },
+
   async rewrites() {
     const backend =
       process.env.BACKEND_URL ||

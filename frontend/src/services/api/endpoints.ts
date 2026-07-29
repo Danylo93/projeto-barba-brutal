@@ -1,71 +1,53 @@
 /**
  * Endpoints Centralizados
- * Define todas as URLs da API em um único lugar
+ * Define todas as URLs do backend NestJS em um único lugar.
+ * O prefixo é relativo ao baseURL do apiClient (NEXT_PUBLIC_URL_BASE).
  */
 
 export const API_ENDPOINTS = {
-  // ============================================
-  // AUTENTICAÇÃO
-  // ============================================
   AUTH: {
-    LOGIN_USUARIO: '/api/auth/usuario/login',
-    LOGIN_TENANT: '/api/auth/tenant/login',
-    LOGIN_ADMIN: '/api/auth/admin/login',
-    REGISTER_TENANT: '/api/auth/tenant/register',
-    LOGOUT: '/api/auth/logout',
-    REFRESH_TOKEN: '/api/auth/refresh',
-    ME: '/api/auth/me',
+    LOGIN_USUARIO: '/auth/usuario/login',
+    LOGIN_TENANT: '/auth/tenant/login',
+    LOGIN_ADMIN: '/auth/admin/login',
+    REGISTER_TENANT: '/auth/tenant/register',
+    REGISTER_USUARIO: '/auth/usuario/register',
+    PROFILE: '/auth/profile',
   },
 
-  // ============================================
-  // USUÁRIOS
-  // ============================================
   USUARIOS: {
-    LIST: '/usuario',
-    GET: (id: number) => `/usuario/${id}`,
-    CREATE: '/usuario',
-    UPDATE: (id: number) => `/usuario/${id}`,
-    DELETE: (id: number) => `/usuario/${id}`,
+    LIST: '/usuarios',
+    GET: (id: number) => `/usuarios/${id}`,
+    DELETE: (id: number) => `/usuarios/${id}`,
   },
 
-  // ============================================
-  // TENANTS
-  // ============================================
   TENANTS: {
-    LIST: '/tenant',
-    GET: (id: number) => `/tenant/${id}`,
-    CREATE: '/tenant',
-    UPDATE: (id: number) => `/tenant/${id}`,
-    DELETE: (id: number) => `/tenant/${id}`,
+    LIST: '/tenants',
+    GET: (id: number) => `/tenants/${id}`,
+    ME: '/tenants/me',
+    ME_STATS: '/tenants/me/stats',
+    ME_CONFIGURACOES: '/tenants/me/configuracoes',
+    ME_API_KEY: '/tenants/me/api-key',
+    ME_COMISSOES: '/tenants/me/comissoes',
+    ME_AGENDAMENTOS: '/tenants/me/agendamentos',
+    PUBLICO: (identificador: string) => `/tenants/publico/${identificador}`,
+    LIMITS: (id: number) => `/tenants/${id}/limits`,
+    CREATE: '/tenants',
+    UPDATE: (id: number) => `/tenants/${id}`,
+    DELETE: (id: number) => `/tenants/${id}`,
   },
 
-  // ============================================
-  // AGENDAMENTOS
-  // ============================================
   AGENDAMENTOS: {
-    LIST: '/agendamentos',
-    GET: (id: number) => `/agendamentos/${id}`,
     CREATE: '/agendamentos',
-    UPDATE: (id: number) => `/agendamentos/${id}`,
+    LISTAR_POR_EMAIL: (email: string) => `/agendamentos/${encodeURIComponent(email)}`,
+    LISTAR_POR_TELEFONE: (telefone: string) => `/agendamentos/telefone/${telefone}`,
+    OCUPACAO: (profissional: number, data: string) => `/agendamentos/ocupacao/${profissional}/${data}`,
+    LISTAR_POR_PROFISSIONAL_DATA: (profissional: number, data: string) => `/agendamentos/${profissional}/${data}`,
+    BARBEIRO_MEUS_HORARIOS: '/agendamentos/barbeiro/meus-horarios',
     DELETE: (id: number) => `/agendamentos/${id}`,
-    CANCEL: (id: number) => `/agendamentos/${id}/cancelar`,
-    CONFIRM: (id: number) => `/agendamentos/${id}/confirmar`,
+    ATUALIZAR_STATUS: (id: number) => `/agendamentos/${id}/status`,
+    REAGENDAR: (id: number) => `/agendamentos/${id}/reagendar`,
   },
 
-  // ============================================
-  // CLIENTES
-  // ============================================
-  CLIENTES: {
-    LIST: '/clientes',
-    GET: (id: number) => `/clientes/${id}`,
-    CREATE: '/clientes',
-    UPDATE: (id: number) => `/clientes/${id}`,
-    DELETE: (id: number) => `/clientes/${id}`,
-  },
-
-  // ============================================
-  // PROFISSIONAIS
-  // ============================================
   PROFISSIONAIS: {
     LIST: '/profissionais',
     GET: (id: number) => `/profissionais/${id}`,
@@ -74,9 +56,6 @@ export const API_ENDPOINTS = {
     DELETE: (id: number) => `/profissionais/${id}`,
   },
 
-  // ============================================
-  // SERVIÇOS
-  // ============================================
   SERVICOS: {
     LIST: '/servicos',
     GET: (id: number) => `/servicos/${id}`,
@@ -85,21 +64,72 @@ export const API_ENDPOINTS = {
     DELETE: (id: number) => `/servicos/${id}`,
   },
 
-  // ============================================
-  // ASSINATURA
-  // ============================================
-  ASSINATURA: {
-    GET: '/assinatura',
-    UPDATE: '/assinatura',
-    CANCEL: '/assinatura/cancelar',
+  ASSINATURAS: {
+    MINHA: '/assinaturas/me',
+    CHANGE_PLAN: '/assinaturas/me/change-plan',
+    CANCEL: '/assinaturas/me/cancel',
+    RECORRENTE: '/assinaturas/me/recorrente',
+    PIX: '/assinaturas/me/pix',
+    PIX_DOMINIO: '/assinaturas/me/dominio/pix',
+    CONSULTAR_PIX: (id: number) => `/assinaturas/me/pix/${id}`,
+    PAGAMENTOS: '/assinaturas/pagamentos',
+    CONFIRMAR_PAGAMENTO: (id: number) => `/assinaturas/pagamentos/${id}/confirmar`,
+    WEBHOOK_MP: '/assinaturas/webhook/mercadopago',
+    DIAGNOSTICO_MP: '/assinaturas/mercadopago/diagnostico',
+    SINCRONIZAR_PLANOS: '/assinaturas/planos/sincronizar',
+    GET: (tenantId: number) => `/assinaturas/${tenantId}`,
+    CANCEL_TENANT: (tenantId: number) => `/assinaturas/${tenantId}/cancel`,
   },
 
-  // ============================================
-  // PLANOS
-  // ============================================
   PLANOS: {
     LIST: '/planos',
     GET: (id: number) => `/planos/${id}`,
+    CREATE: '/planos',
+    UPDATE: (id: number) => `/planos/${id}`,
+    DELETE: (id: number) => `/planos/${id}`,
   },
-};
+
+  BLOQUEIOS: {
+    LIST: '/bloqueios',
+    CREATE: '/bloqueios',
+    DELETE: (id: number) => `/bloqueios/${id}`,
+  },
+
+  CLUBE: {
+    PLANOS: '/clube/planos',
+    PLANO: (id: number) => `/clube/planos/${id}`,
+    CHAVE_PIX: '/clube/chave-pix',
+    RESUMO: '/clube/resumo',
+    ASSINATURAS: '/clube/assinaturas',
+    MINHAS_ASSINATURAS: '/clube/minhas-assinaturas',
+    ASSINAR: (planoId: number) => `/clube/assinar/${planoId}`,
+    CONFIRMAR: (id: number) => `/clube/assinaturas/${id}/confirmar`,
+    CANCELAR: (id: number) => `/clube/assinaturas/${id}/cancelar`,
+  },
+
+  LGPD: {
+    VERSAO: '/lgpd/versoes',
+    CONSENTIMENTO: '/lgpd/consentimento',
+    MEUS_CONSENTIMENTOS: '/lgpd/meus-consentimentos',
+    MEUS_DADOS: '/lgpd/meus-dados',
+    EXCLUIR_CONTA: '/lgpd/excluir-conta',
+    SOLICITACOES_EXCLUSAO: '/lgpd/solicitacoes-exclusao',
+    CONCLUIR_EXCLUSAO: (id: number) => `/lgpd/solicitacoes-exclusao/${id}/concluir`,
+  },
+
+  ADMIN: {
+    DASHBOARD: '/admin/dashboard',
+    TENANTS: '/admin/tenants',
+    TENANT: (id: number) => `/admin/tenants/${id}`,
+    TENANT_STATUS: (id: number) => `/admin/tenants/${id}/status`,
+    REVENUE: '/admin/revenue',
+    TOP_TENANTS: '/admin/top-tenants',
+  },
+
+  LEMBRETES: {
+    PROXIMOS: '/lembretes/proximos',
+  },
+
+  HEALTH: '/health',
+}
 

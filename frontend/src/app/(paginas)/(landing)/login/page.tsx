@@ -276,6 +276,17 @@ function LoginContent() {
                     className={inputClasses}
                 />
 
+                {modo === 'entrar' && (
+                    <div className="text-right -mt-2">
+                        <Link
+                            href={contextoBarbearia ? `/recuperar-senha?tenant=${tenantParam}` : '/recuperar-senha'}
+                            className="text-xs text-zinc-500 hover:text-yellow-400 transition-colors"
+                        >
+                            Esqueci minha senha
+                        </Link>
+                    </div>
+                )}
+
                 {modo === 'cadastrar' && (
                     <div>
                         <input
@@ -312,17 +323,6 @@ function LoginContent() {
                             , e concordo em receber mensagens sobre os meus agendamentos.
                         </span>
                     </label>
-                )}
-
-                {/* Só no modo entrar: quem está criando conta não esqueceu senha
-                    nenhuma, e o link ali embaixo só confundiria. */}
-                {modo === 'entrar' && (
-                    <Link
-                        href={contextoBarbearia ? `/recuperar-senha?tenant=${tenantId}` : '/recuperar-senha'}
-                        className="-mt-1 self-end text-sm text-zinc-400 transition-colors hover:text-yellow-400"
-                    >
-                        Esqueci minha senha
-                    </Link>
                 )}
 
                 <button
