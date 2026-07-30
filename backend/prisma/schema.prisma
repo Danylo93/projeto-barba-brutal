@@ -147,7 +147,9 @@ model Usuario {
   email        String
   senha        String
   telefone     String
-  barbeiro     Boolean
+  /// Cliente por padrão. Barbeiro só pelo cadastro de profissional, que
+  /// exige token do dono — nunca pelo cadastro público.
+  barbeiro     Boolean       @default(false)
   tenantId     Int
   ativo        Boolean       @default(true)
   createdAt    DateTime      @default(now())
@@ -166,9 +168,9 @@ model Profissional {
   id                   Int           @id @default(autoincrement())
   nome                 String
   descricao            String
-  imagemUrl            String
-  avaliacao            Float
-  quantidadeAvaliacoes Int
+  imagemUrl            String        @default("")
+  avaliacao            Float         @default(0)
+  quantidadeAvaliacoes Int           @default(0)
   tenantId             Int
   usuarioId            Int?          @unique
   ativo                Boolean       @default(true)
@@ -193,7 +195,7 @@ model Servico {
   descricao    String
   preco        Float
   qtdeSlots    Int
-  imagemURL    String
+  imagemURL    String        @default("")
   ehCombo      Boolean        @default(false) // combo (ex: barba + cabelo) — seleção exclusiva no agendamento
   tenantId     Int
   ativo        Boolean       @default(true)

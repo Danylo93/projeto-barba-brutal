@@ -30,7 +30,9 @@ export interface Agendamento {
 // Interfaces para repositórios
 export interface RepositorioUsuario {
   salvar(usuario: Usuario): Promise<void>;
-  buscarPorEmail(email: string): Promise<Usuario | null>;
+  /** Sempre dentro de uma barbearia: o mesmo e-mail existe em várias. */
+  buscarPorEmail(email: string, tenantId: number): Promise<Usuario | null>;
+  buscarNoTenant(id: number, tenantId: number): Promise<Usuario | null>;
 }
 
 export interface RepositorioAgendamento {
@@ -45,47 +47,6 @@ export interface RepositorioAgendamento {
 export interface ProvedorCriptografia {
   criptografar(senha: string): Promise<string>;
   comparar(senha: string, hash: string): Promise<boolean>;
-}
-
-// Classes de casos de uso
-export class LoginUsuario {
-  constructor(
-    private repo: RepositorioUsuario,
-    private cripto: ProvedorCriptografia
-  ) {}
-
-  async executar(email: string, senha: string): Promise<Usuario> {
-    const usuario = await this.repo.buscarPorEmail(email);
-    if (!usuario) {
-      throw new Error('Usuário não encontrado');
-    }
-
-    const senhaValida = await this.cripto.comparar(senha, usuario.senha);
-    if (!senhaValida) {
-      throw new Error('Senha inválida');
-    }
-
-    return usuario;
-  }
-}
-
-export class RegistrarUsuario {
-  constructor(
-    private repo: RepositorioUsuario,
-    private cripto: ProvedorCriptografia
-  ) {}
-
-  async executar(usuario: Usuario): Promise<void> {
-    const usuarioExistente = await this.repo.buscarPorEmail(usuario.email);
-    if (usuarioExistente) {
-      throw new Error('Usuário já existe');
-    }
-
-    const senhaCriptografada = await this.cripto.criptografar(usuario.senha);
-    usuario.senha = senhaCriptografada;
-
-    await this.repo.salvar(usuario);
-  }
 }
 
 export class ObterHorariosOcupados {

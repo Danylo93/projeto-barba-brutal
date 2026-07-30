@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RepositorioUsuario, Usuario } from '../types';
-import { PrismaService } from 'src/db/prisma.service';
+import { PrismaService } from '../db/prisma.service';
 
 @Injectable()
 export class UsuarioRepository implements RepositorioUsuario {
@@ -14,9 +14,28 @@ export class UsuarioRepository implements RepositorioUsuario {
     });
   }
 
-  async buscarPorEmail(email: string): Promise<Usuario | null> {
+  /**
+   * Busca a conta dentro de UMA barbearia.
+   *
+   * O tenantId não é enfeite: o mesmo e-mail pode existir em barbearias
+   * diferentes (@@unique([email, tenantId])), então busca sem ele devolve a
+   * conta errada para quem frequenta duas.
+   */
+  async buscarNoTenant(id: number, tenantId: number): Promise<Usuario | null> {
     return this.prismaService.usuario.findFirst({
-      where: { email },
+      where: { id, tenantId, ativo: true },
+    });
+  }
+
+  /**
+   * Busca por e-mail DENTRO de uma barbearia.
+   *
+   * O tenantId é obrigatório de propósito. A versão sem ele existia e resolvia
+   * o usuário logado para a barbearia errada.
+   */
+  async buscarPorEmail(email: string, tenantId: number): Promise<Usuario | null> {
+    return this.prismaService.usuario.findFirst({
+      where: { email, tenantId },
     });
   }
 }
