@@ -338,7 +338,6 @@ export class AuthService {
     email: string;
     telefone: string;
     senha: string;
-    barbeiro: boolean;
     tenantId: number;
   }) {
     if (!validarEmail(data.email)) {
@@ -363,9 +362,20 @@ export class AuthService {
     const senhaHash = await bcrypt.hash(data.senha, 10);
 
     const usuario = await this.prisma.usuario.create({
+      // Campo a campo, nunca `...data`.
+      //
+      // Com o espalhamento, qualquer um mandava `barbeiro: true` no cadastro
+      // público e virava barbeiro da barbearia alheia — o que libera criar
+      // agendamento em nome de outro cliente e enxergar a agenda inteira.
+      // Barbeiro se cria pelo cadastro de profissional, que exige token do
+      // dono; aqui é sempre cliente.
       data: {
-        ...data,
+        nome: data.nome,
+        email: data.email,
+        telefone: data.telefone,
         senha: senhaHash,
+        tenantId: data.tenantId,
+        barbeiro: false,
       },
       include: {
         tenant: {

@@ -62,7 +62,8 @@ export class ProfissionalController {
       data: {
         nome: data.nome,
         descricao: data.descricao,
-        imagemUrl: data.imagemUrl,
+        // Profissional sem foto é normal; sem isto o cadastro dava 500.
+        imagemUrl: data.imagemUrl || '',
         tenantId: tenant.id,
         usuarioId,
         avaliacao: data.avaliacao || 0,

@@ -39,13 +39,13 @@ export class AuthController {
     return this.authService.loginUsuario(data.email, data.senha, data.tenantId);
   }
 
+  /** Cadastro público de cliente. `barbeiro` não é aceito daqui — ver o service. */
   @Post('usuario/register')
   registerUsuario(@Body() data: {
     nome: string;
     email: string;
     telefone: string;
     senha: string;
-    barbeiro: boolean;
     tenantId: number;
   }) {
     return this.authService.registerUsuario(data);

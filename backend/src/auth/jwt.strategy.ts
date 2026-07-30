@@ -33,7 +33,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
 
       const { senha, ...tenantSemSenha } = tenant;
-      return { ...tenantSemSenha, tipo: 'tenant' };
+      // `tenantId` explícito: a linha de `tenant` só tem `id`, e sem este
+      // campo o SubscriptionGuard barrava o dono com "Tenant não
+      // identificado" em toda rota protegida — a agenda inteira, inclusive.
+      return { ...tenantSemSenha, tenantId: tenant.id, tipo: 'tenant' };
     }
 
     if (tipo === 'usuario') {
