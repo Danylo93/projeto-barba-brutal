@@ -95,6 +95,32 @@ describe('calcularComissoes', () => {
     );
     expect(r.linhas[0].comissao).toBe(8.55); // 25.90 * 0.33 = 8.547
   });
+
+  // Com preço por profissional, recalcular pelo preço de hoje deixaria o
+  // barbeiro mexer na própria comissão de um mês já fechado.
+  it('usa o valor congelado do atendimento, não o preço atual do serviço', () => {
+    const r = calcularComissoes(
+      [{ id: 1, nome: 'Marcão', comissaoPercent: 50 }],
+      [
+        {
+          profissionalId: 1,
+          status: 'concluido',
+          valorTotal: 60, // era o que ele cobrava no dia
+          servicos: [{ preco: 40 }], // preço de tabela de hoje
+        },
+      ],
+    );
+    expect(r.linhas[0].faturamento).toBe(60);
+    expect(r.linhas[0].comissao).toBe(30);
+  });
+
+  it('atendimento antigo, sem valor congelado, ainda soma pelos serviços', () => {
+    const r = calcularComissoes(
+      [{ id: 1, nome: 'Marcão', comissaoPercent: 50 }],
+      [{ profissionalId: 1, status: 'concluido', servicos: [{ preco: 40 }] }],
+    );
+    expect(r.linhas[0].faturamento).toBe(40);
+  });
 });
 
 describe('intervaloDoMes', () => {

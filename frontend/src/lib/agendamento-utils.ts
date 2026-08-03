@@ -125,6 +125,17 @@ export interface Agendamento {
   usuario: { nome: string }
   servicos: Array<{ id: number; nome: string; preco: number; duracao: number; qtdeSlots?: number }>
   profissionalId: number
+  /** Valor congelado no ato do agendamento — o que foi combinado com o cliente. */
+  valorTotal?: number
+}
+
+/** Valor do atendimento: o congelado, ou a soma dos serviços em registros antigos. */
+export function valorDoAgendamento(agendamento: {
+  valorTotal?: number
+  servicos?: { preco?: number }[]
+}): number {
+  if (typeof agendamento.valorTotal === 'number') return agendamento.valorTotal
+  return (agendamento.servicos ?? []).reduce((acc, s) => acc + (s.preco ?? 0), 0)
 }
 
 export interface Profissional {
@@ -134,7 +145,34 @@ export interface Profissional {
   descricao?: string
   avaliacao?: number
   quantidadeAvaliacoes?: number
-  servicos?: { id: number; nome?: string }[]
+  /**
+   * `preco` é o que ESTE profissional cobra pelo serviço; `precoPadrao` é o
+   * preço da barbearia. Vêm resolvidos do backend — a tela não recalcula.
+   */
+  servicos?: {
+    id: number
+    nome?: string
+    preco?: number
+    precoPadrao?: number
+    personalizado?: boolean
+  }[]
+}
+
+/** Preço do serviço com o profissional escolhido, caindo no da barbearia. */
+export function precoComProfissional(
+  servico: { id: number; preco: number },
+  profissional?: Profissional | null,
+): number {
+  const doProfissional = profissional?.servicos?.find((s) => s.id === servico.id)
+  return typeof doProfissional?.preco === 'number' ? doProfissional.preco : servico.preco
+}
+
+/** R$ 45,90 — formato que o brasileiro lê sem pensar. */
+export function emReais(valor: number): string {
+  return valor.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  })
 }
 
 export interface Servico {

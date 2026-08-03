@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { calcularComissoes, intervaloDoMes } from './comissao';
+import {
+  precosDaVitrine,
+  valorCobrado,
+  valorDoServicoNoAgendamento,
+} from '../servico/preco';
 import { escolherCorMarca, COR_PRIMARIA_PADRAO } from './cores-marca';
 
 @Injectable()
@@ -80,7 +85,11 @@ export class TenantService {
       status: a.status,
       profissional: a.profissional ? { nome: a.profissional.nome } : undefined,
       usuario: a.usuario ? { nome: a.usuario.nome, email: a.usuario.email } : undefined,
-      servicos: a.servicos.map((s) => ({ nome: s.nome, preco: s.preco })),
+      servicos: a.servicos.map((s) => ({
+        nome: s.nome,
+        preco: valorDoServicoNoAgendamento(a, s),
+      })),
+      valorTotal: valorCobrado(a),
     }));
   }
 
@@ -107,10 +116,9 @@ export class TenantService {
       }),
     ]);
 
-    const valorDe = (ag: { servicos: { preco: number }[] }) =>
-      ag.servicos.reduce((s, sv) => s + sv.preco, 0);
-
-    const receitaMes = agsMes.reduce((acc, ag) => acc + valorDe(ag), 0);
+    // Valor congelado no agendamento; só cai no preço de hoje nos registros
+    // anteriores à migração, que não têm o congelado.
+    const receitaMes = agsMes.reduce((acc, ag) => acc + valorCobrado(ag), 0);
 
     // ---- Indicadores de gestão (referência: relatórios dos concorrentes) ----
     const cancelados = agsMes.filter((a) => a.status === 'cancelado');
@@ -129,7 +137,7 @@ export class TenantService {
     });
     const receitaMesPassado = agsMesPassado
       .filter((a) => a.status !== 'cancelado')
-      .reduce((acc, ag) => acc + valorDe(ag), 0);
+      .reduce((acc, ag) => acc + valorCobrado(ag), 0);
     const crescimentoReceita = receitaMesPassado
       ? ((receitaMes - receitaMesPassado) / receitaMesPassado) * 100
       : null;
@@ -140,7 +148,7 @@ export class TenantService {
       for (const sv of ag.servicos) {
         const atual = contagem.get(sv.nome) ?? { nome: sv.nome, qtde: 0, receita: 0 };
         atual.qtde += 1;
-        atual.receita += sv.preco;
+        atual.receita += valorDoServicoNoAgendamento(ag, sv);
         contagem.set(sv.nome, atual);
       }
     }
@@ -181,7 +189,7 @@ export class TenantService {
         cliente: p.usuario?.nome ?? 'Cliente',
         profissional: p.profissional?.nome ?? '',
         servicos: p.servicos.map((s) => s.nome),
-        valor: p.servicos.reduce((s, sv) => s + sv.preco, 0),
+        valor: valorCobrado(p),
       })),
     };
   }
@@ -204,6 +212,7 @@ export class TenantService {
         select: {
           profissionalId: true,
           status: true,
+          valorTotal: true,
           servicos: { select: { preco: true } },
         },
       }),
@@ -273,6 +282,8 @@ export class TenantService {
             imagemUrl: true,
             avaliacao: true,
             quantidadeAvaliacoes: true,
+            servicos: { where: { ativo: true }, select: { id: true } },
+            precos: { select: { servicoId: true, preco: true } },
           },
         },
       },
@@ -294,8 +305,10 @@ export class TenantService {
       corPrimaria: tenant.corPrimaria,
       corSecundaria: tenant.corSecundaria,
       configuracoes: tenant.configuracoes,
-      servicos: tenant.servicos,
-      profissionais: tenant.profissionais,
+      servicos: precosDaVitrine(tenant.servicos, tenant.profissionais),
+      // `servicos`/`precos` do profissional saem daqui: são insumo do cálculo
+      // acima, e a vitrine pública não precisa da tabela de preços de cada um.
+      profissionais: tenant.profissionais.map(({ servicos, precos, ...p }) => p),
     };
   }
 

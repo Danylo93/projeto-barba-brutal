@@ -132,8 +132,10 @@ export class LgpdService {
           status: true,
           observacoes: true,
           createdAt: true,
+          // O que foi cobrado de verdade, e não o preço da tabela de hoje.
+          valorTotal: true,
           profissional: { select: { nome: true } },
-          servicos: { select: { nome: true, preco: true } },
+          servicos: { select: { nome: true } },
         },
       }),
       this.prisma.assinaturaClube.findMany({

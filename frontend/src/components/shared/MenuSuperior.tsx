@@ -33,6 +33,7 @@ export default function MenuSuperior() {
         }
         
         if (isEmployeeBarber) {
+            linksLogado.push({ href: '/meus-precos', rotulo: 'Meus Preços' })
             linksLogado.push({ href: '/financas', rotulo: 'Finanças' })
         }
 

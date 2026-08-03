@@ -27,6 +27,12 @@ interface ServicoPublico {
     nome: string
     descricao?: string
     preco: number
+    /**
+     * Cada profissional pode cobrar o próprio valor. A vitrine mostra o menor
+     * entre os que fazem o serviço, e avisa "a partir de" quando divergem.
+     */
+    precoMinimo?: number
+    precoVariavel?: boolean
     qtdeSlots: number
     ehCombo: boolean
     imagemURL?: string
@@ -295,8 +301,16 @@ export default async function BarbeariaPublicaPage({
                                 <div className="flex flex-1 flex-col p-5">
                                     <div className="flex items-start justify-between gap-3">
                                         <h3 className="text-lg font-bold text-white">{servico.nome}</h3>
-                                        <span className="whitespace-nowrap text-lg font-black text-tenant-secondary">
-                                            R$ {servico.preco.toFixed(2).replace('.', ',')}
+                                        <span className="whitespace-nowrap text-right text-lg font-black text-tenant-secondary">
+                                            {servico.precoVariavel && (
+                                                <span className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                                                    a partir de
+                                                </span>
+                                            )}
+                                            R${' '}
+                                            {(servico.precoMinimo ?? servico.preco)
+                                                .toFixed(2)
+                                                .replace('.', ',')}
                                         </span>
                                     </div>
                                     {servico.descricao && (

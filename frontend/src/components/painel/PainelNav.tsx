@@ -114,6 +114,7 @@ export default function PainelNav() {
     } else if (isEmployeeBarber) {
         links = [
             { href: '/agenda', rotulo: 'Minha Agenda' },
+            { href: '/meus-precos', rotulo: 'Meus Preços' },
             { href: '/financas', rotulo: 'Finanças' },
         ]
         conta = [{ href: '/meus-dados', rotulo: 'Meus dados (LGPD)' }]
