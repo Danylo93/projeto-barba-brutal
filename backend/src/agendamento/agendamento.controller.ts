@@ -19,7 +19,7 @@ import { CurrentTenant } from '../auth/current-tenant.decorator';
 import { FeatureGuard } from '../auth/feature.guard';
 import { RequiresFeature } from '../auth/feature.decorator';
 import { NotificacaoService } from '../notificacao/notificacao.service';
-
+import { removerPrecoDoCorpo } from './agendamento.validacao';
 
 @Controller('agendamentos')
 @RequiresFeature('agendamentos')
@@ -36,6 +36,7 @@ export class AgendamentoController {
     @UsuarioLogado() usuarioLogado: Usuario,
     @CurrentTenant() tenant: any,
   ) {
+    removerPrecoDoCorpo(body);
     let agendamento = body as Agendamento;
     // Se o bot mandou o telefoneCliente e for admin/barbeiro/bot
     if (body.telefoneCliente && (usuarioLogado.tipo === 'tenant' || usuarioLogado.barbeiro)) {

@@ -156,7 +156,7 @@ export default function ApiKeyPage() {
                                 Listar Agendamentos de Hoje
                             </h3>
                             <pre className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 overflow-x-auto text-sm text-zinc-300">
-                                <code>{`fetch('https://api.barbabrutal.app/agendamentos/hoje', {
+                                <code>{`fetch('https://api.barbeariabrutal.com/agendamentos/hoje', {
   headers: {
     'Authorization': 'Bearer SEU_TOKEN_API'
   }
@@ -170,7 +170,7 @@ export default function ApiKeyPage() {
                                 Criar Novo Agendamento
                             </h3>
                             <pre className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 overflow-x-auto text-sm text-zinc-300">
-                                <code>{`fetch('https://api.barbabrutal.app/agendamentos', {
+                                <code>{`fetch('https://api.barbeariabrutal.com/agendamentos', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer SEU_TOKEN_API',

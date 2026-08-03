@@ -4,6 +4,7 @@ import {
   normalizarIdsDeServico,
   duracaoEmMinutos,
   haConflito,
+  removerPrecoDoCorpo,
 } from './agendamento.validacao';
 
 describe('validarServicosDoAgendamento', () => {
@@ -142,5 +143,49 @@ describe('haConflito', () => {
         { inicio: em('17:00'), duracaoMin: 30 },
       ),
     ).toBe(false);
+  });
+});
+
+describe('removerPrecoDoCorpo', () => {
+  // O preço do serviço é definido pela barbearia no cadastro de serviços; nada
+  // que venha no corpo do agendamento (cliente, barbeiro ou bot) pode alterar
+  // o valor cobrado. O teste trava essa fronteira.
+  it('descarta preco, valor e total enviados no corpo', () => {
+    const corpo: any = {
+      usuarioId: 1,
+      profissionalId: 2,
+      servicos: [1, 2],
+      data: new Date(),
+      preco: 5,
+      valor: 10,
+      total: 15,
+    };
+    removerPrecoDoCorpo(corpo);
+    expect(corpo).toEqual({
+      usuarioId: 1,
+      profissionalId: 2,
+      servicos: [1, 2],
+      data: expect.any(Date),
+    });
+  });
+
+  it('mantém os campos legítimos do agendamento intactos', () => {
+    const corpo: any = {
+      usuarioId: 1,
+      profissionalId: 2,
+      servicos: [3],
+      data: new Date(),
+      observacoes: 'Primeira vez',
+      telefoneCliente: '11999990000',
+    };
+    removerPrecoDoCorpo(corpo);
+    expect(corpo).toEqual({
+      usuarioId: 1,
+      profissionalId: 2,
+      servicos: [3],
+      data: expect.any(Date),
+      observacoes: 'Primeira vez',
+      telefoneCliente: '11999990000',
+    });
   });
 });

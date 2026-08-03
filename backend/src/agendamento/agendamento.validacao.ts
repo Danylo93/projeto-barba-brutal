@@ -199,3 +199,15 @@ export function validarDentroDoExpediente(
   }
   return null;
 }
+
+/**
+ * Quem define o valor do serviço é a barbearia, no cadastro de serviços.
+ * O cliente, o barbeiro ou um bot nunca podem mandar preço no corpo — o valor
+ * cobrado sai do banco (servico.preco), nunca da requisição. Por isso todo
+ * campo de valor vindo de fora é descartado na fronteira.
+ */
+export function removerPrecoDoCorpo(body: any): void {
+  delete body.preco;
+  delete body.valor;
+  delete body.total;
+}

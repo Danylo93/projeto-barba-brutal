@@ -48,7 +48,7 @@ export function corpoDoEnvio(dados: {
 /**
  * Traduz a resposta da API para algo que dê para colocar no log.
  *
- * A mensagem do Resend é específica ("The barbabrutal.com.br domain is not
+ * A mensagem do Resend é específica ("The barbeariabrutal.com domain is not
  * verified") e é justamente o que resolve o problema de quem está lendo o log;
  * trocar por texto genérico só esconderia a causa.
  */

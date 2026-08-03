@@ -21,7 +21,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        sync: false # ex.: https://seu-app.vercel.app
+        sync: false # ex.: https://barbeariabrutal.com (aceita várias separadas por vírgula)
       - key: MERCADO_PAGO_ACCESS_TOKEN
         sync: false
       # WhatsApp (Evolution API) — confirmação de plano e notificações

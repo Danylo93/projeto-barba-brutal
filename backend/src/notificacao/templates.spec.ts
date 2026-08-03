@@ -7,7 +7,7 @@ import {
 
 describe('templates de e-mail', () => {
   describe('recuperação de senha', () => {
-    const link = 'https://barbeariabrutal.vercel.app/redefinir-senha?token=abc123';
+    const link = 'https://barbeariabrutal.com/redefinir-senha?token=abc123';
 
     it('coloca o link no HTML e no texto puro', () => {
       const email = emailRecuperacaoSenha({ nome: 'Marcão', link, validadeMinutos: 60 });
@@ -55,7 +55,7 @@ describe('templates de e-mail', () => {
       nomePlano: 'Profissional',
       preco: 79.9,
       validoAte: new Date('2026-08-28T12:00:00Z'),
-      urlPainel: 'https://barbeariabrutal.vercel.app/agendamentos',
+      urlPainel: 'https://barbeariabrutal.com/agendamentos',
     };
 
     it('no teste, deixa claro que não há cobrança', () => {
@@ -101,10 +101,10 @@ describe('templates de e-mail', () => {
     it('aponta para a escolha do plano — é o passo que falta', () => {
       const email = emailBoasVindas({
         nomeBarbearia: 'Barbearia do Marcão',
-        urlPlanos: 'https://barbeariabrutal.vercel.app/planos',
+        urlPlanos: 'https://barbeariabrutal.com/planos',
       });
-      expect(email.html).toContain('https://barbeariabrutal.vercel.app/planos');
-      expect(email.texto).toContain('https://barbeariabrutal.vercel.app/planos');
+      expect(email.html).toContain('https://barbeariabrutal.com/planos');
+      expect(email.texto).toContain('https://barbeariabrutal.com/planos');
     });
   });
 

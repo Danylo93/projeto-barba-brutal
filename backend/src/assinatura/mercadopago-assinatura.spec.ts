@@ -15,7 +15,7 @@ const plano = {
 };
 
 describe('corpoDoPlano', () => {
-  const corpo = corpoDoPlano(plano, 'https://barbeariabrutal.vercel.app/assinatura');
+  const corpo = corpoDoPlano(plano, 'https://barbeariabrutal.com/assinatura');
 
   it('cobra mensalmente em reais', () => {
     expect(corpo.auto_recurring.frequency).toBe(1);
@@ -54,7 +54,7 @@ describe('corpoDaAssinatura', () => {
     plano,
     emailDoPagador: 'contato@barbearia.app',
     tenantId: 7,
-    backUrl: 'https://barbeariabrutal.vercel.app/assinatura',
+    backUrl: 'https://barbeariabrutal.com/assinatura',
     primeiraCobranca,
   });
 

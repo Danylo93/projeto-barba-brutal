@@ -123,7 +123,7 @@ beforeEach(() => {
   enviados = [];
   notificacao.enviarTemplate.mockClear();
   notificacao.enviarTemplateEmSegundoPlano.mockClear();
-  process.env.FRONTEND_URL = 'https://barbeariabrutal.vercel.app';
+  process.env.FRONTEND_URL = 'https://barbeariabrutal.com';
   service = new RecuperacaoService(prisma as any, notificacao as any);
 });
 

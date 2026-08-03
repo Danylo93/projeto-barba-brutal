@@ -9,7 +9,7 @@ import {
 
 describe('corpoDoEnvio', () => {
   const base = {
-    de: 'Barbearia Brutal <suporte@barbabrutal.com.br>',
+    de: 'Barbearia Brutal <suporte@barbeariabrutal.com>',
     para: 'marcao@x.app',
     assunto: 'Redefinir sua senha',
     texto: 'Abra o link…',
@@ -52,7 +52,7 @@ describe('interpretarResposta', () => {
   // quem lê o log; trocar por texto genérico esconderia a causa.
   it('domínio não verificado chega com o motivo inteiro', () => {
     const r = interpretarResposta(403, {
-      message: 'The barbabrutal.com.br domain is not verified',
+      message: 'The barbeariabrutal.com domain is not verified',
     });
     expect(r.ok).toBe(false);
     expect(r.erro).toContain('403');
@@ -100,9 +100,9 @@ describe('configuração', () => {
   });
 
   it('EMAIL_FROM tem preferência sobre SMTP_FROM', () => {
-    process.env.EMAIL_FROM = 'suporte@barbabrutal.com.br';
+    process.env.EMAIL_FROM = 'suporte@barbeariabrutal.com';
     process.env.SMTP_FROM = 'agenciafwdigital@gmail.com';
-    expect(remetente()).toBe('suporte@barbabrutal.com.br');
+    expect(remetente()).toBe('suporte@barbeariabrutal.com');
   });
 
   it('sem EMAIL_FROM, usa o SMTP_FROM que já existe', () => {
@@ -141,12 +141,12 @@ describe('ehChaveSoDeEnvio', () => {
 
 describe('problemaDoRemetente', () => {
   it('domínio próprio passa', () => {
-    expect(problemaDoRemetente('contato@barbeariabrutal.com.br')).toBeUndefined();
+    expect(problemaDoRemetente('contato@barbeariabrutal.com')).toBeUndefined();
   });
 
   it('formato "Nome <e-mail>" também passa', () => {
     expect(
-      problemaDoRemetente('Barbearia Brutal <contato@barbeariabrutal.com.br>'),
+      problemaDoRemetente('Barbearia Brutal <contato@barbeariabrutal.com>'),
     ).toBeUndefined();
   });
 

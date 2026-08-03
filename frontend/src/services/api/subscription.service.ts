@@ -109,10 +109,21 @@ class SubscriptionService {
   }
 
   /**
+   * Base do site para links de plano/renovação. Em produção o Next injeta o
+   * domínio real; no navegador o melhor fallback é a própria origem da página
+   * (funciona em dev, preview da Vercel e no domínio próprio sem depender de env).
+   */
+  private baseDoSite(): string {
+    if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+    if (typeof window !== 'undefined') return window.location.origin;
+    return 'https://barbeariabrutal.com';
+  }
+
+  /**
    * Gera URL para renovação de plano
    */
   getRenewalUrl(tenantId?: number): string {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = this.baseDoSite();
     const params = tenantId ? `?tenantId=${tenantId}` : '';
     return `${baseUrl}/planos${params}`;
   }
@@ -121,7 +132,7 @@ class SubscriptionService {
    * Gera URL para adquirir plano
    */
   getPlansUrl(tenantId?: number): string {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = this.baseDoSite();
     const params = tenantId ? `?tenantId=${tenantId}` : '';
     return `${baseUrl}/planos${params}`;
   }

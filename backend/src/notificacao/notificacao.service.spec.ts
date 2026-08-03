@@ -26,7 +26,7 @@ describe('NotificacaoService com Resend', () => {
     process.env = { ...ambienteOriginal };
     delete process.env.SMTP_HOST;
     process.env.RESEND_API_KEY = 're_chave_de_teste';
-    process.env.EMAIL_FROM = 'Barbearia Brutal <suporte@barbabrutal.com.br>';
+    process.env.EMAIL_FROM = 'Barbearia Brutal <suporte@barbeariabrutal.com>';
   });
 
   afterEach(() => {
@@ -74,7 +74,7 @@ describe('NotificacaoService com Resend', () => {
 
     const corpo = JSON.parse(chamadas[0].init.body);
     expect(corpo).toEqual({
-      from: 'Barbearia Brutal <suporte@barbabrutal.com.br>',
+      from: 'Barbearia Brutal <suporte@barbeariabrutal.com>',
       to: ['marcao@x.app'],
       subject: 'Assunto',
       text: 'texto puro',
@@ -91,7 +91,7 @@ describe('NotificacaoService com Resend', () => {
   // Sem isto, "domínio não verificado" viraria um sucesso silencioso e ninguém
   // descobriria por que o e-mail não chega.
   it('recusa da API vira erro, com o motivo junto', async () => {
-    responderCom(403, { message: 'The barbabrutal.com.br domain is not verified' });
+    responderCom(403, { message: 'The barbeariabrutal.com domain is not verified' });
     await expect(
       criar().enviarEmail('marcao@x.app', 'Assunto', 'texto'),
     ).rejects.toThrow(/domain is not verified/);

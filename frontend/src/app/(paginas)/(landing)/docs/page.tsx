@@ -119,7 +119,7 @@ export default function DocsPage() {
                 title: 'Exemplos de Uso',
                 content: `
                     <h3>Criar Agendamento via API</h3>
-                    <pre><code>curl -X POST https://api.barbabrutal.com/agendamentos \\
+                    <pre><code>curl -X POST https://api.barbeariabrutal.com/agendamentos \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -135,8 +135,8 @@ export default function DocsPage() {
   }'</code></pre>
                     
                     <h3>Integração com Site</h3>
-                    <pre><code>&lt;script src="https://widget.barbabrutal.com/agendamento.js"&gt;&lt;/script&gt;
-&lt;div id="barbabrutal-widget" data-tenant="seu-tenant-id"&gt;&lt;/div&gt;</code></pre>
+                    <pre><code>&lt;script src="https://widget.barbeariabrutal.com/agendamento.js"&gt;&lt;/script&gt;
+&lt;div id="barbeariabrutal-widget" data-tenant="seu-tenant-id"&gt;&lt;/div&gt;</code></pre>
                 `
             }
         ],

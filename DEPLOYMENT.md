@@ -30,7 +30,7 @@ O repositório já tem um **`render.yaml`** na raiz (blueprint).
    |---|---|
    | `DATABASE_URL` | URL **pooled** do Neon |
    | `DIRECT_URL` | URL **direta** do Neon |
-   | `FRONTEND_URL` | depois do passo 3, a URL da Vercel (ex.: `https://barba-brutal.vercel.app`). Aceita várias separadas por vírgula |
+   | `FRONTEND_URL` | depois do passo 3, a URL do site (ex.: `https://barbeariabrutal.com`). Aceita várias separadas por vírgula |
    | `MERCADO_PAGO_ACCESS_TOKEN` | seu token do Mercado Pago (pode deixar vazio; Pix fica indisponível e o admin confirma manual) |
    - `JWT_SECRET` é gerado automaticamente pelo Render.
 4. Deploy. O start roda `prisma migrate deploy` (cria as tabelas no Neon) e sobe a API.
@@ -71,7 +71,7 @@ Gerar o hash localmente: `node -e "console.log(require('bcrypt').hashSync('SuaSe
    | `NEXT_PUBLIC_URL_BASE` | URL do Render (ex.: `https://barba-brutal-api.onrender.com`) |
    | `BACKEND_URL` | a mesma URL do Render |
    | `NEXT_PUBLIC_TENANT_DEFAULT_ID` | `1` |
-4. Deploy. Anote a URL (ex.: `https://barba-brutal.vercel.app`).
+4. Deploy. Anote a URL (ex.: `https://barbeariabrutal.com`).
 5. **Volte ao Render** e preencha/atualize `FRONTEND_URL` com essa URL
    (senão o CORS bloqueia o frontend). Salvar redispara o deploy.
 
@@ -101,7 +101,7 @@ DATABASE_URL=postgresql://...-pooler.../neondb?sslmode=require
 DIRECT_URL=postgresql://.../neondb?sslmode=require
 JWT_SECRET=<forte, gerado>
 NODE_ENV=production
-FRONTEND_URL=https://seu-app.vercel.app
+FRONTEND_URL=https://barbeariabrutal.com
 MERCADO_PAGO_ACCESS_TOKEN=APP_USR-...
 STRIPE_SECRET_KEY=sk_test_placeholder   # legado, não usado no fluxo Pix
 STRIPE_WEBHOOK_SECRET=whsec_placeholder
