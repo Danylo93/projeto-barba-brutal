@@ -80,6 +80,12 @@ export function totalDoAtendimento(
 export function validarPrecoInformado(valor: unknown): number | null {
   if (valor === null || valor === undefined || valor === '') return null;
 
+  // `Number(true)` é 1 e `Number(false)` é 0: sem esta linha, `preco: false`
+  // respondia 200 e deixava o serviço a R$ 0,00.
+  if (typeof valor !== 'number' && typeof valor !== 'string') {
+    throw new Error('Informe o preço em números (ex.: 45 ou 45,90).');
+  }
+
   const numero = typeof valor === 'string' ? Number(valor.replace(',', '.')) : Number(valor);
   if (!Number.isFinite(numero)) {
     throw new Error('Informe o preço em números (ex.: 45 ou 45,90).');

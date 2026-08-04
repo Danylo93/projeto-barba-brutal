@@ -107,9 +107,11 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     const inicio = new Date(agendamento.data as unknown as string);
     agendamento.data = inicio as unknown as Date;
 
-    // 3) Serviços válidos e do mesmo tenant.
+    // 3) Serviços válidos, ativos e do mesmo tenant. Sem o `ativo`, o serviço
+    //    que o dono tirou da vitrine continuava agendável por quem chamasse a
+    //    API direto.
     const servicos = await this.prismaService.servico.findMany({
-      where: { id: { in: idsServicos }, tenantId: agendamento.tenantId },
+      where: { id: { in: idsServicos }, tenantId: agendamento.tenantId, ativo: true },
       select: { id: true, ehCombo: true, qtdeSlots: true, preco: true },
     });
     if (servicos.length !== idsServicos.length) {

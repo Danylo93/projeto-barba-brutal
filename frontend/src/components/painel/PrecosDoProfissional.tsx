@@ -24,6 +24,11 @@ export interface PrecosDoProfissionalProps {
     aoSalvar?: () => void
 }
 
+/** "45,90" — como o preço se escreve aqui, sempre com os centavos. */
+function paraCampo(valor: number): string {
+    return valor.toFixed(2).replace('.', ',')
+}
+
 /** Aceita "45,90" e "45.90"; devolve null quando o campo está vazio. */
 function paraNumero(texto: string): number | null {
     const limpo = texto.trim().replace(',', '.')
@@ -65,7 +70,7 @@ export default function PrecosDoProfissional({
                         l.servicoId,
                         // Só preenche o campo do que foi personalizado: campo
                         // vazio é o jeito de dizer "uso o preço da barbearia".
-                        l.personalizado ? String(l.preco).replace('.', ',') : '',
+                        l.personalizado ? paraCampo(l.preco) : '',
                     ])
                 )
             )
@@ -181,7 +186,7 @@ export default function PrecosDoProfissional({
                                                 [linha.servicoId]: e.target.value,
                                             }))
                                         }
-                                        placeholder={String(linha.precoPadrao).replace('.', ',')}
+                                        placeholder={paraCampo(linha.precoPadrao)}
                                         aria-label={`Preço de ${linha.nome}`}
                                         className="w-32 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 pl-10 pr-3 text-white placeholder-zinc-600 transition-colors focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400"
                                     />

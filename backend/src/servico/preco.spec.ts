@@ -103,6 +103,18 @@ describe('validação do preço informado', () => {
   it('aceita zero', () => {
     expect(validarPrecoInformado(0)).toBe(0);
   });
+
+  // `Number(true)` é 1: sem a checagem de tipo, `preco: false` respondia 200 e
+  // deixava o serviço a R$ 0,00.
+  it('recusa booleano em vez de virar 1 ou 0', () => {
+    expect(() => validarPrecoInformado(true)).toThrow(/números/i);
+    expect(() => validarPrecoInformado(false)).toThrow(/números/i);
+  });
+
+  it('recusa objeto e lista', () => {
+    expect(() => validarPrecoInformado({})).toThrow(/números/i);
+    expect(() => validarPrecoInformado([50])).toThrow(/números/i);
+  });
 });
 
 describe('preço na vitrine pública', () => {

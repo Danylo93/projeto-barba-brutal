@@ -116,13 +116,17 @@ export class TenantService {
       }),
     ]);
 
-    // Valor congelado no agendamento; só cai no preço de hoje nos registros
-    // anteriores à migração, que não têm o congelado.
-    const receitaMes = agsMes.reduce((acc, ag) => acc + valorCobrado(ag), 0);
-
     // ---- Indicadores de gestão (referência: relatórios dos concorrentes) ----
     const cancelados = agsMes.filter((a) => a.status === 'cancelado');
     const efetivos = agsMes.filter((a) => a.status !== 'cancelado');
+
+    // Valor congelado no agendamento; só cai no preço de hoje nos registros
+    // anteriores à migração, que não têm o congelado.
+    //
+    // Cancelado NÃO entra: o dashboard somava tudo e o relatório de comissões
+    // só os efetivos, então as duas telas do dono se contradiziam — e o
+    // "crescimento" comparava mês com cancelado contra mês sem.
+    const receitaMes = efetivos.reduce((acc, ag) => acc + valorCobrado(ag), 0);
     const ticketMedio = efetivos.length ? receitaMes / efetivos.length : 0;
     const taxaCancelamento = agsMes.length
       ? (cancelados.length / agsMes.length) * 100
@@ -305,7 +309,11 @@ export class TenantService {
       corPrimaria: tenant.corPrimaria,
       corSecundaria: tenant.corSecundaria,
       configuracoes: tenant.configuracoes,
-      servicos: precosDaVitrine(tenant.servicos, tenant.profissionais),
+      // Ordena pelo preço que a vitrine EXIBE. O `orderBy` da consulta usa o
+      // preço da barbearia, que pode não ser o que aparece no card.
+      servicos: precosDaVitrine(tenant.servicos, tenant.profissionais).sort(
+        (a, b) => a.precoMinimo - b.precoMinimo || a.nome.localeCompare(b.nome),
+      ),
       // `servicos`/`precos` do profissional saem daqui: são insumo do cálculo
       // acima, e a vitrine pública não precisa da tabela de preços de cada um.
       profissionais: tenant.profissionais.map(({ servicos, precos, ...p }) => p),

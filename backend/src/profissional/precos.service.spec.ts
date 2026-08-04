@@ -13,13 +13,18 @@ const PROFISSIONAIS = [
   { id: 3, tenantId: 9, usuarioId: 30, nome: 'Vizinho' },
 ];
 
-const SERVICOS_DO_PROFISSIONAL: Record<number, { id: number; nome: string; preco: number }[]> = {
+/** `ativo: false` = serviço que o dono tirou do ar. */
+const SERVICOS_DO_PROFISSIONAL: Record<
+  number,
+  { id: number; nome: string; preco: number; ativo: boolean }[]
+> = {
   1: [
-    { id: 100, nome: 'Corte', preco: 40 },
-    { id: 200, nome: 'Barba', preco: 25 },
+    { id: 100, nome: 'Corte', preco: 40, ativo: true },
+    { id: 200, nome: 'Barba', preco: 25, ativo: true },
+    { id: 300, nome: 'Hidratação', preco: 60, ativo: false },
   ],
-  2: [{ id: 100, nome: 'Corte', preco: 40 }],
-  3: [{ id: 900, nome: 'Corte do vizinho', preco: 50 }],
+  2: [{ id: 100, nome: 'Corte', preco: 40, ativo: true }],
+  3: [{ id: 900, nome: 'Corte do vizinho', preco: 50, ativo: true }],
 };
 
 function fakePrisma() {
@@ -38,10 +43,16 @@ function fakePrisma() {
       findFirst: async ({ where, select }: any) => {
         const p = acharProfissional(where);
         if (!p) return null;
-        const servicos = SERVICOS_DO_PROFISSIONAL[p.id] ?? [];
+        const todos = SERVICOS_DO_PROFISSIONAL[p.id] ?? [];
         const resposta: any = {};
         if (select?.usuarioId) resposta.usuarioId = p.usuarioId;
-        if (select?.servicos) resposta.servicos = servicos;
+        if (select?.servicos) {
+          // Reproduz o `where: { ativo: true }` do Prisma: o serviço
+          // desativado some da consulta, e é essa diferença que abria o furo.
+          resposta.servicos = select.servicos.where?.ativo
+            ? todos.filter((s) => s.ativo)
+            : todos;
+        }
         if (select?.precos) {
           resposta.precos = precos
             .filter((x) => x.profissionalId === p.id)
@@ -217,5 +228,26 @@ describe('salvar preços', () => {
 
   it('corpo sem lista dá 400 em vez de 500', async () => {
     await expect(service.salvar(1, 1, undefined as any)).rejects.toMatchObject({ status: 400 });
+  });
+
+  // A tela não mostra serviço desativado, então o preço gravado aqui seria
+  // invisível e impossível de corrigir — e voltaria a valer na reativação.
+  it('recusa preço de serviço desativado', async () => {
+    await expect(service.salvar(1, 1, [{ servicoId: 300, preco: 999 }])).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(prisma.precos).toHaveLength(0);
+  });
+
+  it('serviço desativado também não aparece na tabela', async () => {
+    const tabela = await service.tabela(1, 1);
+    expect(tabela.map((l) => l.servicoId)).toEqual([100, 200]);
+  });
+
+  it('booleano no preço dá 400, não vira R$ 1,00', async () => {
+    await expect(
+      service.salvar(1, 1, [{ servicoId: 100, preco: true as any }]),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(prisma.precos).toHaveLength(0);
   });
 });

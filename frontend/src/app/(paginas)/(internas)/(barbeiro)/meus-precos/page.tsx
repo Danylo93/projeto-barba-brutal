@@ -42,7 +42,9 @@ export default function PaginaMeusPrecos() {
                 titulo="Meus Preços"
                 descricao="Defina quanto você cobra por cada serviço que faz."
             />
-            <div className="container flex flex-col gap-6 px-4 py-10 sm:px-6 lg:px-8">
+            {/* Largura travada: sem isto, em 1440px o nome do serviço ficava
+                num canto da tela e o campo de preço no outro. */}
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6">
                 {carregando && (
                     <div className="space-y-3">
                         {[1, 2, 3].map((n) => (

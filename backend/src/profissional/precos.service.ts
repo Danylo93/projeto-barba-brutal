@@ -105,7 +105,10 @@ export class PrecosProfissionalService {
 
     const profissional = await this.prisma.profissional.findFirst({
       where: { id: profissionalId, tenantId },
-      select: { servicos: { select: { id: true } } },
+      // `ativo: true` igual ao da leitura: sem ele dava para gravar preço em
+      // serviço desativado — uma linha que nenhuma tela mostrava e ninguém
+      // conseguia corrigir, e que voltava a valer quando o serviço reativasse.
+      select: { servicos: { where: { ativo: true }, select: { id: true } } },
     });
     if (!profissional) {
       throw new NotFoundException('Profissional não encontrado.');

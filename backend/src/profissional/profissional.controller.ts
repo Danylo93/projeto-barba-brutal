@@ -30,6 +30,10 @@ function comPrecoDoProfissional<
   },
 >(profissional: T) {
   const tabela = tabelaDePrecos(profissional.servicos, profissional.precos);
+  // `personalizado` é "tem preço próprio gravado", e não "o valor está
+  // diferente do da barbearia": quem digitou justamente o preço da tabela fica
+  // preso naquele valor no próximo reajuste, e precisa ver isso na tela.
+  const proprios = new Set(profissional.precos.map((p) => p.servicoId));
   const { precos, ...resto } = profissional;
   return {
     ...resto,
@@ -38,7 +42,7 @@ function comPrecoDoProfissional<
       nome: servico.nome,
       preco: tabela.get(servico.id) ?? servico.preco,
       precoPadrao: servico.preco,
-      personalizado: (tabela.get(servico.id) ?? servico.preco) !== servico.preco,
+      personalizado: proprios.has(servico.id),
     })),
   };
 }
@@ -244,6 +248,16 @@ export class ProfissionalController {
     if (data.servicoIds !== undefined) {
       const servicoIds = await this.validarServicoIds(data.servicoIds, tenant.id);
       servicosUpdate = { set: servicoIds.map((sid) => ({ id: sid })) };
+
+      // Preço de serviço que o profissional deixou de realizar não pode ficar
+      // órfão no banco: some da tela, mas ao religar o serviço voltava a valer
+      // sozinho. O dono religava um corte de R$ 40 e o cliente pagava R$ 300.
+      await this.prisma.precoProfissional.deleteMany({
+        where: {
+          profissionalId: id,
+          ...(servicoIds.length ? { servicoId: { notIn: servicoIds } } : {}),
+        },
+      });
     }
 
     const atualizado = await this.prisma.profissional.update({
