@@ -3,6 +3,7 @@ import {
   corpoDoPlano,
   interpretarNotificacao,
   lerReferenciaExterna,
+  pagamentoRenovaPlano,
   referenciaExterna,
   traduzirStatus,
 } from './mercadopago-assinatura';
@@ -148,5 +149,30 @@ describe('traduzirStatus', () => {
     expect(traduzirStatus('pending')).toBe('pending');
     expect(traduzirStatus('')).toBe('pending');
     expect(traduzirStatus('qualquer_coisa_nova')).toBe('pending');
+  });
+});
+
+describe('pagamentoRenovaPlano', () => {
+  // O furo que isto trava: o webhook chamava `ativarAssinaturaPaga` para
+  // QUALQUER pagamento aprovado. Quem pagava R$ 59,90 pelo domínio próprio
+  // ganhava 30 dias de plano de graça — até R$ 159,90 no Premium — e nada na
+  // tela indicava isso. A trava existia só no "já paguei — verificar".
+  it('mensalidade do plano renova', () => {
+    expect(pagamentoRenovaPlano({ metodo: 'pix' })).toBe(true);
+  });
+
+  it('adicional de domínio NÃO renova', () => {
+    expect(pagamentoRenovaPlano({ metodo: 'pix_dominio' })).toBe(false);
+  });
+
+  it('ignora caixa e espaço, que é como o dado chega de integração', () => {
+    expect(pagamentoRenovaPlano({ metodo: ' PIX_DOMINIO ' })).toBe(false);
+  });
+
+  // Método ausente é o pagamento comum de plano (o schema tem default "pix"):
+  // na dúvida, renova — deixar de renovar quem pagou é pior que o contrário.
+  it('sem método, trata como pagamento de plano', () => {
+    expect(pagamentoRenovaPlano({})).toBe(true);
+    expect(pagamentoRenovaPlano({ metodo: null })).toBe(true);
   });
 });

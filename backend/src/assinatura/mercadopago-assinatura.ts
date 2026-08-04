@@ -147,3 +147,19 @@ export function traduzirStatus(statusMp: string): 'active' | 'canceled' | 'pendi
       return 'pending';
   }
 }
+
+/**
+ * Este pagamento renova o plano da barbearia?
+ *
+ * Não renova o adicional de domínio próprio: é taxa única de um serviço à
+ * parte, não mensalidade. A trava existia só no caminho do "já paguei —
+ * verificar"; o webhook do Mercado Pago chamava `ativarAssinaturaPaga` direto,
+ * então quem pagava R$ 59,90 pelo domínio ganhava 30 dias de plano de graça —
+ * até R$ 159,90 no Premium — sem nada na tela indicando isso.
+ */
+export const METODOS_QUE_NAO_RENOVAM = ['pix_dominio'] as const;
+
+export function pagamentoRenovaPlano(pagamento: { metodo?: string | null }): boolean {
+  const metodo = (pagamento?.metodo ?? '').trim().toLowerCase();
+  return !(METODOS_QUE_NAO_RENOVAM as readonly string[]).includes(metodo);
+}
