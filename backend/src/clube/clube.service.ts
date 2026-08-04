@@ -5,6 +5,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/db/prisma.service';
 import { gerarPixCopiaECola, validarChavePix } from './pix-brcode';
+import {
+  estaVigente,
+  HORAS_ATE_O_PIX_VENCER,
+  impedeNovaAssinatura,
+  situacaoDaAssinatura,
+} from './vigencia';
 
 export interface DadosPlanoClube {
   nome: string;
@@ -80,7 +86,11 @@ export class ClubeService {
   async removerPlano(tenantId: number, id: number) {
     await this.buscarPlanoDoTenant(tenantId, id);
     const assinantes = await this.prisma.assinaturaClube.count({
-      where: { planoClubeId: id, status: 'ativa' },
+      where: {
+        planoClubeId: id,
+        status: 'ativa',
+        OR: [{ fim: null }, { fim: { gte: new Date() } }],
+      },
     });
     if (assinantes > 0) {
       // Não apaga histórico de quem paga: desativa para não aparecer mais.
@@ -119,9 +129,9 @@ export class ClubeService {
 
   /* -------------------------- assinaturas -------------------------- */
 
-  /** Assinaturas do clube (visão do dono). */
-  listarAssinaturas(tenantId: number, status?: string) {
-    return this.prisma.assinaturaClube.findMany({
+  /** Assinaturas do clube (visão do dono), com a situação já calculada. */
+  async listarAssinaturas(tenantId: number, status?: string) {
+    const lista = await this.prisma.assinaturaClube.findMany({
       where: { tenantId, ...(status ? { status } : {}) },
       include: {
         usuario: { select: { id: true, nome: true, email: true, telefone: true } },
@@ -130,15 +140,31 @@ export class ClubeService {
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
+    return lista.map((a) => this.comSituacao(a));
   }
 
   /** Assinaturas do próprio cliente. */
-  listarMinhasAssinaturas(usuarioId: number, tenantId: number) {
-    return this.prisma.assinaturaClube.findMany({
+  async listarMinhasAssinaturas(usuarioId: number, tenantId: number) {
+    const lista = await this.prisma.assinaturaClube.findMany({
       where: { usuarioId, tenantId },
       include: { plano: { select: { id: true, nome: true, beneficios: true } } },
       orderBy: { createdAt: 'desc' },
     });
+    return lista.map((a) => this.comSituacao(a));
+  }
+
+  /**
+   * Acrescenta a situação de verdade: o `status` do banco conta o pagamento e
+   * nunca muda sozinho, então quem pagou em maio continuava "ativa" em agosto.
+   */
+  private comSituacao<T extends { status: string; fim?: Date | null; createdAt?: Date }>(
+    assinatura: T,
+  ) {
+    return {
+      ...assinatura,
+      situacao: situacaoDaAssinatura(assinatura),
+      vigente: estaVigente(assinatura),
+    };
   }
 
   /**
@@ -154,9 +180,9 @@ export class ClubeService {
         where: { id: tenantId },
         select: { nome: true, chavePix: true, endereco: true },
       }),
-      this.prisma.assinaturaClube.findFirst({
+      this.prisma.assinaturaClube.findMany({
         where: { usuarioId, tenantId, status: { in: ['pendente', 'ativa'] } },
-        select: { id: true, status: true },
+        select: { id: true, status: true, fim: true, createdAt: true },
       }),
     ]);
 
@@ -166,9 +192,14 @@ export class ClubeService {
         'Esta barbearia ainda não configurou a chave Pix do clube.',
       );
     }
-    if (jaAtiva) {
+    // Só a que está valendo AGORA impede contratar. A vencida libera — é
+    // assim que renovar passa a ser possível; antes, quem pagasse uma vez
+    // ficava 'ativa' para sempre e nunca mais conseguia assinar. E o Pix
+    // abandonado deixa de travar o cliente para sempre.
+    const impeditiva = jaAtiva.find((a) => impedeNovaAssinatura(a));
+    if (impeditiva) {
       throw new BadRequestException(
-        jaAtiva.status === 'ativa'
+        situacaoDaAssinatura(impeditiva) === 'ativa'
           ? 'Você já tem uma assinatura ativa no clube.'
           : 'Você já tem uma assinatura aguardando pagamento.',
       );
@@ -233,13 +264,20 @@ export class ClubeService {
 
   /** Resumo do clube para o painel do dono. */
   async resumo(tenantId: number) {
+    const agora = new Date();
     const [ativas, pendentes, planos] = await Promise.all([
+      // `fim >= agora` é o que separa assinante de ex-assinante. Sem isso, a
+      // "receita recorrente" do painel somava quem parou de pagar há meses.
       this.prisma.assinaturaClube.findMany({
-        where: { tenantId, status: 'ativa' },
+        where: { tenantId, status: 'ativa', OR: [{ fim: null }, { fim: { gte: agora } }] },
         select: { valor: true },
       }),
       this.prisma.assinaturaClube.count({
-        where: { tenantId, status: 'pendente' },
+        where: {
+          tenantId,
+          status: 'pendente',
+          createdAt: { gte: new Date(agora.getTime() - HORAS_ATE_O_PIX_VENCER * 3600_000) },
+        },
       }),
       this.prisma.planoClube.count({ where: { tenantId, ativo: true } }),
     ]);

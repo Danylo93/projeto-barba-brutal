@@ -27,7 +27,15 @@ interface PlanoClube {
 
 interface Assinatura {
     id: number
+    /** Estado do pagamento, como está gravado. */
     status: string
+    /**
+     * Estado de verdade, calculado pelo backend a partir da data de fim:
+     * quem pagou em maio não é mais assinante em agosto, mesmo com o `status`
+     * ainda em 'ativa'.
+     */
+    situacao?: 'pendente' | 'ativa' | 'expirada' | 'cancelada' | 'abandonada'
+    vigente?: boolean
     valor: number
     pixCopiaECola?: string | null
     inicio?: string | null
@@ -167,8 +175,12 @@ function VisaoDono() {
 
     if (carregando) return <Skeleton className="h-64 w-full" />
 
-    const pendentes = assinaturas.filter((a) => a.status === 'pendente')
-    const ativas = assinaturas.filter((a) => a.status === 'ativa')
+    // Usa `situacao` (calculada) e não `status` (gravado): assinatura vencida
+    // continuava listada como ativa para o dono, e ele contava como receita.
+    const situacaoDe = (a: Assinatura) => a.situacao ?? a.status
+    const pendentes = assinaturas.filter((a) => situacaoDe(a) === 'pendente')
+    const ativas = assinaturas.filter((a) => situacaoDe(a) === 'ativa')
+    const expiradas = assinaturas.filter((a) => situacaoDe(a) === 'expirada')
 
     return (
         <div className="flex flex-col gap-10">
@@ -333,6 +345,37 @@ function VisaoDono() {
                 </section>
             )}
 
+            {/* Vencidas: antes ficavam misturadas com as ativas e contavam como
+                receita recorrente. Agora aparecem separadas, para o dono cobrar. */}
+            {expiradas.length > 0 && (
+                <section>
+                    <h2 className="mb-1 text-lg font-bold text-white">Assinaturas vencidas</h2>
+                    <p className="mb-3 text-sm text-zinc-500">
+                        Não contam mais como receita. Chame para renovar.
+                    </p>
+                    <ul className="flex flex-col gap-2">
+                        {expiradas.map((a) => (
+                            <li
+                                key={a.id}
+                                className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4"
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
+                                    <Clock size={18} />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate font-semibold text-white">{a.usuario?.nome}</p>
+                                    <p className="truncate text-sm text-zinc-500">
+                                        {a.plano?.nome}
+                                        {a.fim && ` · venceu em ${new Date(a.fim).toLocaleDateString('pt-BR')}`}
+                                    </p>
+                                </div>
+                                <span className="shrink-0 text-sm font-semibold text-amber-400">vencida</span>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
+
             {/* Modal de novo plano */}
             {modal && (
                 <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4">
@@ -481,8 +524,12 @@ function VisaoCliente() {
 
     if (carregando) return <Skeleton className="h-64 w-full" />
 
-    const pendente = minhas.find((a) => a.status === 'pendente')
-    const ativa = minhas.find((a) => a.status === 'ativa')
+    // Pela situação calculada: com o `status` gravado, o cliente continuava
+    // vendo "assinatura ativa" meses depois do vencimento — e, por causa
+    // disso, nem conseguia renovar.
+    const situacaoDe = (a: Assinatura) => a.situacao ?? a.status
+    const pendente = minhas.find((a) => situacaoDe(a) === 'pendente')
+    const ativa = minhas.find((a) => situacaoDe(a) === 'ativa')
 
     return (
         <div className="flex flex-col gap-8">
