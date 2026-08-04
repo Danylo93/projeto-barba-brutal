@@ -77,8 +77,7 @@ function LoginContent() {
      * errado levava vários segundos. Quem decide o papel agora é o servidor.
      */
     async function tentar(body: Record<string, unknown>) {
-        const base = process.env.NEXT_PUBLIC_URL_BASE || ''
-        const response = await fetch(`${base}/auth/login`, {
+        const response = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),

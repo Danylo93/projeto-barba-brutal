@@ -14,6 +14,7 @@ import {
 } from '@/components/painel/Painel'
 import PainelNav from '@/components/painel/PainelNav'
 import { useToast } from '@/hooks/use-toast'
+import { API_BASE } from '@/lib/api-base'
 
 interface DashboardStats {
   totalTenants: number
@@ -53,7 +54,7 @@ interface Pagamento {
   createdAt: string
 }
 
-const URL_BASE = process.env.NEXT_PUBLIC_URL_BASE
+const URL_BASE = API_BASE
 const inputClasses =
   'w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-colors'
 

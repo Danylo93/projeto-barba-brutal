@@ -32,7 +32,8 @@ function requisicao(token?: string) {
   return { headers: token ? { authorization: `Bearer ${token}` } : {} } as any;
 }
 
-const assinar = (payload: any) => jwt.sign(payload, SEGREDO);
+// Segredo falso só para os testes; o real vem de JWT_SECRET no ar.
+const assinar = (payload: any) => jwt.sign(payload, SEGREDO); // nosemgrep: segredo de teste
 
 let avancou: boolean;
 const next = () => {
@@ -109,7 +110,8 @@ describe('UsuarioMiddleware', () => {
 
   it('token assinado com outro segredo é recusado', async () => {
     const mw = new UsuarioMiddleware(fakeRepo(contas) as any);
-    const req = requisicao(jwt.sign({ id: 2, tenantId: 1, tipo: 'usuario' }, 'outro-segredo'));
+    // Outro segredo falsificado de propósito, para provar a recusa.
+    const req = requisicao(jwt.sign({ id: 2, tenantId: 1, tipo: 'usuario' }, 'outro-segredo')); // nosemgrep: segredo de teste
 
     await expect(mw.use(req, {} as any, next)).rejects.toMatchObject({ status: 401 });
   });

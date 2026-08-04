@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import useSessao from '@/data/hooks/useSessao'
+import { API_BASE } from '@/lib/api-base'
 
 export type TrialUrgencia = 'safe' | 'warning' | 'danger' | 'critical'
 
@@ -83,8 +84,7 @@ export default function useTrialStatus(): TrialStatus {
 
     const fetchAssinatura = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_URL_BASE
-        const resp = await fetch(`${baseUrl}/tenants/me`, {
+        const resp = await fetch(`${API_BASE}/tenants/me`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         if (resp.ok) {

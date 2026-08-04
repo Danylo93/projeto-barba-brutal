@@ -32,6 +32,12 @@ export class AuditInterceptor implements NestInterceptor {
             const url: string = req.originalUrl || req.url;
             const entity = (url.split('?')[0] || '').split('/')[1] || 'unknown';
             const entityId = req.params?.id ? Number(req.params.id) : null;
+
+            // Rotas de sistema (batida do n8n, webhook de pagamento) não têm
+            // usuário nem tenant. Sem sujeito não há auditoria: gravar com
+            // tenantId null viola a NOT NULL da tabela (23502).
+            if (!user && !tenant) return;
+
             const metadata = {
               path: url,
               durationMs: Date.now() - started,
