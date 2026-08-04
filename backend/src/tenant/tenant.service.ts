@@ -363,6 +363,71 @@ export class TenantService {
   }
 
   /**
+   * Verifica se um CPF/CNPJ já está cadastrado por outra barbearia.
+   * Valida o formato e checa no banco.
+   */
+  async verificarDocumento(bruto: string): Promise<{
+    disponivel: boolean;
+    mensagem?: string;
+  }> {
+    const { limparDocumento, tipoDoDocumento } = await import('../common/documento');
+
+    const documento = limparDocumento(bruto);
+    const tipo = tipoDoDocumento(documento);
+    if (!tipo) {
+      return {
+        disponivel: false,
+        mensagem: documento.length === 11
+          ? 'CPF inválido. Verifique os números.'
+          : documento.length === 14
+            ? 'CNPJ inválido. Verifique os números.'
+            : 'Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.',
+      };
+    }
+
+    const existente = await this.prisma.tenant.findUnique({
+      where: { documento },
+      select: { id: true },
+    });
+
+    if (existente) {
+      return {
+        disponivel: false,
+        mensagem: 'Já existe uma barbearia cadastrada com esse CPF/CNPJ.',
+      };
+    }
+
+    return { disponivel: true };
+  }
+
+  /**
+   * Verifica se um e-mail já está cadastrado como barbearia (tenant).
+   */
+  async verificarEmail(email: string): Promise<{
+    disponivel: boolean;
+    mensagem?: string;
+  }> {
+    const limpo = (email || '').trim().toLowerCase();
+    if (!limpo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(limpo)) {
+      return { disponivel: false, mensagem: 'E-mail inválido.' };
+    }
+
+    const existente = await this.prisma.tenant.findUnique({
+      where: { email: limpo },
+      select: { id: true },
+    });
+
+    if (existente) {
+      return {
+        disponivel: false,
+        mensagem: 'Este e-mail já está cadastrado. Entre com a conta existente ou recupere a senha.',
+      };
+    }
+
+    return { disponivel: true };
+  }
+
+  /**
    * Campos que o dono pode alterar na própria barbearia.
    *
    * A lista existe porque tipo de TypeScript some em tempo de execução:

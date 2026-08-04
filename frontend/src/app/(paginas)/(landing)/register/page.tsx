@@ -62,6 +62,14 @@ export default function RegisterPage() {
     const [subdominioEditado, setSubdominioEditado] = useState(false)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+    const [emailStatus, setEmailStatus] = useState<SlugStatus>('idle')
+    const [emailMensagem, setEmailMensagem] = useState('')
+    const debounceEmailRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    const [documentoStatus, setDocumentoStatus] = useState<SlugStatus>('idle')
+    const [documentoMensagem, setDocumentoMensagem] = useState('')
+    const debounceDocRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target
         setFormData((prev) => ({
@@ -127,6 +135,82 @@ export default function RegisterPage() {
         }
     }, [formData.subdominio, verificarSlug])
 
+    // Verificar email
+    const verificarEmail = useCallback(async (email: string) => {
+        if (!email || !!validarEmail(email)) { // validarEmail retorna string com erro ou null
+            setEmailStatus('idle')
+            setEmailMensagem('')
+            return
+        }
+        setEmailStatus('checking')
+        try {
+            const res = await fetch(`/api/tenants/verificar-email/${encodeURIComponent(email)}`)
+            const data = await res.json()
+            if (data.disponivel) {
+                setEmailStatus('available')
+                setEmailMensagem('')
+            } else {
+                setEmailStatus('unavailable')
+                setEmailMensagem(data.mensagem || 'E-mail já cadastrado')
+            }
+        } catch {
+            setEmailStatus('idle')
+            setEmailMensagem('Erro ao verificar.')
+        }
+    }, [])
+
+    useEffect(() => {
+        if (debounceEmailRef.current) clearTimeout(debounceEmailRef.current)
+        if (validarEmail(formData.email)) {
+            setEmailStatus('idle')
+            setEmailMensagem('')
+            return
+        }
+        debounceEmailRef.current = setTimeout(() => {
+            verificarEmail(formData.email)
+        }, 500)
+        return () => { if (debounceEmailRef.current) clearTimeout(debounceEmailRef.current) }
+    }, [formData.email, verificarEmail])
+
+    // Verificar documento
+    const verificarDocumento = useCallback(async (doc: string) => {
+        const limpo = limparDocumento(doc)
+        if (limpo.length !== 11 && limpo.length !== 14) {
+            setDocumentoStatus('idle')
+            setDocumentoMensagem('')
+            return
+        }
+        setDocumentoStatus('checking')
+        try {
+            const res = await fetch(`/api/tenants/verificar-documento/${encodeURIComponent(limpo)}`)
+            const data = await res.json()
+            if (data.disponivel) {
+                setDocumentoStatus('available')
+                setDocumentoMensagem('')
+            } else {
+                setDocumentoStatus('unavailable')
+                setDocumentoMensagem(data.mensagem || 'Documento já cadastrado')
+            }
+        } catch {
+            setDocumentoStatus('idle')
+            setDocumentoMensagem('Erro ao verificar.')
+        }
+    }, [])
+
+    useEffect(() => {
+        if (debounceDocRef.current) clearTimeout(debounceDocRef.current)
+        const limpo = limparDocumento(formData.documento)
+        if (limpo.length !== 11 && limpo.length !== 14) {
+            setDocumentoStatus('idle')
+            setDocumentoMensagem('')
+            return
+        }
+        debounceDocRef.current = setTimeout(() => {
+            verificarDocumento(limpo)
+        }, 500)
+        return () => { if (debounceDocRef.current) clearTimeout(debounceDocRef.current) }
+    }, [formData.documento, verificarDocumento])
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
@@ -166,6 +250,18 @@ export default function RegisterPage() {
         if (slugFinal && slugFinal.length >= 3 && slugStatus === 'unavailable') {
             setError('O endereço escolhido não está disponível. Escolha outro.')
             toastError('Endereço indisponível', 'Escolha outro endereço para sua barbearia.')
+            return
+        }
+
+        if (emailStatus === 'unavailable') {
+            setError(emailMensagem || 'Este e-mail já está cadastrado.')
+            toastError('E-mail já cadastrado', 'Faça login com a conta existente.')
+            return
+        }
+
+        if (documentoStatus === 'unavailable') {
+            setError(documentoMensagem || 'Este documento já está cadastrado.')
+            toastError('Documento já cadastrado', 'Já existe uma barbearia com este CPF/CNPJ.')
             return
         }
 
@@ -311,18 +407,39 @@ export default function RegisterPage() {
                     </div>
 
                     <div>
-                        <input
-                            type="email"
-                            name="email"
-                            required
-                            value={formData.email}
-                            onChange={handleChange}
-                            placeholder="E-mail"
-                            className={`${inputClasses} ${fieldErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                        />
-                        {fieldErrors.email && (
+                        <div className="relative">
+                            <input
+                                type="email"
+                                name="email"
+                                required
+                                value={formData.email}
+                                onChange={handleChange}
+                                placeholder="E-mail"
+                                className={`${inputClasses} pr-10 ${
+                                    fieldErrors.email || emailStatus === 'unavailable'
+                                        ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500'
+                                        : emailStatus === 'available'
+                                          ? 'border-green-500/60 focus:border-green-500 focus:ring-green-500'
+                                          : ''
+                                }`}
+                            />
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                {emailStatus === 'checking' && (
+                                    <Loader2 size={16} className="text-zinc-400 animate-spin" />
+                                )}
+                                {emailStatus === 'available' && (
+                                    <Check size={16} className="text-green-400" />
+                                )}
+                                {emailStatus === 'unavailable' && (
+                                    <X size={16} className="text-red-400" />
+                                )}
+                            </div>
+                        </div>
+                        {fieldErrors.email ? (
                             <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
-                        )}
+                        ) : emailStatus === 'unavailable' ? (
+                            <p className="text-red-400 text-xs mt-1">{emailMensagem}</p>
+                        ) : null}
                     </div>
                     <div>
                         <input
@@ -352,23 +469,42 @@ export default function RegisterPage() {
                         className={inputClasses}
                     />
                     <div>
-                        <input
-                            type="text"
-                            name="documento"
-                            required
-                            inputMode="text"
-                            value={formData.documento}
-                            onChange={(e) =>
-                                setFormData({
-                                    ...formData,
-                                    documento: formatarDocumentoInput(e.target.value),
-                                })
-                            }
-                            placeholder="CPF ou CNPJ da barbearia"
-                            className={`${inputClasses} ${erroDocumento ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                        />
-                        {erroDocumento ? (
-                            <p className="mt-1 text-xs text-red-400">{erroDocumento}</p>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                name="documento"
+                                required
+                                inputMode="text"
+                                value={formData.documento}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        documento: formatarDocumentoInput(e.target.value),
+                                    })
+                                }
+                                placeholder="CPF ou CNPJ da barbearia"
+                                className={`${inputClasses} pr-10 ${
+                                    erroDocumento || documentoStatus === 'unavailable'
+                                        ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500'
+                                        : documentoStatus === 'available'
+                                          ? 'border-green-500/60 focus:border-green-500 focus:ring-green-500'
+                                          : ''
+                                }`}
+                            />
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                {documentoStatus === 'checking' && (
+                                    <Loader2 size={16} className="text-zinc-400 animate-spin" />
+                                )}
+                                {documentoStatus === 'available' && (
+                                    <Check size={16} className="text-green-400" />
+                                )}
+                                {documentoStatus === 'unavailable' && (
+                                    <X size={16} className="text-red-400" />
+                                )}
+                            </div>
+                        </div>
+                        {erroDocumento || (documentoStatus === 'unavailable' && documentoMensagem) ? (
+                            <p className="mt-1 text-xs text-red-400">{erroDocumento || documentoMensagem}</p>
                         ) : (
                             <p className="mt-1 text-xs text-zinc-500">
                                 Uma conta por CPF/CNPJ. Se você é MEI ou autônomo, use o CPF.

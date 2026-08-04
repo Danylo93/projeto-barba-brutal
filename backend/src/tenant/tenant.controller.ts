@@ -85,6 +85,24 @@ export class TenantController {
     return this.tenantService.verificarSlug(slug);
   }
 
+  /**
+   * Verifica se um CPF/CNPJ já está cadastrado.
+   * Público — usado pelo formulário de cadastro.
+   */
+  @Get('verificar-documento/:documento')
+  verificarDocumento(@Param('documento') documento: string) {
+    return this.tenantService.verificarDocumento(documento);
+  }
+
+  /**
+   * Verifica se um e-mail já está cadastrado como barbearia.
+   * Público — usado pelo formulário de cadastro.
+   */
+  @Get('verificar-email/:email')
+  verificarEmail(@Param('email') email: string) {
+    return this.tenantService.verificarEmail(email);
+  }
+
   /** Landing pública da barbearia (sem autenticação) — por domínio ou id. */
   @Get('publico/:identificador')
   getPaginaPublica(@Param('identificador') identificador: string) {
