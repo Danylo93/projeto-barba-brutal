@@ -19,6 +19,7 @@ import {
     formatarTelefone,
     horarioDoDia,
 } from '@/lib/agendamento-utils'
+import { nomeDaBarbearia, partesDoNome } from '@/lib/barbearia'
 
 export const revalidate = 60
 
@@ -27,12 +28,6 @@ interface ServicoPublico {
     nome: string
     descricao?: string
     preco: number
-    /**
-     * Cada profissional pode cobrar o próprio valor. A vitrine mostra o menor
-     * entre os que fazem o serviço, e avisa "a partir de" quando divergem.
-     */
-    precoMinimo?: number
-    precoVariavel?: boolean
     qtdeSlots: number
     ehCombo: boolean
     imagemURL?: string
@@ -127,12 +122,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
     const b = await getBarbearia(params.dominio)
     if (!b) return { title: 'Barbearia não encontrada' }
+    const nome = nomeDaBarbearia(b.nome)
     return {
-        title: `${b.nome} — Corte, Barba e Estilo`,
-        description: `Agende seu horário na ${b.nome}. Profissionais especialistas, agendamento online.`,
+        title: `${nome} — Corte, Barba e Estilo`,
+        description: `Agende seu horário na ${nome}. Profissionais especialistas, agendamento online.`,
         openGraph: {
-            title: `${b.nome} — Corte, Barba e Estilo`,
-            description: `Agende seu horário na ${b.nome}.`,
+            title: `${nome} — Corte, Barba e Estilo`,
+            description: `Agende seu horário na ${nome}.`,
             type: 'website',
         },
     }
@@ -153,8 +149,9 @@ export default async function BarbeariaPublicaPage({
     // Horário de cada dia da semana (0-6), aceitando formato novo e antigo.
     const grade = DIAS.map((rotulo, i) => ({ rotulo, ...horarioDoDia(cfg, i) }))
     const diasAbertos = grade.filter((g) => g.aberto)
-    const [nomePrimario, ...resto] = b.nome.split(' ')
-    const nomeSecundario = resto.join(' ')
+    // Para o cliente a barbearia sempre se chama "Barbearia Fulano".
+    const nomeExibido = nomeDaBarbearia(b.nome)
+    const [nomePrimario, nomeSecundario] = partesDoNome(b.nome)
 
     // Cores da barbearia (tenant).
     const bgPrimary =
@@ -216,7 +213,7 @@ export default async function BarbeariaPublicaPage({
                 <div className="absolute inset-0">
                     <Image
                         src="/banners/principal.webp"
-                        alt={b.nome}
+                        alt={nomeExibido}
                         fill
                         priority
                         className="object-cover opacity-30"
@@ -227,7 +224,7 @@ export default async function BarbeariaPublicaPage({
                 <div className="relative mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32 text-center">
                     <div className="animate-fade-in mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-tenant-secondary/30 bg-tenant-secondary/10 px-4 py-1.5">
                         <Scissors size={14} className="text-tenant-secondary" />
-                        <span className="text-sm font-medium text-tenant-secondary">{b.nome}</span>
+                        <span className="text-sm font-medium text-tenant-secondary">{nomeExibido}</span>
                     </div>
 
                     <h1 className="animate-slide-up text-4xl font-black leading-tight tracking-tight text-white sm:text-6xl">
@@ -301,16 +298,8 @@ export default async function BarbeariaPublicaPage({
                                 <div className="flex flex-1 flex-col p-5">
                                     <div className="flex items-start justify-between gap-3">
                                         <h3 className="text-lg font-bold text-white">{servico.nome}</h3>
-                                        <span className="whitespace-nowrap text-right text-lg font-black text-tenant-secondary">
-                                            {servico.precoVariavel && (
-                                                <span className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                                                    a partir de
-                                                </span>
-                                            )}
-                                            R${' '}
-                                            {(servico.precoMinimo ?? servico.preco)
-                                                .toFixed(2)
-                                                .replace('.', ',')}
+                                        <span className="whitespace-nowrap text-lg font-black text-tenant-secondary">
+                                            R$ {servico.preco.toFixed(2).replace('.', ',')}
                                         </span>
                                     </div>
                                     {servico.descricao && (
@@ -472,7 +461,7 @@ export default async function BarbeariaPublicaPage({
                             Pronto para o próximo corte?
                         </h2>
                         <p className="mx-auto mt-3 max-w-lg text-zinc-300">
-                            Garanta seu horário na {b.nome} em poucos cliques. Sem fila, sem espera.
+                            Garanta seu horário na {nomeExibido} em poucos cliques. Sem fila, sem espera.
                         </p>
                         <Link
                             href={agendarHref}
@@ -490,7 +479,7 @@ export default async function BarbeariaPublicaPage({
                 <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6">
                     <Marca />
                     <p className="text-sm text-zinc-500">
-                        © {new Date().getFullYear()} {b.nome}. Todos os direitos reservados.
+                        © {new Date().getFullYear()} {nomeExibido}. Todos os direitos reservados.
                     </p>
                 </div>
             </footer>

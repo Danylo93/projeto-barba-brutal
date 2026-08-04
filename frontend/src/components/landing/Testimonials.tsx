@@ -23,9 +23,9 @@ const promessas = [
   },
   {
     icon: ShieldCheck,
-    titulo: 'Teste de 30 dias sem cartão',
+    titulo: 'Teste de 30 dias',
     texto:
-      'Você usa o sistema completo por um mês inteiro antes de decidir. Não pedimos cartão de crédito para começar.',
+      'Você usa o sistema completo por um mês inteiro antes de decidir se continua.',
     cor: 'from-emerald-400 to-teal-500',
   },
   {

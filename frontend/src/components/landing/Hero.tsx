@@ -212,7 +212,7 @@ export function Hero() {
           >
             <Scissors size={14} className="text-yellow-400" />
             <span className="text-sm font-medium text-yellow-300">
-              30 dias grátis — sem cartão de crédito
+              30 dias grátis para testar
             </span>
           </motion.div>
 

@@ -7,7 +7,7 @@ const passos = [
   {
     icone: Store,
     titulo: 'Cadastre sua barbearia',
-    descricao: 'Crie sua conta em 2 minutos. Sem cartão de crédito, sem burocracia.',
+    descricao: 'Crie sua conta em 2 minutos, sem burocracia.',
   },
   {
     icone: Scissors,
