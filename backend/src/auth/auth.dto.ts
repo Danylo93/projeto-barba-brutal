@@ -37,6 +37,18 @@ export class LoginTenantDto {
 /** O admin do SaaS entra pelas mesmas credenciais, em rota separada. */
 export class LoginAdminDto extends LoginTenantDto {}
 
+/**
+ * Login único. `tenantId` só vem quando a pessoa entra pela página de uma
+ * barbearia — é ele que separa o contexto do cliente do contexto do SaaS.
+ */
+export class LoginDto extends LoginTenantDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Barbearia inválida.' })
+  @Min(1, { message: 'Barbearia inválida.' })
+  tenantId?: number;
+}
+
 export class LoginUsuarioDto extends LoginTenantDto {
   // Cliente e barbeiro existem DENTRO de uma barbearia: sem o tenant não dá
   // para saber de quem é a conta.

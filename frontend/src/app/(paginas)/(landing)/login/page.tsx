@@ -67,11 +67,18 @@ function LoginContent() {
         setTimeout(() => router.push(alvo), 100)
     }
 
-    // Tenta autenticar num endpoint específico. Não cria sessão — só devolve se
-    // as credenciais são válidas ali (usado também para "sondar" o papel e avisar
-    // quando alguém tenta entrar na página errada).
-    async function tentar(url: string, body: Record<string, unknown>) {
-        const response = await fetch(url, {
+    /**
+     * Uma requisição, direto na API.
+     *
+     * Antes eram até TRÊS chamadas em sequência para descobrir o papel (dono,
+     * admin, cliente), e cada uma passava por uma função da Vercel antes de
+     * chegar no backend. Quatro saltos por tentativa, três tentativas: com o
+     * Render acordando de um lado e a função da Vercel do outro, um login
+     * errado levava vários segundos. Quem decide o papel agora é o servidor.
+     */
+    async function tentar(body: Record<string, unknown>) {
+        const base = process.env.NEXT_PUBLIC_URL_BASE || ''
+        const response = await fetch(`${base}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
@@ -85,51 +92,38 @@ function LoginContent() {
     //  - SITE DA BARBEARIA (com ?tenant=): só cliente e profissional daquela barbearia.
     // Se a conta pertence ao outro contexto, mostramos um toast orientando a página certa.
     async function entrar() {
-        const cred = { email, senha }
+        // No contexto da barbearia manda o tenantId; no do SaaS, não. É esse
+        // campo que diz ao servidor qual porta a pessoa está usando.
+        const { ok, data } = await tentar(
+            contextoBarbearia ? { email, senha, tenantId } : { email, senha },
+        )
 
-        if (contextoBarbearia) {
-            const usuario = await tentar('/api/auth/usuario/login', { ...cred, tenantId })
-            if (usuario.ok) {
-                criarSessao(usuario.data.access_token)
-                irPara('/agendamento', true)
-                return
+        if (ok) {
+            criarSessao(data.access_token)
+            const destinoPorPapel: Record<string, [string, boolean]> = {
+                usuario: ['/agendamento', true],
+                tenant: ['/dashboard', false],
+                admin: ['/admin', false],
             }
-            // Credencial de administração usada na página do cliente?
-            const dono = await tentar('/api/auth/tenant/login', cred)
-            const admin = dono.ok ? dono : await tentar('/api/auth/admin/login', cred)
-            if (dono.ok || admin.ok) {
-                toastAviso(
-                    'Conta de administração',
-                    'Esta é uma conta de dono/administrador. Acesse pelo painel do sistema, não pela página da barbearia.',
-                )
-                return
-            }
-            throw new Error(usuario.data.message || 'Email ou senha inválidos')
+            const [padrao, honrarDestino] = destinoPorPapel[data.papel] ?? [
+                '/agendamento',
+                true,
+            ]
+            irPara(padrao, honrarDestino)
+            return
         }
 
-        // Contexto SaaS
-        const dono = await tentar('/api/auth/tenant/login', cred)
-        if (dono.ok) {
-            criarSessao(dono.data.access_token)
-            irPara('/dashboard', false)
+        // Credencial certa, página errada: o servidor avisa qual é qual.
+        if (data.contextoErrado === 'administracao') {
+            toastAviso('Conta de administração', data.message)
             return
         }
-        const admin = await tentar('/api/auth/admin/login', cred)
-        if (admin.ok) {
-            criarSessao(admin.data.access_token)
-            irPara('/admin', false)
+        if (data.contextoErrado === 'cliente') {
+            toastAviso('Conta de cliente ou profissional', data.message)
             return
         }
-        // Credencial de cliente/profissional usada na página do SaaS?
-        const usuario = await tentar('/api/auth/usuario/login', { ...cred, tenantId })
-        if (usuario.ok) {
-            toastAviso(
-                'Conta de cliente ou profissional',
-                'Para entrar e agendar, use a página da sua barbearia.',
-            )
-            return
-        }
-        throw new Error(dono.data.message || admin.data.message || 'Email ou senha inválidos')
+
+        throw new Error(data.message || 'Email ou senha inválidos')
     }
 
     // Cadastro de cliente na barbearia (para agendar serviços).
