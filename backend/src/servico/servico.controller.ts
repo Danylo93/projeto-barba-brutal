@@ -4,6 +4,7 @@ import { PrismaService } from 'src/db/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
 import { CurrentTenant, CurrentTenantId } from '../auth/current-tenant.decorator';
+import { paraCriar, servicosQueFaltam } from './catalogo-padrao';
 
 @Controller('servicos')
 export class ServicoController {
@@ -28,6 +29,34 @@ export class ServicoController {
     return this.prisma.servico.findFirst({
       where: { id, tenantId },
     });
+  }
+
+  /**
+   * Completa a barbearia com os serviços do catálogo que ela ainda não tem.
+   *
+   * Existe para as barbearias criadas antes do catálogo padrão, que ficaram
+   * com dois ou três serviços. Fica ANTES de `:id` porque o Nest casa as rotas
+   * na ordem de declaração.
+   */
+  @Post('sugeridos')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  async adicionarSugeridos(@CurrentTenant() tenant: any) {
+    const existentes = await this.prisma.servico.findMany({
+      where: { tenantId: tenant.id },
+      select: { nome: true },
+    });
+
+    const faltam = servicosQueFaltam(existentes);
+    if (faltam.length) {
+      await this.prisma.servico.createMany({
+        data: faltam.map((padrao) => paraCriar(padrao, tenant.id)),
+      });
+    }
+
+    return {
+      criados: faltam.length,
+      nomes: faltam.map((s) => s.nome),
+    };
   }
 
   @Post()

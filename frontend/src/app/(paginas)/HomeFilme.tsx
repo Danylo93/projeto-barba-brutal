@@ -9,7 +9,7 @@
 
 import Link from 'next/link'
 import FilmeScroll, { CenaFilme } from '@/components/filme/FilmeScroll'
-import { ArrowRight, ArrowDown, Scissors } from 'lucide-react'
+import { ArrowRight, ArrowDown } from 'lucide-react'
 
 const CENAS: CenaFilme[] = [
     {
@@ -75,12 +75,6 @@ export default function HomeFilme() {
 function HeroSaas() {
     return (
         <>
-            <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-1.5">
-                <Scissors size={14} className="text-yellow-400" />
-                <span className="text-sm font-medium text-yellow-300">
-                    30 dias grátis para testar
-                </span>
-            </span>
             <h1
                 className="text-4xl font-black leading-none tracking-tight text-white sm:text-6xl lg:text-7xl"
                 style={{ fontFamily: 'var(--font-outfit)' }}
