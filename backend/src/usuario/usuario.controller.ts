@@ -1,4 +1,12 @@
-import { Controller, Get, Delete, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Delete,
+  Param,
+  ParseIntPipe,
+  NotFoundException,
+  UseGuards,
+} from '@nestjs/common';
 import { PrismaService } from 'src/db/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
@@ -53,8 +61,16 @@ export class UsuarioController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentTenant() tenant: any,
   ) {
-    return this.prisma.usuario.deleteMany({
+    // Mesmo motivo dos outros: `deleteMany` respondia 200 com `{ count: 0 }`
+    // e a tela dizia "cliente excluído" sem ter excluído nada.
+    const usuario = await this.prisma.usuario.findFirst({
       where: { id, tenantId: tenant.id },
+      select: { id: true },
     });
+    if (!usuario) {
+      throw new NotFoundException('Cliente não encontrado nesta barbearia.');
+    }
+    await this.prisma.usuario.delete({ where: { id } });
+    return { ok: true, id };
   }
 }
