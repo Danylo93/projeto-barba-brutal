@@ -1,0 +1,93 @@
+# Varredura de segurança a cada PR e toda segunda de manhã.
+#
+# Existe porque dependência apodrece sozinha: no dia em que este arquivo foi
+# criado, a varredura achou 39 alertas no backend e 20 no frontend — entre eles
+# uma falha de verificação de assinatura HMAC no `jws`, que é a biblioteca que
+# valida o nosso token de login. Ninguém tinha tocado no código; o mundo mudou
+# em volta. Sem alguém olhando toda semana, isso volta a acontecer.
+name: Segurança
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  schedule:
+    # Segunda-feira, 9h de Brasília (12h UTC).
+    - cron: '0 12 * * 1'
+
+jobs:
+  sca:
+    name: SCA — dependências vulneráveis
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        projeto: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # `--omit=dev` porque o que roda em produção é o que pode ser explorado
+      # por alguém de fora. Alerta em ferramenta de build atrapalha mais do que
+      # ajuda: vira ruído, o time acostuma a ignorar e o alerta que importa
+      # passa junto. As de desenvolvimento saem no passo seguinte, sem barrar.
+      - name: Instalar (${{ matrix.projeto }})
+        run: npm ci
+        working-directory: ${{ matrix.projeto }}
+
+      # O portão está em `critical`, não em `high`, e isso é dívida assumida:
+      # sobraram duas altas que só somem com major de framework —
+      # `@nestjs/platform-express` 10→11 (traz `multer`, que este projeto nem
+      # usa: não há upload em lugar nenhum) e `next` 14→16. Cada uma é uma
+      # migração de verdade, com risco próprio, e não cabia junto da correção
+      # de login. Baixar para `high` assim que essas duas subirem.
+      - name: Falhar se houver vulnerabilidade crítica em produção
+        run: npm audit --omit=dev --audit-level=critical
+        working-directory: ${{ matrix.projeto }}
+
+      - name: Altas em produção (visível, ainda não barra)
+        if: always()
+        run: npm audit --omit=dev --audit-level=high || true
+        working-directory: ${{ matrix.projeto }}
+
+      - name: Relatório completo (inclui desenvolvimento, não barra)
+        if: always()
+        run: npm audit || true
+        working-directory: ${{ matrix.projeto }}
+
+  sast:
+    name: SAST — Semgrep (OWASP Top 10)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Varredura
+        run: |
+          semgrep scan \
+            --config=p/owasp-top-ten \
+            --config=p/javascript \
+            --config=p/typescript \
+            --config=p/secrets \
+            --error \
+            --exclude=node_modules --exclude=.next --exclude=dist --exclude=coverage \
+            backend/src frontend/src
+
+  testes:
+    name: Testes do backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+        working-directory: backend
+      - run: npx prisma generate
+        working-directory: backend
+      - run: npx tsc --noEmit
+        working-directory: backend
+      - run: npx jest
+        working-directory: backend

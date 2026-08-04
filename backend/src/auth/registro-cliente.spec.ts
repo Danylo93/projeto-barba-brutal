@@ -61,8 +61,9 @@ describe('cadastro público de cliente', () => {
       profissionalId: 3,
     } as any);
 
+    // `sessaoId` entra aqui, mas é gerado no servidor — nada do corpo passa.
     expect(Object.keys(criados[0]).sort()).toEqual(
-      ['barbeiro', 'email', 'nome', 'senha', 'telefone', 'tenantId'].sort(),
+      ['barbeiro', 'email', 'nome', 'senha', 'sessaoId', 'telefone', 'tenantId'].sort(),
     );
   });
 

@@ -1,9 +1,17 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  Logger,
+  NestInterceptor,
+} from '@nestjs/common';
 import { Observable, tap } from 'rxjs';
 import { PrismaService } from '../db/prisma.service';
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(AuditInterceptor.name);
+
   constructor(private prisma: PrismaService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
@@ -42,7 +50,13 @@ export class AuditInterceptor implements NestInterceptor {
               new Date()
             );
           } catch (e) {
-            // Não bloquear requisição por falha de auditoria
+            // Auditoria não pode derrubar a requisição — mas também não pode
+            // sumir. Se a trilha parar de gravar, ninguém descobria: é
+            // exatamente ela que se consulta depois de um incidente.
+            this.logger.error(
+              `Falha ao gravar auditoria de ${method} ${req.originalUrl || req.url}: ` +
+                `${e instanceof Error ? e.message : e}`,
+            );
           }
         },
       })

@@ -6,6 +6,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import {
   LoginAdminDto,
+  LoginDto,
   LoginTenantDto,
   LoginUsuarioDto,
   RegistrarTenantDto,
@@ -19,7 +20,25 @@ export class AuthController {
     private readonly recuperacao: RecuperacaoService,
   ) {}
 
+  /**
+   * Login em uma requisição só.
+   *
+   * A tela tentava até TRÊS endpoints em sequência para descobrir o papel de
+   * quem estava entrando (dono, admin, cliente). Cada tentativa era uma ida e
+   * volta inteira — navegador, função da Vercel, API no Render, banco — e um
+   * login errado custava três delas. Aqui quem descobre o papel é o servidor,
+   * que já tem tudo em mãos.
+   */
+  @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  login(@Body() data: LoginDto) {
+    return this.authService.login(data.email, data.senha, data.tenantId);
+  }
+
+  // Senha por tentativa: sem isto, o limite valia o global de 60 por minuto —
+  // 60 chutes de senha por minuto, por IP, em toda conta do sistema.
   @Post('tenant/login')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   loginTenant(@Body() data: LoginTenantDto) {
     return this.authService.loginTenant(data.email, data.senha);
   }
@@ -30,6 +49,7 @@ export class AuthController {
   }
 
   @Post('usuario/login')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   loginUsuario(@Body() data: LoginUsuarioDto) {
     return this.authService.loginUsuario(data.email, data.senha, data.tenantId);
   }
@@ -41,6 +61,7 @@ export class AuthController {
   }
 
   @Post('admin/login')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   loginAdmin(@Body() data: LoginAdminDto) {
     return this.authService.loginAdmin(data.email, data.senha);
   }

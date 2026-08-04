@@ -8,6 +8,7 @@ import { NotificacaoService } from '../notificacao/notificacao.service';
 import { emailBoasVindas } from '../notificacao/templates';
 import { paraCriar, servicosQueFaltam } from '../servico/catalogo-padrao';
 import * as bcrypt from 'bcrypt';
+import { novaSessao } from './sessao';
 
 /** Valida formato de e-mail. */
 function validarEmail(email: string): boolean {
@@ -46,6 +47,41 @@ function semSenha<T extends { senha?: any } | null | undefined>(obj: T): T {
   return rest;
 }
 
+/**
+ * O que a tela precisa saber da barbearia depois do login.
+ *
+ * Lista fechada, e não "tudo menos a senha": o registro do tenant guarda a
+ * `apiKey` de integração, o CPF/CNPJ do dono, a chave Pix que recebe o clube e
+ * o id de cliente no Stripe. Nada disso tem uso no navegador, e tudo isso ia
+ * no corpo da resposta de login — legível por qualquer script na página.
+ */
+function dadosDaBarbearia(tenant: any) {
+  if (!tenant) return tenant;
+  return {
+    id: tenant.id,
+    nome: tenant.nome,
+    email: tenant.email,
+    telefone: tenant.telefone,
+    endereco: tenant.endereco,
+    dominio: tenant.dominio,
+    logo: tenant.logo,
+    corPrimaria: tenant.corPrimaria,
+    corSecundaria: tenant.corSecundaria,
+    configuracoes: tenant.configuracoes,
+    ativo: tenant.ativo,
+    assinatura: tenant.assinatura
+      ? {
+          status: tenant.assinatura.status,
+          emTeste: tenant.assinatura.emTeste,
+          dataFim: tenant.assinatura.dataFim,
+          plano: tenant.assinatura.plano
+            ? { nome: tenant.assinatura.plano.nome, ativo: tenant.assinatura.plano.ativo }
+            : null,
+        }
+      : null,
+  };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -54,6 +90,118 @@ export class AuthService {
     private subscriptionValidation: SubscriptionValidationService,
     private notificacao: NotificacaoService,
   ) {}
+
+  /**
+   * Descobre o papel e autentica numa requisição só.
+   *
+   * A tela fazia isso tentando até três endpoints em sequência: cada tentativa
+   * era uma ida e volta inteira (navegador → função da Vercel → API no Render
+   * → banco), e um login errado custava três delas. O servidor já tem tudo em
+   * mãos para decidir.
+   *
+   * A separação de contexto é a mesma de antes: com `tenantId` (página da
+   * barbearia) entram cliente e profissional; sem ele (painel do SaaS) entram
+   * dono e admin. Quem erra a página recebe `contextoErrado` para a tela
+   * orientar, em vez de só "senha inválida".
+   */
+  async login(email: string, senha: string, tenantId?: number) {
+    const tentar = async <T>(fn: () => Promise<T>): Promise<T | null> => {
+      try {
+        return await fn();
+      } catch {
+        // Aqui só interessa "essa credencial serve neste contexto?". O erro
+        // que vale mostrar é decidido no fim, com o contexto todo conhecido.
+        return null;
+      }
+    };
+
+    if (tenantId) {
+      const usuario = await tentar(() => this.loginUsuario(email, senha, tenantId));
+      if (usuario) return { ...usuario, papel: 'usuario' };
+
+      // Sonda sem autenticar: chamar `loginTenant` aqui geraria uma sessão
+      // nova e derrubaria o dono que estivesse logado no painel, por causa de
+      // uma tentativa que a gente vai recusar de qualquer jeito.
+      if (await this.ehCredencialDeAdministracao(email, senha)) {
+        return {
+          contextoErrado: 'administracao',
+          message:
+            'Esta é uma conta de dono ou administrador. Entre pelo painel do sistema, não pela página da barbearia.',
+        };
+      }
+      // Repete a tentativa só para devolver a mensagem exata (assinatura
+      // vencida, barbearia inativa) em vez de um "senha inválida" genérico.
+      return this.loginUsuario(email, senha, tenantId);
+    }
+
+    const dono = await tentar(() => this.loginTenant(email, senha));
+    if (dono) return { ...dono, papel: 'tenant' };
+
+    const admin = await tentar(() => this.loginAdmin(email, senha));
+    if (admin) return { ...admin, papel: 'admin' };
+
+    // Cliente ou barbeiro tentando entrar pelo painel do SaaS. Só chega aqui
+    // quem acertou a senha, então não conta nada a quem não sabia — e evita o
+    // "email ou senha inválidos" para quem digitou tudo certo, só na página
+    // errada.
+    const daBarbearia = await this.barbeariaDoCliente(email, senha);
+    if (daBarbearia) {
+      return {
+        contextoErrado: 'cliente',
+        message:
+          `Esta conta é de cliente ou profissional da ${daBarbearia.nome}. ` +
+          `Para entrar e agendar, use a página da sua barbearia.`,
+        tenantId: daBarbearia.id,
+      };
+    }
+
+    return this.loginTenant(email, senha);
+  }
+
+  /**
+   * Achou uma conta de cliente/barbeiro com essa senha? Devolve a barbearia
+   * dela, só para a tela poder mandar a pessoa para o lugar certo.
+   */
+  private async barbeariaDoCliente(email: string, senha: string) {
+    const candidatos = await this.prisma.usuario.findMany({
+      where: { email, ativo: true },
+      select: { senha: true, tenant: { select: { id: true, nome: true } } },
+      take: 5,
+    });
+
+    for (const candidato of candidatos) {
+      if (await bcrypt.compare(senha, candidato.senha)) return candidato.tenant;
+    }
+    return null;
+  }
+
+  /**
+   * A credencial é de dono ou de admin? Confere e pronto — não emite token
+   * nem mexe na sessão de ninguém.
+   */
+  private async ehCredencialDeAdministracao(
+    email: string,
+    senha: string,
+  ): Promise<boolean> {
+    const [tenant, admin] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { email },
+        select: { senha: true, ativo: true },
+      }),
+      this.prisma.admin.findUnique({
+        where: { email },
+        select: { senha: true, ativo: true },
+      }),
+    ]);
+
+    if (tenant?.ativo && (await bcrypt.compare(senha, tenant.senha || ''))) {
+      return true;
+    }
+    if (admin?.ativo && (await bcrypt.compare(senha, admin.senha))) {
+      return true;
+    }
+    return false;
+  }
 
   async loginTenant(email: string, senha: string) {
     const tenant = await this.prisma.tenant.findUnique({
@@ -99,16 +247,26 @@ export class AuthService {
       )
     }
 
+    const sid = novaSessao();
+    await this.prisma.tenant.update({
+      where: { id: tenant.id },
+      data: { sessaoId: sid },
+    });
+
     const payload = {
       id: tenant.id,
       tenantId: tenant.id,
       tipo: 'tenant',
       email: tenant.email,
+      sid,
     };
 
     return {
       access_token: this.jwtService.sign(payload),
-      tenant: semSenha(tenant),
+      // Só o que a tela usa. Devolver o tenant inteiro mandava para o
+      // navegador a apiKey de integração, o CPF/CNPJ e a chave Pix da
+      // barbearia — tudo no corpo da resposta de login.
+      tenant: dadosDaBarbearia(tenant),
     };
   }
 
@@ -182,12 +340,19 @@ export class AuthService {
       )
     }
 
+    const sid = novaSessao();
+    await this.prisma.usuario.update({
+      where: { id: usuario.id },
+      data: { sessaoId: sid },
+    });
+
     const payload = {
       id: usuario.id,
       tenantId: usuario.tenantId,
       tipo: 'usuario',
       email: usuario.email,
       barbeiro: usuario.barbeiro,
+      sid,
     };
 
     return {
@@ -219,10 +384,17 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    const sid = novaSessao();
+    await this.prisma.admin.update({
+      where: { id: admin.id },
+      data: { sessaoId: sid },
+    });
+
     const payload = {
       id: admin.id,
       tipo: 'admin',
       email: admin.email,
+      sid,
     };
 
     return {
@@ -298,6 +470,10 @@ export class AuthService {
       });
     }
 
+    // A sessão já nasce com o cadastro: uma consulta a menos, e a conta nunca
+    // fica um instante sem `sessaoId` (que reprovaria o token recém-emitido).
+    const sid = novaSessao();
+
     const tenant = await this.prisma.tenant.create({
       data: {
         ...data,
@@ -307,6 +483,7 @@ export class AuthService {
         corPrimaria: COR_PRIMARIA_PADRAO,
         corSecundaria,
         dominio: slug,
+        sessaoId: sid,
       },
     });
 
@@ -333,11 +510,12 @@ export class AuthService {
       tenantId: tenant.id,
       tipo: 'tenant',
       email: tenant.email,
+      sid,
     };
 
     return {
       access_token: this.jwtService.sign(payload),
-      tenant: semSenha(tenant),
+      tenant: dadosDaBarbearia(tenant),
     };
   }
 
@@ -368,6 +546,9 @@ export class AuthService {
 
 
     const senhaHash = await bcrypt.hash(data.senha, 10);
+    // A sessão já nasce com o cadastro: uma consulta a menos, e a conta nunca
+    // fica um instante sem `sessaoId` (que reprovaria o token recém-emitido).
+    const sid = novaSessao();
 
     const usuario = await this.prisma.usuario.create({
       // Campo a campo, nunca `...data`.
@@ -384,6 +565,7 @@ export class AuthService {
         senha: senhaHash,
         tenantId: data.tenantId,
         barbeiro: false,
+        sessaoId: sid,
       },
       include: {
         tenant: {
@@ -404,6 +586,7 @@ export class AuthService {
       tipo: 'usuario',
       email: usuario.email,
       barbeiro: usuario.barbeiro,
+      sid,
     };
 
     return {

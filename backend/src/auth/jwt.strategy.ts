@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../db/prisma.service';
+import { MOTIVO_SESSAO_ENCERRADA, sessaoValida } from './sessao';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -14,7 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    const { id, tenantId, tipo } = payload;
+    const { id, tenantId, tipo, sid } = payload;
 
     if (tipo === 'tenant') {
       const tenant = await this.prisma.tenant.findUnique({
@@ -30,6 +31,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       if (!tenant || !tenant.ativo) {
         throw new UnauthorizedException('Tenant não encontrado ou inativo');
+      }
+      // Uma sessão por conta: o login mais recente vence, o anterior cai aqui.
+      if (!sessaoValida(sid, tenant.sessaoId)) {
+        throw new UnauthorizedException(MOTIVO_SESSAO_ENCERRADA);
       }
 
       const { senha, ...tenantSemSenha } = tenant;
@@ -58,6 +63,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (!usuario || !usuario.ativo) {
         throw new UnauthorizedException('Usuário não encontrado ou inativo');
       }
+      if (!sessaoValida(sid, usuario.sessaoId)) {
+        throw new UnauthorizedException(MOTIVO_SESSAO_ENCERRADA);
+      }
 
       const { senha, tenant, ...usuarioSemSenha } = usuario;
       const tenantSemSenha = tenant ? (({ senha: _s, ...t }) => t)(tenant) : tenant;
@@ -71,6 +79,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       if (!admin || !admin.ativo) {
         throw new UnauthorizedException('Admin não encontrado ou inativo');
+      }
+      if (!sessaoValida(sid, admin.sessaoId)) {
+        throw new UnauthorizedException(MOTIVO_SESSAO_ENCERRADA);
       }
 
       const { senha, ...adminSemSenha } = admin;
