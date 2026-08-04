@@ -256,9 +256,17 @@ export class ProfissionalController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentTenant() tenant: any,
   ) {
-    return this.prisma.profissional.deleteMany({
+    // `deleteMany` devolvia `{ count: 0 }` com 200 quando o id não era desta
+    // barbearia (ou nem existia), e a tela dizia "Profissional excluído".
+    const profissional = await this.prisma.profissional.findFirst({
       where: { id, tenantId: tenant.id },
+      select: { id: true },
     });
+    if (!profissional) {
+      throw new NotFoundException('Profissional não encontrado nesta barbearia.');
+    }
+    await this.prisma.profissional.delete({ where: { id } });
+    return { ok: true, id };
   }
 }
 

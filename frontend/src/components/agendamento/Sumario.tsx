@@ -73,7 +73,14 @@ export default function Sumario() {
         await criar()
     }
 
-    // Cliente optou por remarcar: cancela o(s) do dia e cria no novo horário.
+    /**
+     * Cliente optou por remarcar: cancela o(s) do dia e cria no novo horário.
+     *
+     * Se o cancelamento falhar, PARA. Antes o erro era engolido e o novo
+     * agendamento era criado assim mesmo: o cliente lia "o horário anterior
+     * será cancelado", saía com dois horários marcados e só o barbeiro
+     * descobria — no dia.
+     */
     async function confirmarRemarcar() {
         const paraCancelar = conflitos
         setConflitos([])
@@ -82,8 +89,11 @@ export default function Sumario() {
             for (const ag of paraCancelar) {
                 await httpDelete(`agendamentos/${ag.id}`)
             }
-        } catch {
-            /* segue e tenta criar mesmo assim */
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Tente de novo em instantes.'
+            setErro(`Não foi possível cancelar o horário anterior. ${msg}`)
+            toastError('Nada foi alterado', `Não conseguimos cancelar seu horário anterior. ${msg}`)
+            return
         } finally {
             setCarregando(false)
         }

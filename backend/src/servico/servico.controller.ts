@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
+  NotFoundException,
+  UseGuards,
+} from '@nestjs/common';
 import { AtualizarServicoDto, CriarServicoDto } from './servico.dto';
 import { PrismaService } from 'src/db/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -78,6 +89,23 @@ export class ServicoController {
     });
   }
 
+  /**
+   * Confere que o serviço é DESTA barbearia antes de mexer.
+   *
+   * Antes era `updateMany`/`deleteMany` direto: quando nada casava, o Prisma
+   * devolvia `{ count: 0 }` e a API respondia 200. A tela mostrava
+   * "Serviço salvo com sucesso" sobre uma operação que não aconteceu — com
+   * duas abas abertas, ou com a lista desatualizada, o dono achava que tinha
+   * salvo e não tinha.
+   */
+  private async servicoDaBarbearia(id: number, tenantId: number) {
+    const servico = await this.prisma.servico.findFirst({ where: { id, tenantId } });
+    if (!servico) {
+      throw new NotFoundException('Serviço não encontrado nesta barbearia.');
+    }
+    return servico;
+  }
+
   @Put(':id')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   async update(
@@ -85,10 +113,9 @@ export class ServicoController {
     @Body() data: AtualizarServicoDto,
     @CurrentTenant() tenant: any,
   ) {
-    return this.prisma.servico.updateMany({
-      where: { id, tenantId: tenant.id },
-      data,
-    });
+    await this.servicoDaBarbearia(id, tenant.id);
+    // Devolve o serviço atualizado: `{ count: 1 }` não dizia nada à tela.
+    return this.prisma.servico.update({ where: { id }, data });
   }
 
   @Delete(':id')
@@ -97,8 +124,8 @@ export class ServicoController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentTenant() tenant: any,
   ) {
-    return this.prisma.servico.deleteMany({
-      where: { id, tenantId: tenant.id },
-    });
+    await this.servicoDaBarbearia(id, tenant.id);
+    await this.prisma.servico.delete({ where: { id } });
+    return { ok: true, id };
   }
 }
