@@ -6,6 +6,7 @@ import { escolherCorMarca, COR_PRIMARIA_PADRAO } from '../tenant/cores-marca';
 import { limparDocumento, tipoDoDocumento } from '../common/documento';
 import { NotificacaoService } from '../notificacao/notificacao.service';
 import { emailBoasVindas } from '../notificacao/templates';
+import { paraCriar, servicosQueFaltam } from '../servico/catalogo-padrao';
 import * as bcrypt from 'bcrypt';
 
 /** Valida formato de e-mail. */
@@ -307,6 +308,13 @@ export class AuthService {
         corSecundaria,
         dominio: slug,
       },
+    });
+
+    // A barbearia já nasce com o catálogo de serviços. Sem isto o dono cai
+    // num painel vazio e precisa cadastrar tudo antes de qualquer tela
+    // funcionar — inclusive a página pública, que ficava sem nada para mostrar.
+    await this.prisma.servico.createMany({
+      data: servicosQueFaltam([]).map((padrao) => paraCriar(padrao, tenant.id)),
     });
 
     // Boas-vindas não pode derrubar o cadastro: se o SMTP cair, a barbearia

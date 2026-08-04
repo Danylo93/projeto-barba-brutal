@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Scissors, Plus, Trash2, Edit2, Clock, DollarSign } from 'lucide-react'
+import { Scissors, Plus, Trash2, Edit2, Clock, DollarSign, Sparkles } from 'lucide-react'
 import Image from 'next/image'
 import useAPI from '@/data/hooks/useAPI'
 import { imagemDoServico } from '@/lib/agendamento-utils'
@@ -38,6 +38,7 @@ export default function ServicosPage() {
   const [editando, setEditando] = useState<Servico | null>(null)
   const [form, setForm] = useState(formVazio)
   const [salvando, setSalvando] = useState(false)
+  const [completando, setCompletando] = useState(false)
 
   useEffect(() => {
     fetchServicos()
@@ -53,6 +54,34 @@ export default function ServicosPage() {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
       setLoading(false)
+    }
+  }
+
+  /**
+   * Traz os serviços do catálogo que a barbearia ainda não tem, com foto e
+   * preço sugerido. Quem já cadastrou "Corte de Barba" não ganha um "Barba"
+   * duplicado — quem decide isso é o backend.
+   */
+  const completarComSugeridos = async () => {
+    try {
+      setCompletando(true)
+      const r = await httpPost('servicos/sugeridos', {})
+      await fetchServicos()
+      if (r?.criados > 0) {
+        success(
+          `${r.criados} ${r.criados === 1 ? 'serviço adicionado' : 'serviços adicionados'}`,
+          `${r.nomes.join(', ')}. Ajuste nome, preço e duração como quiser.`
+        )
+      } else {
+        success('Nada a adicionar', 'Sua barbearia já oferece todos os serviços sugeridos.')
+      }
+    } catch (err) {
+      toastError(
+        'Não foi possível adicionar',
+        err instanceof Error ? err.message : 'Tente de novo em instantes.'
+      )
+    } finally {
+      setCompletando(false)
     }
   }
 
@@ -131,13 +160,23 @@ export default function ServicosPage() {
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Serviços</h1>
             <p className="text-zinc-400 mt-2">Gerencie todos os serviços oferecidos pela sua barbearia</p>
           </div>
-          <button
-            onClick={abrirNovo}
-            className="flex items-center gap-2 bg-yellow-400 text-zinc-900 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-300 active:scale-[0.98] transition-all"
-          >
-            <Plus size={20} />
-            Novo Serviço
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <button
+              onClick={completarComSugeridos}
+              disabled={completando}
+              className="flex items-center justify-center gap-2 rounded-lg border border-zinc-700 px-4 py-2 font-semibold text-zinc-200 transition-all hover:border-zinc-600 hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-50"
+            >
+              <Sparkles size={18} />
+              {completando ? 'Adicionando...' : 'Serviços sugeridos'}
+            </button>
+            <button
+              onClick={abrirNovo}
+              className="flex items-center justify-center gap-2 bg-yellow-400 text-zinc-900 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-300 active:scale-[0.98] transition-all"
+            >
+              <Plus size={20} />
+              Novo Serviço
+            </button>
+          </div>
         </div>
 
         {error && !modalAberto && (
@@ -157,13 +196,25 @@ export default function ServicosPage() {
           <div className="text-center py-12 bg-zinc-900 rounded-lg border border-zinc-800 animate-fade-in">
             <Scissors size={48} className="mx-auto text-zinc-600 mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">Nenhum serviço cadastrado</h3>
-            <p className="text-zinc-400 mb-6">Comece adicionando seu primeiro serviço</p>
-            <button
-              onClick={abrirNovo}
-              className="inline-block bg-yellow-400 text-zinc-900 font-semibold px-6 py-2 rounded-lg hover:bg-yellow-300 active:scale-[0.98] transition-all"
-            >
-              Adicionar Serviço
-            </button>
+            <p className="text-zinc-400 mb-6">
+              Comece pelos serviços sugeridos — já vêm com foto e preço, e você ajusta depois.
+            </p>
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                onClick={completarComSugeridos}
+                disabled={completando}
+                className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-2 font-semibold text-zinc-900 transition-all hover:bg-yellow-300 active:scale-[0.98] disabled:opacity-50"
+              >
+                <Sparkles size={18} />
+                {completando ? 'Adicionando...' : 'Usar serviços sugeridos'}
+              </button>
+              <button
+                onClick={abrirNovo}
+                className="inline-block rounded-lg border border-zinc-700 px-6 py-2 font-semibold text-zinc-200 transition-all hover:bg-zinc-800 active:scale-[0.98]"
+              >
+                Criar do zero
+              </button>
+            </div>
           </div>
         )}
 

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import {
   ArrowRight,
   CalendarClock,
-  Scissors,
   Star,
   Calendar,
   Users,
@@ -203,19 +202,6 @@ export function Hero() {
 
       <div className="relative z-10 max-w-7xl mx-auto">
         <div className="text-center">
-          {/* Badge pill */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-1.5 mb-8"
-          >
-            <Scissors size={14} className="text-yellow-400" />
-            <span className="text-sm font-medium text-yellow-300">
-              30 dias grátis para testar
-            </span>
-          </motion.div>
-
           {/* Headline curta orientada a resultado */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
