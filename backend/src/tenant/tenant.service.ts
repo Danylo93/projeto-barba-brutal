@@ -3,6 +3,12 @@ import { PrismaService } from '../db/prisma.service';
 import { calcularComissoes, intervaloDoMes } from './comissao';
 import { valorCobrado, valorDoServicoNoAgendamento } from '../servico/preco';
 import { escolherCorMarca, COR_PRIMARIA_PADRAO } from './cores-marca';
+import {
+  guardarEnderecoAntigo,
+  normalizarSlug,
+  problemaAntesDeNormalizar,
+  problemaDoSlug,
+} from './slug';
 
 @Injectable()
 export class TenantService {
@@ -254,10 +260,18 @@ export class TenantService {
    */
   async getPaginaPublica(identificador: string) {
     const ehNumero = /^\d+$/.test(identificador);
+    // Também procura nos endereços antigos: quem trocou de endereço não pode
+    // deixar no ar um QR code impresso apontando para lugar nenhum.
     const tenant = await this.prisma.tenant.findFirst({
       where: ehNumero
         ? { id: Number(identificador), ativo: true }
-        : { dominio: identificador, ativo: true },
+        : {
+            ativo: true,
+            OR: [
+              { dominio: identificador },
+              { dominiosAntigos: { has: identificador } },
+            ],
+          },
       include: {
         servicos: {
           where: { ativo: true },
@@ -346,13 +360,71 @@ export class TenantService {
   }
 
   async update(id: number, data: any, comoAdmin = false) {
-    return this.prisma.tenant.update({
+    const limpo = this.apenas(
+      data,
+      comoAdmin ? TenantService.CAMPOS_DO_ADMIN : TenantService.CAMPOS_DO_DONO,
+    );
+
+    if (limpo.dominio !== undefined) {
+      await this.prepararTrocaDeEndereco(id, limpo);
+    }
+
+    return this.prisma.tenant.update({ where: { id }, data: limpo });
+  }
+
+  /**
+   * Valida o novo endereço e guarda o antigo.
+   *
+   * Antes este campo aceitava qualquer coisa: o dono gravava o que quisesse em
+   * `dominio`. Enquanto era só o final da URL (`/barbearia/latita`) o estrago
+   * era pequeno; virando subdomínio, o campo decide QUAL endereço da nossa
+   * marca a barbearia ocupa — e "www" ou "suporte" nas mãos erradas viram
+   * página de golpe com o nosso nome.
+   */
+  private async prepararTrocaDeEndereco(id: number, limpo: Record<string, any>) {
+    // Duas conferências, e a ordem importa: a primeira olha o que a pessoa
+    // mandou, a segunda o que sobra depois de normalizar.
+    const suspeito = problemaAntesDeNormalizar(limpo.dominio);
+    if (suspeito) throw new BadRequestException(suspeito);
+
+    const novo = normalizarSlug(limpo.dominio);
+    const problema = problemaDoSlug(novo);
+    if (problema) throw new BadRequestException(problema);
+
+    const atual = await this.prisma.tenant.findUnique({
       where: { id },
-      data: this.apenas(
-        data,
-        comoAdmin ? TenantService.CAMPOS_DO_ADMIN : TenantService.CAMPOS_DO_DONO,
-      ),
+      select: { dominio: true, dominiosAntigos: true },
     });
+    if (!atual) throw new NotFoundException('Barbearia não encontrada.');
+
+    if (atual.dominio === novo) {
+      // Nada mudou de fato: não mexe no histórico à toa.
+      limpo.dominio = novo;
+      return;
+    }
+
+    const jaEDeOutra = await this.prisma.tenant.findFirst({
+      where: {
+        id: { not: id },
+        OR: [{ dominio: novo }, { dominiosAntigos: { has: novo } }],
+      },
+      select: { id: true },
+    });
+    // Também barra endereço que outra barbearia já usou: soltá-lo permitiria
+    // pegar o endereço antigo de um concorrente e receber o tráfego dele.
+    if (jaEDeOutra) {
+      throw new BadRequestException(
+        'Este endereço já está em uso. Escolha outro.',
+      );
+    }
+
+    limpo.dominio = novo;
+    if (atual.dominio) {
+      limpo.dominiosAntigos = guardarEnderecoAntigo(
+        atual.dominiosAntigos,
+        atual.dominio,
+      );
+    }
   }
 
   async findAll(page: number = 1, limit: number = 10) {

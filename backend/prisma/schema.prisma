@@ -55,6 +55,12 @@ model Tenant {
   /// @deprecated Use `documento`. Mantido para não quebrar cadastros antigos.
   cnpj          String?   @unique
   dominio       String?   @unique // subdomínio personalizado
+  /// Endereços que a barbearia já teve.
+  ///
+  /// O slug vira `latita.barbeariabrutal.com`, então trocá-lo quebra QR code
+  /// impresso, link na bio e cartão de visita. Guardando os antigos, a página
+  /// pública ainda encontra a barbearia pelo endereço velho e redireciona.
+  dominiosAntigos String[] @default([])
   logo          String?   // URL da logo
   corPrimaria   String?   // cor primária da marca
   corSecundaria String?   // cor secundária da marca
