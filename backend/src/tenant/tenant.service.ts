@@ -385,8 +385,10 @@ export class TenantService {
       };
     }
 
-    const existente = await this.prisma.tenant.findUnique({
-      where: { documento },
+    const existente = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ documento }, { cnpj: documento }],
+      },
       select: { id: true },
     });
 
