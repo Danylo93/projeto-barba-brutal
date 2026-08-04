@@ -9,6 +9,7 @@ import {
   corpoDoPlano,
   interpretarNotificacao,
   lerReferenciaExterna,
+  pagamentoRenovaPlano,
   traduzirStatus,
 } from './mercadopago-assinatura';
 
@@ -362,10 +363,8 @@ export class AssinaturaService {
       }
     }
 
-    if (pagamento.status === 'approved') {
-      if (pagamento.metodo !== 'pix_dominio') {
-        await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
-      }
+    if (pagamento.status === 'approved' && pagamentoRenovaPlano(pagamento)) {
+      await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
     }
 
     return { pagamentoId: pagamento.id, status: pagamento.status };
@@ -631,7 +630,23 @@ export class AssinaturaService {
    */
   async handleWebhookMercadoPago(body: any, query: any = {}) {
     const { topico, id } = interpretarNotificacao(body, query);
-    if (!topico || !id || !this.mpToken) return { ok: true };
+
+    // Descartar em silêncio é o pior desfecho possível aqui: o Mercado Pago
+    // marca a notificação como entregue e nunca reenvia, então o dinheiro
+    // entra, a assinatura não ativa e não sobra rastro nenhum.
+    if (!this.mpToken) {
+      this.logger.error(
+        'Webhook do Mercado Pago recebido sem MERCADO_PAGO_ACCESS_TOKEN configurado — ' +
+          'a notificação foi PERDIDA. Configure a variável no servidor.',
+      );
+      return { ok: true };
+    }
+    if (!topico || !id) {
+      this.logger.warn(
+        `Webhook do Mercado Pago ignorado por formato não reconhecido: ${JSON.stringify({ body, query }).slice(0, 300)}`,
+      );
+      return { ok: true };
+    }
 
     try {
       if (topico === 'subscription_preapproval') {
@@ -737,15 +752,35 @@ export class AssinaturaService {
     const pagamento = await this.prisma.pagamento.findUnique({
       where: { mpPaymentId: String(paymentId) },
     });
-    if (!pagamento || !mp.status) return;
+    if (!pagamento) {
+      // Aconteceu no Mercado Pago mas não existe aqui. Antes sumia sem log:
+      // o barbeiro pagava, a assinatura não ativava e não havia por onde
+      // descobrir.
+      this.logger.warn(
+        `Pagamento ${paymentId} aprovado no Mercado Pago sem registro correspondente aqui.`,
+      );
+      return;
+    }
+    if (!mp.status) {
+      this.logger.warn(`Pagamento ${paymentId} voltou do Mercado Pago sem status.`);
+      return;
+    }
 
     await this.prisma.pagamento.update({
       where: { id: pagamento.id },
       data: { status: mp.status },
     });
-    if (mp.status === 'approved') {
-      await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
+    if (mp.status !== 'approved') return;
+
+    // Domínio próprio é taxa única de um serviço à parte: não renova plano.
+    // O admin vê o pagamento em /assinaturas/pagamentos para providenciar.
+    if (!pagamentoRenovaPlano(pagamento)) {
+      this.logger.log(
+        `Pagamento ${pagamento.id} (${pagamento.metodo}) aprovado — não renova plano.`,
+      );
+      return;
     }
+    await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
   }
 
   /** Confirmação manual pelo admin (controle do dono do SaaS). */
@@ -756,8 +791,13 @@ export class AssinaturaService {
       where: { id: pagamentoId },
       data: { status: 'approved' },
     });
-    await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
-    return { ok: true, status: 'approved' };
+    // Mesma regra do webhook: confirmar um pagamento de domínio não pode
+    // renovar o plano da barbearia.
+    const renovou = pagamentoRenovaPlano(pagamento);
+    if (renovou) {
+      await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
+    }
+    return { ok: true, status: 'approved', renovouPlano: renovou };
   }
 
   /** Lista de pagamentos (admin). */
