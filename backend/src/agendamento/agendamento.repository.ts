@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Agendamento, RepositorioAgendamento } from '../types';
-import { PrismaService } from 'src/db/prisma.service';
+import { PrismaService } from '../db/prisma.service';
 import {
   validarServicosDoAgendamento,
   validarDataDoAgendamento,
@@ -54,26 +54,70 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   constructor(private readonly prismaService: PrismaService) {}
 
   async salvar(agendamento: Agendamento): Promise<number> {
-    const { valorTotal, precosServicos } = await this.validarRegras(agendamento);
+    return this.naAgendaDoProfissional(
+      agendamento.profissionalId,
+      async (tx) => {
+        const { valorTotal, precosServicos } = await this.validarRegras(
+          agendamento,
+          tx,
+        );
 
-    const criado = await this.prismaService.agendamento.create({
-      data: {
-        data: agendamento.data,
-        tenantId: agendamento.tenantId,
-        usuarioId: agendamento.usuarioId,
-        profissionalId: agendamento.profissionalId,
-        servicos: {
-          connect: agendamento.servicos.map((servicoId) => ({ id: servicoId })),
-        },
-        status: agendamento.status || 'agendado',
-        observacoes: agendamento.observacoes,
-        // Congela o combinado: a barbearia pode reajustar a tabela amanhã,
-        // este atendimento não muda junto.
-        valorTotal,
-        precosServicos,
+        const criado = await tx.agendamento.create({
+          data: {
+            data: agendamento.data,
+            tenantId: agendamento.tenantId,
+            usuarioId: agendamento.usuarioId,
+            profissionalId: agendamento.profissionalId,
+            servicos: {
+              connect: agendamento.servicos.map((servicoId) => ({ id: servicoId })),
+            },
+            status: agendamento.status || 'agendado',
+            observacoes: agendamento.observacoes,
+            // Congela o combinado: a barbearia pode reajustar a tabela amanhã,
+            // este atendimento não muda junto.
+            valorTotal,
+            precosServicos,
+          },
+        });
+        return criado.id;
       },
-    });
-    return criado.id;
+    );
+  }
+
+  /**
+   * Roda a validação e a gravação numa transação só, com a agenda daquele
+   * profissional travada.
+   *
+   * Antes a checagem de conflito era um `findMany` e a gravação vinha depois,
+   * solta. Dois clientes tocando no mesmo horário no mesmo instante passavam
+   * os DOIS pela checagem — nenhum dos dois tinha gravado ainda — e viravam
+   * dois atendimentos no mesmo slot. Reproduzido: duas requisições
+   * simultâneas, dois 201.
+   *
+   * A trava é do Postgres e vale por transação, então segura mesmo com mais de
+   * uma instância do backend no ar, e é por profissional: a agenda de um não
+   * atrasa a do outro. `profissional.id` é único no banco inteiro, então não
+   * há barbearia esbarrando na trava de outra.
+   */
+  private naAgendaDoProfissional<T>(
+    profissionalId: number,
+    trabalho: (tx: any) => Promise<T>,
+  ): Promise<T> {
+    // Id inválido nem chega a abrir transação: `validarRegras` recusa depois,
+    // com a mensagem certa.
+    if (!Number.isInteger(profissionalId) || profissionalId <= 0) {
+      throw new BadRequestException('Profissional inválido.');
+    }
+
+    return this.prismaService.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${profissionalId}::bigint)`;
+        return trabalho(tx);
+      },
+      // Folga para a espera na trava somada à latência do banco: o padrão de
+      // 5s do Prisma é curto para o Neon em hora cheia.
+      { timeout: 20_000, maxWait: 15_000 },
+    );
   }
 
   /**
@@ -84,6 +128,8 @@ export class AgendamentoRepository implements RepositorioAgendamento {
    */
   private async validarRegras(
     agendamento: Agendamento,
+    /** Cliente da transação — as leituras precisam enxergar a trava. */
+    db: any = this.prismaService,
   ): Promise<{ valorTotal: number; precosServicos: Record<string, number> }> {
     // 1) Formato do payload — evita 500 quando o corpo vem malformado
     //    (ex.: serviços como objetos em vez de ids).
@@ -110,7 +156,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     // 3) Serviços válidos, ativos e do mesmo tenant. Sem o `ativo`, o serviço
     //    que o dono tirou da vitrine continuava agendável por quem chamasse a
     //    API direto.
-    const servicos = await this.prismaService.servico.findMany({
+    const servicos = await db.servico.findMany({
       where: { id: { in: idsServicos }, tenantId: agendamento.tenantId, ativo: true },
       select: { id: true, ehCombo: true, qtdeSlots: true, preco: true },
     });
@@ -118,7 +164,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       throw new BadRequestException('Um ou mais serviços são inválidos.');
     }
 
-    const profissional = await this.prismaService.profissional.findFirst({
+    const profissional = await db.profissional.findFirst({
       where: { id: agendamento.profissionalId, tenantId: agendamento.tenantId },
       include: { servicos: { select: { id: true } } },
     });
@@ -139,7 +185,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     //    horários fechados, mas quem chama a API direto passava por cima:
     //    havia agendamento marcado em domingo às 4h da manhã.
     const duracaoMin = duracaoEmMinutos(servicos);
-    const barbearia = await this.prismaService.tenant.findUnique({
+    const barbearia = await db.tenant.findUnique({
       where: { id: agendamento.tenantId },
       select: { configuracoes: true },
     });
@@ -160,10 +206,11 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       inicio,
       duracaoMin,
       (agendamento as any).id,
+      db,
     );
 
     // 6) Bloqueios de agenda (folga, almoço, férias, feriado).
-    await this.garantirSemBloqueio(agendamento, inicio, duracaoMin);
+    await this.garantirSemBloqueio(agendamento, inicio, duracaoMin, db);
 
     const { total, porServico } = totalDoAtendimento(servicos);
     return { valorTotal: total, precosServicos: porServico };
@@ -177,10 +224,11 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     agendamento: Agendamento,
     inicio: Date,
     duracaoMin: number,
+    db: any = this.prismaService,
   ): Promise<void> {
     const fim = new Date(inicio.getTime() + duracaoMin * 60000);
 
-    const bloqueio = await this.prismaService.bloqueio.findFirst({
+    const bloqueio = await db.bloqueio.findFirst({
       where: {
         tenantId: agendamento.tenantId,
         OR: [{ profissionalId: agendamento.profissionalId }, { profissionalId: null }],
@@ -235,13 +283,14 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     inicio: Date,
     duracaoMin: number,
     ignorarId?: number,
+    db: any = this.prismaService,
   ): Promise<void> {
     // Janela de um dia ao redor do horário — barato de consultar e suficiente,
     // já que um atendimento não passa de algumas horas.
     const de = new Date(inicio.getTime() - 24 * 60 * 60000);
     const ate = new Date(inicio.getTime() + 24 * 60 * 60000);
 
-    const existentes = await this.prismaService.agendamento.findMany({
+    const existentes = await db.agendamento.findMany({
       where: {
         profissionalId: agendamento.profissionalId,
         tenantId: agendamento.tenantId,
@@ -453,18 +502,27 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       throw new BadRequestException('Agendamento não encontrado.');
     }
 
-    await this.validarRegras({
-      id: atual.id,
-      data,
-      profissionalId: atual.profissionalId,
-      servicos: atual.servicos.map((s) => s.id),
-      usuarioId: atual.usuarioId,
-      tenantId,
-    } as unknown as Agendamento);
+    // Mesma trava de criar: remarcar também conferia o conflito e gravava
+    // depois, solto. Dois clientes remarcando para o mesmo horário — ou um
+    // remarcando para o horário que o outro está agendando agora — passavam
+    // os dois.
+    await this.naAgendaDoProfissional(atual.profissionalId, async (tx) => {
+      await this.validarRegras(
+        {
+          id: atual.id,
+          data,
+          profissionalId: atual.profissionalId,
+          servicos: atual.servicos.map((s) => s.id),
+          usuarioId: atual.usuarioId,
+          tenantId,
+        } as unknown as Agendamento,
+        tx,
+      );
 
-    await this.prismaService.agendamento.update({
-      where: { id, tenantId },
-      data: { data },
+      await tx.agendamento.update({
+        where: { id, tenantId },
+        data: { data },
+      });
     });
   }
 
