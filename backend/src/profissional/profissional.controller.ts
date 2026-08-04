@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  BadRequestException,
   NotFoundException,
   UseGuards,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import * as bcrypt from 'bcrypt';
 import { CreateProfissionalDto } from './dto/create-profissional.dto';
 import { UpdateProfissionalDto } from './dto/update-profissional.dto';
+import { EMAIL_JA_USADO, normalizarEmail } from './acesso-profissional';
 
 /** O preço é da barbearia: vem do próprio serviço, igual para todo mundo. */
 const INCLUDE_SERVICOS = {
@@ -79,22 +81,23 @@ export class ProfissionalController {
     @Body() data: CreateProfissionalDto,
     @CurrentTenant() tenant: any,
   ) {
-    let usuarioId = null;
+    // O e-mail é obrigatório (o DTO garante) e a conta de acesso é criada
+    // sempre — sem ela o barbeiro nunca entra na própria agenda.
+    const email = normalizarEmail(data.email);
+    await this.garantirEmailLivre(email, tenant.id);
 
-    if (data.email && data.senha) {
-      const senhaHash = await bcrypt.hash(data.senha, 10);
-      const user = await this.prisma.usuario.create({
-        data: {
-          nome: data.nome,
-          email: data.email,
-          senha: senhaHash,
-          telefone: data.telefone || '',
-          barbeiro: true,
-          tenantId: tenant.id,
-        },
-      });
-      usuarioId = user.id;
-    }
+    const senhaHash = await bcrypt.hash(data.senha, 10);
+    const user = await this.prisma.usuario.create({
+      data: {
+        nome: data.nome,
+        email,
+        senha: senhaHash,
+        telefone: data.telefone || '',
+        barbeiro: true,
+        tenantId: tenant.id,
+      },
+    });
+    const usuarioId = user.id;
 
     const servicoIds = await this.validarServicoIds(data.servicoIds, tenant.id);
 
@@ -115,6 +118,36 @@ export class ProfissionalController {
       },
       include: INCLUDE_SERVICOS,
     });
+  }
+
+  /**
+   * Recusa e-mail que já pertence a alguém desta barbearia.
+   *
+   * Sem esta checagem o Prisma batia no índice `@@unique([email, tenantId])`
+   * e o dono recebia um 500 sem explicação. A comparação ignora a caixa: o
+   * banco deixaria "Marcao@x.app" e "marcao@x.app" conviverem, mas é a mesma
+   * caixa postal, e o barbeiro ficaria com duas contas.
+   *
+   * O escopo é a barbearia: o mesmo e-mail em OUTRA barbearia é legítimo — o
+   * barbeiro que trabalha em duas usa o mesmo endereço nas duas.
+   */
+  private async garantirEmailLivre(
+    email: string,
+    tenantId: number,
+    ignorarUsuarioId?: number | null,
+  ): Promise<void> {
+    const jaExiste = await this.prisma.usuario.findFirst({
+      where: {
+        tenantId,
+        email: { equals: email, mode: 'insensitive' },
+        ...(ignorarUsuarioId ? { id: { not: ignorarUsuarioId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (jaExiste) {
+      throw new BadRequestException(EMAIL_JA_USADO);
+    }
   }
 
   /**
@@ -145,31 +178,42 @@ export class ProfissionalController {
     });
 
     if (!profissional) {
-      throw new Error('Profissional não encontrado');
+      throw new NotFoundException('Profissional não encontrado.');
     }
 
     let usuarioId = profissional.usuarioId;
 
     if (data.email) {
+      const email = normalizarEmail(data.email);
+      // Ignora a própria conta: salvar sem mexer no e-mail não pode dar
+      // "e-mail já usado" por causa do próprio registro.
+      await this.garantirEmailLivre(email, tenant.id, usuarioId);
+
       if (!usuarioId) {
-        if (data.senha) {
-          const senhaHash = await bcrypt.hash(data.senha, 10);
-          const user = await this.prisma.usuario.create({
-            data: {
-              nome: data.nome || profissional.nome,
-              email: data.email,
-              senha: senhaHash,
-              telefone: data.telefone || '',
-              barbeiro: true,
-              tenantId: tenant.id,
-            },
-          });
-          usuarioId = user.id;
+        // Profissional antigo, cadastrado quando o e-mail era opcional: para
+        // ganhar acesso agora precisa de senha, senão a conta não nasce e o
+        // dono acha que deu acesso sem ter dado.
+        if (!data.senha) {
+          throw new BadRequestException(
+            'Para dar acesso a este profissional, informe também uma senha.',
+          );
         }
+        const senhaHash = await bcrypt.hash(data.senha, 10);
+        const user = await this.prisma.usuario.create({
+          data: {
+            nome: data.nome || profissional.nome,
+            email,
+            senha: senhaHash,
+            telefone: data.telefone || '',
+            barbeiro: true,
+            tenantId: tenant.id,
+          },
+        });
+        usuarioId = user.id;
       } else {
         const updateData: any = {
           nome: data.nome || profissional.nome,
-          email: data.email,
+          email,
         };
         if (data.telefone) updateData.telefone = data.telefone;
         if (data.senha) {
