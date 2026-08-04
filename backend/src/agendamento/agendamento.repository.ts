@@ -9,6 +9,7 @@ import {
   haConflito,
   validarDentroDoExpediente,
 } from './agendamento.validacao';
+import { totalDoAtendimento, valorCobrado, valorDoServicoNoAgendamento } from '../servico/preco';
 
 const MINUTOS_POR_SLOT = 30;
 
@@ -21,13 +22,17 @@ function paraLeitura(agendamento: any) {
     profissional: agendamento.profissional
       ? { id: agendamento.profissional.id, nome: agendamento.profissional.nome }
       : undefined,
+    // Preço congelado no ato do agendamento — é o que o cliente combinou.
+    // Mostrar o preço de hoje faria a tela discordar da comanda.
     servicos: (agendamento.servicos ?? []).map((servico: any) => ({
       id: servico.id,
       nome: servico.nome,
-      preco: servico.preco,
+      preco: valorDoServicoNoAgendamento(agendamento, servico),
+      precoAtual: servico.preco,
       qtdeSlots: servico.qtdeSlots,
       duracao: (servico.qtdeSlots ?? 1) * MINUTOS_POR_SLOT,
     })),
+    valorTotal: valorCobrado(agendamento),
     usuarioId: agendamento.usuarioId,
     usuario: agendamento.usuario
       ? {
@@ -49,7 +54,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   constructor(private readonly prismaService: PrismaService) {}
 
   async salvar(agendamento: Agendamento): Promise<number> {
-    await this.validarRegras(agendamento);
+    const { valorTotal, precosServicos } = await this.validarRegras(agendamento);
 
     const criado = await this.prismaService.agendamento.create({
       data: {
@@ -62,6 +67,10 @@ export class AgendamentoRepository implements RepositorioAgendamento {
         },
         status: agendamento.status || 'agendado',
         observacoes: agendamento.observacoes,
+        // Congela o combinado: o preço do profissional pode mudar amanhã,
+        // este atendimento não muda junto.
+        valorTotal,
+        precosServicos,
       },
     });
     return criado.id;
@@ -70,8 +79,12 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   /**
    * Aplica as regras de negócio antes de gravar: serviços válidos do tenant,
    * profissional válido, combo exclusivo e serviço realizado pelo profissional.
+   *
+   * Devolve o valor a congelar, já com o preço do profissional escolhido.
    */
-  private async validarRegras(agendamento: Agendamento): Promise<void> {
+  private async validarRegras(
+    agendamento: Agendamento,
+  ): Promise<{ valorTotal: number; precosServicos: Record<string, number> }> {
     // 1) Formato do payload — evita 500 quando o corpo vem malformado
     //    (ex.: serviços como objetos em vez de ids).
     const idsServicos = normalizarIdsDeServico(agendamento.servicos as unknown);
@@ -94,10 +107,12 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     const inicio = new Date(agendamento.data as unknown as string);
     agendamento.data = inicio as unknown as Date;
 
-    // 3) Serviços válidos e do mesmo tenant.
+    // 3) Serviços válidos, ativos e do mesmo tenant. Sem o `ativo`, o serviço
+    //    que o dono tirou da vitrine continuava agendável por quem chamasse a
+    //    API direto.
     const servicos = await this.prismaService.servico.findMany({
-      where: { id: { in: idsServicos }, tenantId: agendamento.tenantId },
-      select: { id: true, ehCombo: true, qtdeSlots: true },
+      where: { id: { in: idsServicos }, tenantId: agendamento.tenantId, ativo: true },
+      select: { id: true, ehCombo: true, qtdeSlots: true, preco: true },
     });
     if (servicos.length !== idsServicos.length) {
       throw new BadRequestException('Um ou mais serviços são inválidos.');
@@ -105,7 +120,10 @@ export class AgendamentoRepository implements RepositorioAgendamento {
 
     const profissional = await this.prismaService.profissional.findFirst({
       where: { id: agendamento.profissionalId, tenantId: agendamento.tenantId },
-      include: { servicos: { select: { id: true } } },
+      include: {
+        servicos: { select: { id: true } },
+        precos: { select: { servicoId: true, preco: true } },
+      },
     });
     if (!profissional) {
       throw new BadRequestException('Profissional inválido.');
@@ -149,6 +167,9 @@ export class AgendamentoRepository implements RepositorioAgendamento {
 
     // 6) Bloqueios de agenda (folga, almoço, férias, feriado).
     await this.garantirSemBloqueio(agendamento, inicio, duracaoMin);
+
+    const { total, porServico } = totalDoAtendimento(servicos, profissional.precos);
+    return { valorTotal: total, precosServicos: porServico };
   }
 
   /**

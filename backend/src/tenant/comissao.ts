@@ -6,10 +6,17 @@
  * no percentual configurado no cadastro do profissional. Atendimentos
  * cancelados não contam.
  */
+import { valorCobrado } from '../servico/preco';
 
 export interface AtendimentoParaComissao {
   profissionalId: number;
   status?: string | null;
+  /**
+   * Valor congelado no ato do agendamento. É ele que manda: com preço por
+   * profissional, recalcular pelo preço de hoje deixaria o barbeiro mudar a
+   * própria comissão de meses já fechados.
+   */
+  valorTotal?: number | null;
   servicos: { preco: number }[];
 }
 
@@ -67,7 +74,7 @@ export function calcularComissoes(
     if (STATUS_QUE_NAO_CONTAM.has((a.status ?? '').toLowerCase())) continue;
     const linha = porProfissional.get(a.profissionalId);
     if (!linha) continue; // profissional removido do cadastro
-    const valor = (a.servicos ?? []).reduce((s, sv) => s + (sv.preco ?? 0), 0);
+    const valor = valorCobrado(a);
     linha.atendimentos += 1;
     linha.faturamento += valor;
   }

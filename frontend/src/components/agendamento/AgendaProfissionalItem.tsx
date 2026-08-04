@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { IconCalendar, IconTrash, IconCheck, IconChecks, IconClock } from '@tabler/icons-react'
-import { Agendamento, formatarDataEHora, duracaoTotal } from '@/lib/agendamento-utils'
+import {
+    Agendamento,
+    formatarDataEHora,
+    duracaoTotal,
+    emReais,
+    valorDoAgendamento,
+} from '@/lib/agendamento-utils'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 
 export interface AgendaProfissionalItemProps {
@@ -53,7 +59,7 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
                     {duracaoTotal(agendamento.servicos ?? [])}
                 </span>
                 <span className="text-zinc-400 font-semibold">
-                    R$ {(agendamento.servicos ?? []).reduce((acc, servico) => acc + (servico.preco ?? 0), 0).toFixed(2)}
+                    {emReais(valorDoAgendamento(agendamento))}
                 </span>
             </div>
             <div className="flex items-center gap-2 mt-4 sm:mt-0 justify-end">

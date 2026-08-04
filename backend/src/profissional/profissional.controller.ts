@@ -1,24 +1,96 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
+  NotFoundException,
+  UseGuards,
+} from '@nestjs/common';
 import { PrismaService } from 'src/db/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
 import { CurrentTenant, CurrentTenantId } from '../auth/current-tenant.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
 import * as bcrypt from 'bcrypt';
 import { CreateProfissionalDto } from './dto/create-profissional.dto';
 import { UpdateProfissionalDto } from './dto/update-profissional.dto';
+import { SalvarPrecosDto } from './dto/salvar-precos.dto';
+import { PrecosProfissionalService } from './precos.service';
+import { tabelaDePrecos } from '../servico/preco';
+
+/** Serviços do profissional já com o preço que ELE cobra. */
+function comPrecoDoProfissional<
+  T extends {
+    servicos: { id: number; nome: string; preco: number }[];
+    precos: { servicoId: number; preco: number }[];
+  },
+>(profissional: T) {
+  const tabela = tabelaDePrecos(profissional.servicos, profissional.precos);
+  // `personalizado` é "tem preço próprio gravado", e não "o valor está
+  // diferente do da barbearia": quem digitou justamente o preço da tabela fica
+  // preso naquele valor no próximo reajuste, e precisa ver isso na tela.
+  const proprios = new Set(profissional.precos.map((p) => p.servicoId));
+  const { precos, ...resto } = profissional;
+  return {
+    ...resto,
+    servicos: profissional.servicos.map((servico) => ({
+      id: servico.id,
+      nome: servico.nome,
+      preco: tabela.get(servico.id) ?? servico.preco,
+      precoPadrao: servico.preco,
+      personalizado: proprios.has(servico.id),
+    })),
+  };
+}
+
+const INCLUDE_SERVICOS = {
+  servicos: {
+    where: { ativo: true },
+    select: { id: true, nome: true, preco: true },
+  },
+  precos: { select: { servicoId: true, preco: true } },
+} as const;
 
 @Controller('profissionais')
 export class ProfissionalController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly precos: PrecosProfissionalService,
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard)
   async findAll(@CurrentTenantId() tenantId: number) {
-    return this.prisma.profissional.findMany({
+    const profissionais = await this.prisma.profissional.findMany({
       where: { tenantId, ativo: true },
       orderBy: { nome: 'asc' },
-      include: { servicos: { where: { ativo: true }, select: { id: true, nome: true } } },
+      include: INCLUDE_SERVICOS,
     });
+    return profissionais.map(comPrecoDoProfissional);
+  }
+
+  /**
+   * Cadastro do barbeiro logado. Fica ANTES de `:id` de propósito: o Nest
+   * casa as rotas na ordem de declaração, e `ParseIntPipe` derrubaria
+   * "meu-cadastro" com 400 se `:id` viesse primeiro.
+   */
+  @Get('meu-cadastro')
+  @UseGuards(JwtAuthGuard)
+  async meuCadastro(@CurrentUser() usuario: any, @CurrentTenantId() tenantId: number) {
+    const profissional = await this.prisma.profissional.findFirst({
+      where: { usuarioId: usuario?.id, tenantId },
+      include: INCLUDE_SERVICOS,
+    });
+    if (!profissional) {
+      throw new NotFoundException(
+        'Sua conta ainda não está vinculada a um profissional. Peça ao dono da barbearia.',
+      );
+    }
+    return comPrecoDoProfissional(profissional);
   }
 
   @Get(':id')
@@ -27,10 +99,38 @@ export class ProfissionalController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentTenantId() tenantId: number,
   ) {
-    return this.prisma.profissional.findFirst({
+    const profissional = await this.prisma.profissional.findFirst({
       where: { id, tenantId },
-      include: { servicos: { where: { ativo: true }, select: { id: true, nome: true } } },
+      include: INCLUDE_SERVICOS,
     });
+    return profissional ? comPrecoDoProfissional(profissional) : null;
+  }
+
+  /**
+   * Tabela de preços do profissional. Leitura liberada para quem está logado
+   * na barbearia: o cliente precisa ver quanto o barbeiro escolhido cobra
+   * antes de fechar o agendamento.
+   */
+  @Get(':id/precos')
+  @UseGuards(JwtAuthGuard)
+  async listarPrecos(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentTenantId() tenantId: number,
+  ) {
+    return this.precos.tabela(id, tenantId);
+  }
+
+  /** Dono da barbearia ou o próprio barbeiro — a checagem está no service. */
+  @Put(':id/precos')
+  @UseGuards(JwtAuthGuard)
+  async salvarPrecos(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dados: SalvarPrecosDto,
+    @CurrentUser() usuario: any,
+    @CurrentTenantId() tenantId: number,
+  ) {
+    await this.precos.garantirPermissaoDeEscrita(id, tenantId, usuario);
+    return this.precos.salvar(id, tenantId, dados.precos);
   }
 
   @Post()
@@ -58,7 +158,7 @@ export class ProfissionalController {
 
     const servicoIds = await this.validarServicoIds(data.servicoIds, tenant.id);
 
-    return this.prisma.profissional.create({
+    const criado = await this.prisma.profissional.create({
       data: {
         nome: data.nome,
         descricao: data.descricao,
@@ -73,8 +173,9 @@ export class ProfissionalController {
           ? { connect: servicoIds.map((id) => ({ id })) }
           : undefined,
       },
-      include: { servicos: { select: { id: true, nome: true } } },
+      include: INCLUDE_SERVICOS,
     });
+    return comPrecoDoProfissional(criado);
   }
 
   /**
@@ -147,9 +248,19 @@ export class ProfissionalController {
     if (data.servicoIds !== undefined) {
       const servicoIds = await this.validarServicoIds(data.servicoIds, tenant.id);
       servicosUpdate = { set: servicoIds.map((sid) => ({ id: sid })) };
+
+      // Preço de serviço que o profissional deixou de realizar não pode ficar
+      // órfão no banco: some da tela, mas ao religar o serviço voltava a valer
+      // sozinho. O dono religava um corte de R$ 40 e o cliente pagava R$ 300.
+      await this.prisma.precoProfissional.deleteMany({
+        where: {
+          profissionalId: id,
+          ...(servicoIds.length ? { servicoId: { notIn: servicoIds } } : {}),
+        },
+      });
     }
 
-    return this.prisma.profissional.update({
+    const atualizado = await this.prisma.profissional.update({
       where: { id },
       data: {
         nome: data.nome,
@@ -162,8 +273,9 @@ export class ProfissionalController {
         usuarioId,
         servicos: servicosUpdate,
       },
-      include: { servicos: { select: { id: true, nome: true } } },
+      include: INCLUDE_SERVICOS,
     });
+    return comPrecoDoProfissional(atualizado);
   }
 
   @Delete(':id')

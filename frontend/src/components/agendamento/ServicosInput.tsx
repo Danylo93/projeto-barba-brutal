@@ -1,6 +1,6 @@
 import { useServicos } from '@/hooks/use-servicos'
 import useAgendamento from '@/data/hooks/useAgendamento'
-import { Servico } from '@/lib/agendamento-utils'
+import { Servico, emReais, precoComProfissional } from '@/lib/agendamento-utils'
 import { cn } from '@/lib/utils'
 import { Check } from 'lucide-react'
 import Image from 'next/image'
@@ -12,6 +12,7 @@ export interface ServicosInputProps {
 
 function Opcao(props: {
     servico: Servico
+    preco: number
     onClick: (s: Servico) => void
     selecionado?: boolean
 }) {
@@ -47,13 +48,26 @@ function Opcao(props: {
             </div>
             <div
                 className={cn(
-                    'w-full py-2 text-center text-xs',
+                    'flex w-full flex-col items-center gap-0.5 px-1 py-2 text-center',
                     props.selecionado
-                        ? 'bg-green-400 font-semibold text-zinc-900'
-                        : 'bg-zinc-900 font-light text-zinc-300'
+                        ? 'bg-green-400 text-zinc-900'
+                        : 'bg-zinc-900 text-zinc-300'
                 )}
             >
-                {props.servico.nome}
+                <span
+                    className={cn('text-xs', props.selecionado ? 'font-semibold' : 'font-light')}
+                >
+                    {props.servico.nome}
+                </span>
+                {/* Preço do profissional escolhido — pode não ser o da tabela. */}
+                <span
+                    className={cn(
+                        'text-sm font-bold',
+                        props.selecionado ? 'text-zinc-900' : 'text-yellow-400'
+                    )}
+                >
+                    {emReais(props.preco)}
+                </span>
             </div>
         </button>
     )
@@ -115,6 +129,7 @@ export default function ServicosInput(props: ServicosInputProps) {
                         <Opcao
                             key={servico.id}
                             servico={servico}
+                            preco={precoComProfissional(servico, profissional)}
                             onClick={alternarMarcacaoServico}
                             selecionado={props.servicos.some((serv) => serv.id === servico.id)}
                         />

@@ -4,6 +4,13 @@ import { AuthService } from './auth.service';
 import { RecuperacaoService } from './recuperacao.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
+import {
+  LoginAdminDto,
+  LoginTenantDto,
+  LoginUsuarioDto,
+  RegistrarTenantDto,
+  RegistrarUsuarioDto,
+} from './auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -13,46 +20,28 @@ export class AuthController {
   ) {}
 
   @Post('tenant/login')
-  loginTenant(@Body() data: { email: string; senha: string }) {
+  loginTenant(@Body() data: LoginTenantDto) {
     return this.authService.loginTenant(data.email, data.senha);
   }
 
   @Post('tenant/register')
-  registerTenant(@Body() data: {
-    nome: string;
-    email: string;
-    telefone: string;
-    senha: string;
-    endereco?: string;
-    /** CPF ou CNPJ — obrigatório, é o identificador único da barbearia. */
-    documento: string;
-  }) {
+  registerTenant(@Body() data: RegistrarTenantDto) {
     return this.authService.registerTenant(data);
   }
 
   @Post('usuario/login')
-  loginUsuario(@Body() data: {
-    email: string;
-    senha: string;
-    tenantId: number;
-  }) {
+  loginUsuario(@Body() data: LoginUsuarioDto) {
     return this.authService.loginUsuario(data.email, data.senha, data.tenantId);
   }
 
   /** Cadastro público de cliente. `barbeiro` não é aceito daqui — ver o service. */
   @Post('usuario/register')
-  registerUsuario(@Body() data: {
-    nome: string;
-    email: string;
-    telefone: string;
-    senha: string;
-    tenantId: number;
-  }) {
+  registerUsuario(@Body() data: RegistrarUsuarioDto) {
     return this.authService.registerUsuario(data);
   }
 
   @Post('admin/login')
-  loginAdmin(@Body() data: { email: string; senha: string }) {
+  loginAdmin(@Body() data: LoginAdminDto) {
     return this.authService.loginAdmin(data.email, data.senha);
   }
 

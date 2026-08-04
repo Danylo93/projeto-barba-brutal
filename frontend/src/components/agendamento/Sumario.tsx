@@ -7,7 +7,7 @@ import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useRouter } from 'next/navigation'
 import { Botao } from '@/components/ui/botao'
 import { useToast } from '@/hooks/use-toast'
-import { horarioDoDia } from '@/lib/agendamento-utils'
+import { horarioDoDia, emReais } from '@/lib/agendamento-utils'
 
 interface AgendamentoExistente {
     id: number
@@ -171,7 +171,9 @@ export default function Sumario() {
 
             <div className="flex justify-between items-center border-b border-zinc-800 p-5">
                 <span className="text-xs uppercase text-zinc-400">Valor Total</span>
-                <span className=" text-white font-semibold">R$ {precoTotal()},00</span>
+                {/* Preço do profissional escolhido, formatado — antes saía
+                    "R$ 45.9,00" em qualquer serviço com centavos. */}
+                <span className="font-semibold text-white">{emReais(precoTotal())}</span>
             </div>
             <div className="p-5">
                 {erro && (

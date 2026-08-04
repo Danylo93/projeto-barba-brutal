@@ -19,6 +19,18 @@ interface Agendamento {
   data: string
   status?: string
   servicos: Servico[]
+  /** Valor congelado no ato do agendamento — é o que foi realmente combinado. */
+  valorTotal?: number
+}
+
+/**
+ * Prefere o valor congelado. Só soma os serviços em agendamento antigo,
+ * anterior ao congelamento; senão um reajuste de preço mexeria no que o
+ * barbeiro já recebeu.
+ */
+function valorDoAgendamento(agendamento: Agendamento): number {
+  if (typeof agendamento.valorTotal === 'number') return agendamento.valorTotal
+  return (agendamento.servicos ?? []).reduce((soma, serv) => soma + Number(serv.preco || 0), 0)
 }
 
 export default function FinancasPage() {
@@ -67,10 +79,7 @@ export default function FinancasPage() {
   // Calcular ganhos
   const totalArrecadado = agendamentos
     .filter((a) => a.status === 'concluido' || a.status === 'confirmado')
-    .reduce((acc, agendamento) => {
-      const somaServicos = agendamento.servicos.reduce((soma, serv) => soma + Number(serv.preco || 0), 0)
-      return acc + somaServicos
-    }, 0)
+    .reduce((acc, agendamento) => acc + valorDoAgendamento(agendamento), 0)
 
   const quantidadeCortes = agendamentos
     .filter((a) => a.status === 'concluido' || a.status === 'confirmado')
@@ -236,7 +245,7 @@ export default function FinancasPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800/50">
                     {agendamentos.map((agendamento) => {
-                      const soma = agendamento.servicos.reduce((s, serv) => s + Number(serv.preco || 0), 0)
+                      const soma = valorDoAgendamento(agendamento)
                       return (
                         <tr key={agendamento.id} className="hover:bg-zinc-800/50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-300">
