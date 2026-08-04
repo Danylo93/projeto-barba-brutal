@@ -23,14 +23,19 @@ export class CreateProfissionalDto {
   @Min(0)
   quantidadeAvaliacoes?: number;
 
-  @IsEmail({}, { message: 'Formato de e-mail inválido' })
-  @IsOptional()
-  email?: string;
+  /**
+   * Obrigatório: é com ele que o barbeiro entra na própria agenda. Antes era
+   * opcional e o profissional ficava sem acesso nenhum, sem ninguém perceber.
+   */
+  @IsEmail({}, { message: 'Informe um e-mail válido para o profissional.' })
+  @IsNotEmpty({ message: 'O e-mail do profissional é obrigatório.' })
+  email: string;
 
-  @IsString()
+  /** Obrigatório junto com o e-mail — sem senha a conta de acesso não nasce. */
+  @IsString({ message: 'Informe a senha de acesso do profissional.' })
+  @IsNotEmpty({ message: 'Informe a senha de acesso do profissional.' })
   @MinLength(6, { message: 'A senha deve ter no mínimo 6 caracteres' })
-  @IsOptional()
-  senha?: string;
+  senha: string;
 
   @IsString()
   @IsOptional()

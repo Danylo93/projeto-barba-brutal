@@ -389,14 +389,21 @@ export default function ProfissionaisPage() {
             )}
           </div>
           <hr className="border-zinc-800 my-2" />
-          <h4 className="text-sm font-semibold text-white">Criar/Atualizar Acesso (Opcional)</h4>
+          <h4 className="text-sm font-semibold text-white">
+            {editando ? 'Atualizar acesso' : 'Acesso do profissional'}
+          </h4>
           <p className="text-xs text-zinc-400 -mt-2 mb-2">
-            Preencha para que o profissional possa acessar a própria agenda.
+            {editando
+              ? 'Deixe em branco para manter o acesso como está.'
+              : 'É com este e-mail e senha que ele entra para ver a própria agenda.'}
           </p>
           <div>
-            <label className="block text-sm text-zinc-400 mb-1">E-mail de Acesso</label>
+            <label className="block text-sm text-zinc-400 mb-1">
+              E-mail de Acesso {!editando && <span className="text-yellow-400">*</span>}
+            </label>
             <input
               type="email"
+              required={!editando}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="email@exemplo.com"
@@ -404,12 +411,16 @@ export default function ProfissionaisPage() {
             />
           </div>
           <div>
-            <label className="block text-sm text-zinc-400 mb-1">Senha</label>
+            <label className="block text-sm text-zinc-400 mb-1">
+              Senha {!editando && <span className="text-yellow-400">*</span>}
+            </label>
             <input
               type="password"
+              required={!editando}
+              minLength={6}
               value={form.senha}
               onChange={(e) => setForm({ ...form, senha: e.target.value })}
-              placeholder="******"
+              placeholder={editando ? 'Deixe em branco para não alterar' : 'Mínimo de 6 caracteres'}
               className={inputModalClasses}
             />
           </div>
