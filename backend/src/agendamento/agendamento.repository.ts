@@ -67,7 +67,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
         },
         status: agendamento.status || 'agendado',
         observacoes: agendamento.observacoes,
-        // Congela o combinado: o preço do profissional pode mudar amanhã,
+        // Congela o combinado: a barbearia pode reajustar a tabela amanhã,
         // este atendimento não muda junto.
         valorTotal,
         precosServicos,
@@ -80,7 +80,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
    * Aplica as regras de negócio antes de gravar: serviços válidos do tenant,
    * profissional válido, combo exclusivo e serviço realizado pelo profissional.
    *
-   * Devolve o valor a congelar, já com o preço do profissional escolhido.
+   * Devolve o valor a congelar, com o preço que a barbearia cobra hoje.
    */
   private async validarRegras(
     agendamento: Agendamento,
@@ -120,10 +120,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
 
     const profissional = await this.prismaService.profissional.findFirst({
       where: { id: agendamento.profissionalId, tenantId: agendamento.tenantId },
-      include: {
-        servicos: { select: { id: true } },
-        precos: { select: { servicoId: true, preco: true } },
-      },
+      include: { servicos: { select: { id: true } } },
     });
     if (!profissional) {
       throw new BadRequestException('Profissional inválido.');
@@ -168,7 +165,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     // 6) Bloqueios de agenda (folga, almoço, férias, feriado).
     await this.garantirSemBloqueio(agendamento, inicio, duracaoMin);
 
-    const { total, porServico } = totalDoAtendimento(servicos, profissional.precos);
+    const { total, porServico } = totalDoAtendimento(servicos);
     return { valorTotal: total, precosServicos: porServico };
   }
 

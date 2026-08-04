@@ -145,26 +145,7 @@ export interface Profissional {
   descricao?: string
   avaliacao?: number
   quantidadeAvaliacoes?: number
-  /**
-   * `preco` é o que ESTE profissional cobra pelo serviço; `precoPadrao` é o
-   * preço da barbearia. Vêm resolvidos do backend — a tela não recalcula.
-   */
-  servicos?: {
-    id: number
-    nome?: string
-    preco?: number
-    precoPadrao?: number
-    personalizado?: boolean
-  }[]
-}
-
-/** Preço do serviço com o profissional escolhido, caindo no da barbearia. */
-export function precoComProfissional(
-  servico: { id: number; preco: number },
-  profissional?: Profissional | null,
-): number {
-  const doProfissional = profissional?.servicos?.find((s) => s.id === servico.id)
-  return typeof doProfissional?.preco === 'number' ? doProfissional.preco : servico.preco
+  servicos?: { id: number; nome?: string }[]
 }
 
 /** R$ 45,90 — formato que o brasileiro lê sem pensar. */

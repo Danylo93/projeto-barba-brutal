@@ -78,7 +78,7 @@ function HeroSaas() {
             <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-1.5">
                 <Scissors size={14} className="text-yellow-400" />
                 <span className="text-sm font-medium text-yellow-300">
-                    30 dias grátis — sem cartão de crédito
+                    30 dias grátis para testar
                 </span>
             </span>
             <h1

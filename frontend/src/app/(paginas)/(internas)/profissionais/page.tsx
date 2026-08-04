@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Users, Plus, Trash2, Edit2, Star, Tag } from 'lucide-react'
+import { Users, Plus, Trash2, Edit2, Star } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import { imagemDoProfissional } from '@/lib/agendamento-utils'
 import Modal, { inputModalClasses } from '@/components/painel/Modal'
-import PrecosDoProfissional from '@/components/painel/PrecosDoProfissional'
 import { Skeleton } from '@/components/ui/skeleton'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useToast } from '@/hooks/use-toast'
@@ -21,8 +20,7 @@ interface Profissional {
   comissaoPercent?: number
   ativo: boolean
   createdAt: string
-  /** `personalizado` marca o serviço em que este profissional cobra diferente. */
-  servicos?: { id: number; nome?: string; personalizado?: boolean }[]
+  servicos?: { id: number; nome?: string }[]
 }
 
 interface ServicoResumo {
@@ -43,7 +41,6 @@ export default function ProfissionaisPage() {
   const [error, setError] = useState('')
 
   const [modalAberto, setModalAberto] = useState(false)
-  const [precosDe, setPrecosDe] = useState<Profissional | null>(null)
   const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null)
   
   const [editando, setEditando] = useState<Profissional | null>(null)
@@ -240,7 +237,7 @@ export default function ProfissionaisPage() {
 
                   <p className="text-sm text-zinc-400 mb-4 line-clamp-2">{profissional.descricao}</p>
 
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-4">
                     <div className="flex items-center gap-1">
                       {[...Array(5)].map((_, i) => (
                         <Star
@@ -265,36 +262,21 @@ export default function ProfissionaisPage() {
                         {profissional.comissaoPercent}% comissão
                       </span>
                     )}
-                    {(profissional.servicos ?? []).some((s) => s.personalizado) && (
-                      <span
-                        className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-xs font-semibold text-yellow-400"
-                        title="Cobra valor próprio em pelo menos um serviço"
-                      >
-                        preço próprio
-                      </span>
-                    )}
                   </div>
 
-                  <div className="flex gap-1 pt-4 border-t border-zinc-800">
+                  <div className="flex gap-2 pt-4 border-t border-zinc-800">
                     <button
                       onClick={() => abrirEdicao(profissional)}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-sm text-zinc-300 hover:text-yellow-400 py-2 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 text-zinc-300 hover:text-yellow-400 py-2 transition-colors"
                     >
-                      <Edit2 size={16} />
+                      <Edit2 size={18} />
                       Editar
                     </button>
                     <button
-                      onClick={() => setPrecosDe(profissional)}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-sm text-zinc-300 hover:text-yellow-400 py-2 transition-colors"
-                    >
-                      <Tag size={16} />
-                      Preços
-                    </button>
-                    <button
                       onClick={() => setConfirmarExclusao(profissional.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-sm text-red-400 hover:text-red-300 py-2 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 text-red-400 hover:text-red-300 py-2 transition-colors"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={18} />
                       Deletar
                     </button>
                   </div>
@@ -313,19 +295,6 @@ export default function ProfissionaisPage() {
         onConfirmar={handleDelete}
         onCancelar={() => setConfirmarExclusao(null)}
       />
-
-      <Modal
-        aberto={precosDe !== null}
-        titulo={`Preços de ${precosDe?.nome ?? ''}`}
-        onFechar={() => setPrecosDe(null)}
-      >
-        {precosDe && (
-          <PrecosDoProfissional
-            profissionalId={precosDe.id}
-            aoSalvar={fetchProfissionais}
-          />
-        )}
-      </Modal>
 
       <Modal
         aberto={modalAberto}

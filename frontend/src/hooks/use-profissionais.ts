@@ -7,14 +7,7 @@ export interface Profissional {
   id: number
   nome: string
   imagemUrl: string
-  /** `preco` é o que ESTE profissional cobra; `precoPadrao`, o da barbearia. */
-  servicos: {
-    id: number
-    nome?: string
-    preco?: number
-    precoPadrao?: number
-    personalizado?: boolean
-  }[]
+  servicos: { id: number; nome?: string }[]
 }
 
 const URL_BASE = API_BASE
@@ -45,16 +38,8 @@ export function useProfissionais() {
             id: p.id,
             nome: p.nome,
             imagemUrl: imagemDoProfissional(p.id, p.imagemUrl),
-            // O preço do profissional TEM que passar por aqui: sem ele a tela
-            // de agendamento caía no preço da barbearia para todo mundo.
             servicos: Array.isArray(p.servicos)
-              ? p.servicos.map((s: any) => ({
-                  id: s.id,
-                  nome: s.nome,
-                  preco: s.preco,
-                  precoPadrao: s.precoPadrao,
-                  personalizado: s.personalizado,
-                }))
+              ? p.servicos.map((s: any) => ({ id: s.id, nome: s.nome }))
               : [],
           }))
         )

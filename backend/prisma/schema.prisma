@@ -180,7 +180,6 @@ model Profissional {
   updatedAt            DateTime      @updatedAt
   agendamentos         Agendamento[]
   servicos             Servico[]     // serviços que este profissional realiza
-  precos               PrecoProfissional[] // preço próprio, quando cobra diferente da barbearia
   bloqueios            Bloqueio[]    // folgas, almoço, férias
 
   tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -204,7 +203,6 @@ model Servico {
   updatedAt    DateTime      @updatedAt
   agendamentos Agendamento[]
   profissionais Profissional[] // profissionais que realizam este serviço
-  precos       PrecoProfissional[]
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -226,9 +224,8 @@ model Agendamento {
   /// Valor cobrado, congelado na hora de agendar.
   ///
   /// Antes o faturamento era recalculado a partir de `Servico.preco` toda vez
-  /// que alguém abria o relatório: mudar o preço de um corte reescrevia o
-  /// faturamento dos meses anteriores. Com preço por profissional isso ficaria
-  /// pior ainda — o barbeiro mudaria o preço dele e mexeria na comissão já paga.
+  /// que alguém abria o relatório: o dono reajustava o corte em agosto e o
+  /// faturamento de junho mudava junto, junto com a comissão já paga.
   valorTotal     Float?
   /// Preço de cada serviço no momento do agendamento: { "<servicoId>": 45 }.
   /// É o que permite o relatório de serviços mais vendidos bater com a receita.
@@ -239,29 +236,6 @@ model Agendamento {
   tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("agendamento")
-}
-
-/// Preço que UM profissional cobra por UM serviço.
-///
-/// Só existe linha aqui quando o profissional cobra diferente da barbearia;
-/// sem linha, vale o `Servico.preco`. Guardar só a exceção evita ter que criar
-/// registro para todo par profissional×serviço e mantém o preço da barbearia
-/// como padrão vivo — se o dono reajusta o corte, quem não personalizou sobe junto.
-model PrecoProfissional {
-  id             Int          @id @default(autoincrement())
-  tenantId       Int
-  profissionalId Int
-  servicoId      Int
-  preco          Float
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  profissional   Profissional @relation(fields: [profissionalId], references: [id], onDelete: Cascade)
-  servico        Servico      @relation(fields: [servicoId], references: [id], onDelete: Cascade)
-
-  @@unique([profissionalId, servicoId])
-  @@index([tenantId])
-  @@map("preco_profissional")
 }
 
 model AuditLog {

@@ -1,11 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { calcularComissoes, intervaloDoMes } from './comissao';
-import {
-  precosDaVitrine,
-  valorCobrado,
-  valorDoServicoNoAgendamento,
-} from '../servico/preco';
+import { valorCobrado, valorDoServicoNoAgendamento } from '../servico/preco';
 import { escolherCorMarca, COR_PRIMARIA_PADRAO } from './cores-marca';
 
 @Injectable()
@@ -286,8 +282,6 @@ export class TenantService {
             imagemUrl: true,
             avaliacao: true,
             quantidadeAvaliacoes: true,
-            servicos: { where: { ativo: true }, select: { id: true } },
-            precos: { select: { servicoId: true, preco: true } },
           },
         },
       },
@@ -309,14 +303,8 @@ export class TenantService {
       corPrimaria: tenant.corPrimaria,
       corSecundaria: tenant.corSecundaria,
       configuracoes: tenant.configuracoes,
-      // Ordena pelo preço que a vitrine EXIBE. O `orderBy` da consulta usa o
-      // preço da barbearia, que pode não ser o que aparece no card.
-      servicos: precosDaVitrine(tenant.servicos, tenant.profissionais).sort(
-        (a, b) => a.precoMinimo - b.precoMinimo || a.nome.localeCompare(b.nome),
-      ),
-      // `servicos`/`precos` do profissional saem daqui: são insumo do cálculo
-      // acima, e a vitrine pública não precisa da tabela de preços de cada um.
-      profissionais: tenant.profissionais.map(({ servicos, precos, ...p }) => p),
+      servicos: tenant.servicos,
+      profissionais: tenant.profissionais,
     };
   }
 

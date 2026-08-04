@@ -1,11 +1,5 @@
 import { createContext, useCallback, useEffect, useState } from 'react'
-import {
-    AgendaUtils,
-    Profissional,
-    Servico,
-    DataUtils,
-    precoComProfissional,
-} from '@/lib/agendamento-utils'
+import { AgendaUtils, Profissional, Servico, DataUtils } from '@/lib/agendamento-utils'
 import useUsuario from '../hooks/useUsuario'
 import useAPI from '../hooks/useAPI'
 
@@ -60,13 +54,9 @@ export function ProvedorAgendamento({ children }: { children: React.ReactNode })
         return AgendaUtils.duracaoTotal(servicos)
     }
 
-    // Cada profissional pode cobrar o próprio valor: o total é o dele, não o
-    // da tabela da barbearia. O backend congela esse mesmo valor ao gravar.
+    // O backend congela este mesmo valor ao gravar o agendamento.
     function precoTotal() {
-        const total = servicos.reduce(
-            (acc, servico) => acc + precoComProfissional(servico, profissional),
-            0
-        )
+        const total = servicos.reduce((acc, servico) => acc + servico.preco, 0)
         return Math.round((total + Number.EPSILON) * 100) / 100
     }
 

@@ -6,7 +6,7 @@ import { ArrowRight, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
 const garantias = [
-  { titulo: '30 dias grátis', sub: 'Sem cartão de crédito' },
+  { titulo: '30 dias grátis', sub: 'Teste tudo antes de assinar' },
   { titulo: 'Pagamento via Pix', sub: 'Direto no painel' },
   { titulo: 'Cancele quando quiser', sub: 'Sem multa nem fidelidade' },
 ];

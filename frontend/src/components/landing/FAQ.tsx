@@ -7,11 +7,7 @@ import { ChevronDown } from 'lucide-react';
 const perguntas = [
   {
     q: 'Como funciona o teste de 30 dias?',
-    a: 'Você cria a conta, escolhe um plano e usa tudo liberado por 30 dias — sem cartão de crédito. Só paga (via Pix) se decidir continuar depois do teste.',
-  },
-  {
-    q: 'Preciso de cartão de crédito para começar?',
-    a: 'Não. O teste é 100% gratuito e o pagamento, quando você decidir assinar, é feito por Pix direto no painel.',
+    a: 'Você cria a conta, escolhe um plano e usa tudo liberado por 30 dias. Só paga (via Pix) se decidir continuar depois do teste.',
   },
   {
     q: 'Quantos barbeiros posso cadastrar?',
