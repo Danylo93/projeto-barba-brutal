@@ -9,6 +9,87 @@
 const dinheiro = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+/** Dados de um agendamento, já formatados para leitura humana. */
+export interface DadosDoAviso {
+  cliente: string;
+  barbeiro: string;
+  barbearia: string;
+  /** "Corte, Barba" — nomes já concatenados. */
+  servicos: string;
+  /** dd/mm/aaaa no fuso de Brasília. */
+  data: string;
+  /** HH:MM no fuso de Brasília. */
+  horario: string;
+}
+
+/**
+ * Confirmação, logo depois de agendar.
+ *
+ * O texto morava dentro de um nó de código do n8n, em duas cópias que já
+ * divergiam entre si. Aqui ele fica versionado, revisável e coberto por teste
+ * — mensagem que chega no celular do cliente não é detalhe de infraestrutura.
+ */
+export function mensagemConfirmacaoCliente(a: DadosDoAviso): string {
+  return [
+    `✅ *Agendamento confirmado!*`,
+    ``,
+    `Olá, ${a.cliente}! Seu horário na *${a.barbearia}* está marcado:`,
+    ``,
+    `✂️ ${a.servicos}`,
+    `👤 ${a.barbeiro}`,
+    `📅 ${a.data}`,
+    `🕐 ${a.horario}`,
+    ``,
+    `Qualquer imprevisto, é só chamar por aqui. Até logo! 🪒`,
+  ].join('\n');
+}
+
+export function mensagemConfirmacaoBarbeiro(a: DadosDoAviso): string {
+  return [
+    `📅 *Novo agendamento!*`,
+    ``,
+    `${a.barbeiro}, você tem um novo horário na *${a.barbearia}*:`,
+    ``,
+    `👤 Cliente: ${a.cliente}`,
+    `✂️ ${a.servicos}`,
+    `📅 ${a.data}`,
+    `🕐 ${a.horario}`,
+  ].join('\n');
+}
+
+/**
+ * Lembrete, cerca de uma hora antes.
+ *
+ * Não diz "hoje": o lembrete pode sair atrasado depois de uma falha de envio,
+ * e o fluxo antigo escrevia "Hoje às 20:00" para um horário que podia já ter
+ * passado. A data por extenso é o que o cliente precisa para não se enganar.
+ */
+export function mensagemLembreteCliente(a: DadosDoAviso): string {
+  return [
+    `⏰ *Lembrete do seu horário*`,
+    ``,
+    `Olá, ${a.cliente}! Está chegando a hora do seu horário na *${a.barbearia}*:`,
+    ``,
+    `✂️ ${a.servicos}`,
+    `👤 ${a.barbeiro}`,
+    `📅 ${a.data} às ${a.horario}`,
+    ``,
+    `Te esperamos! 🪒`,
+  ].join('\n');
+}
+
+export function mensagemLembreteBarbeiro(a: DadosDoAviso): string {
+  return [
+    `⏰ *Lembrete de atendimento*`,
+    ``,
+    `${a.barbeiro}, está chegando:`,
+    ``,
+    `👤 Cliente: ${a.cliente}`,
+    `✂️ ${a.servicos}`,
+    `📅 ${a.data} às ${a.horario}`,
+  ].join('\n');
+}
+
 const dia = (d: Date) =>
   d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 

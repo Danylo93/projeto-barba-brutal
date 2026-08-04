@@ -31,6 +31,10 @@ services:
         sync: false
       - key: EVOLUTION_INSTANCE
         sync: false # nome da instância conectada ao número
+      # Segredo que o n8n usa para disparar confirmação e lembrete.
+      # Sem ele as rotas /lembretes respondem 503 e nenhum aviso sai.
+      - key: LEMBRETE_TOKEN
+        generateValue: true
       # E-mail de notificação — sem SMTP_HOST o envio fica desativado (só log)
       - key: SMTP_HOST
         sync: false

@@ -230,6 +230,21 @@ model Agendamento {
   /// Preço de cada serviço no momento do agendamento: { "<servicoId>": 45 }.
   /// É o que permite o relatório de serviços mais vendidos bater com a receita.
   precosServicos Json?
+  /// Quando o lembrete de WhatsApp foi enviado.
+  ///
+  /// O dedup morava no Redis, com janela fixa de 5 minutos: se UMA execução do
+  /// n8n falhasse, os agendamentos daquela janela nunca mais eram consultados
+  /// e ninguém era lembrado — sem erro em lugar nenhum. Aqui no banco, o que
+  /// não foi enviado continua pendente até sair.
+  lembreteEnviadoEm DateTime?
+  /// Quando a confirmação de WhatsApp foi enviada.
+  ///
+  /// O fluxo de confirmação guardava no Redis o id do último agendamento
+  /// processado e avançava esse marcador ANTES de mandar a mensagem: se a
+  /// Evolution recusasse, aquele cliente nunca mais era avisado. Pior, se o
+  /// Redis fosse limpo, o marcador voltava a zero e todo mundo da última hora
+  /// recebia a confirmação de novo.
+  confirmacaoEnviadaEm DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
