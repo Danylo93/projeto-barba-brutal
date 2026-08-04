@@ -115,4 +115,11 @@ export class RegistrarTenantDto {
   @IsNotEmpty({ message: 'Informe o CPF ou CNPJ da barbearia.' })
   @MaxLength(20, { message: 'Informe um CPF ou CNPJ válido.' })
   documento: string;
+
+  /** Subdomínio escolhido pelo dono. Opcional — se não vier, é gerado
+   *  automaticamente a partir do nome. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(63, { message: 'O endereço é longo demais.' })
+  dominio?: string;
 }

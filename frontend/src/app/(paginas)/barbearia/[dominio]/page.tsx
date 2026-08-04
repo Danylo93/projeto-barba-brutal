@@ -1,5 +1,4 @@
 import { Metadata } from 'next'
-import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import {
@@ -211,12 +210,12 @@ export default async function BarbeariaPublicaPage({
             {/* Hero */}
             <section className="relative overflow-hidden">
                 <div className="absolute inset-0">
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                         src="/banners/principal.webp"
-                        alt={nomeExibido}
-                        fill
-                        priority
-                        className="object-cover opacity-30"
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 h-full w-full object-cover opacity-30"
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-tenant-primary/70 via-tenant-primary/85 to-tenant-primary" />
                 </div>
@@ -283,11 +282,11 @@ export default async function BarbeariaPublicaPage({
                                 }`}
                             >
                                 <div className="relative h-44 overflow-hidden">
-                                    <Image
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
                                         src={imagemDoServico(servico.nome, servico.imagemURL)}
                                         alt={servico.nome}
-                                        fill
-                                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                                     />
                                     {servico.ehCombo && (
                                         <span className="absolute left-3 top-3 rounded-full bg-tenant-secondary px-3 py-1 text-xs font-bold uppercase text-tenant-primary">
@@ -364,11 +363,11 @@ export default async function BarbeariaPublicaPage({
                                 className="flex items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:border-zinc-700 reveal-up"
                             >
                                 <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl">
-                                    <Image
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
                                         src={imagemDoProfissional(prof.id, prof.imagemUrl)}
                                         alt={prof.nome}
-                                        fill
-                                        className="object-cover"
+                                        className="absolute inset-0 h-full w-full object-cover"
                                     />
                                 </div>
                                 <div className="min-w-0">

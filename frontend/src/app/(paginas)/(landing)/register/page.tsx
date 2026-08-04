@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import useSessao from '@/data/hooks/useSessao'
@@ -9,10 +9,31 @@ import { formatarTelefone, formatarTelefoneInput, validarEmail, validarTelefone 
 import { useToast } from '@/hooks/use-toast'
 import { registrarAceiteDeTermos } from '@/lib/registrar-aceite'
 import { formatarDocumentoInput, limparDocumento, validarDocumento } from '@/lib/documento'
+import { Globe, Check, X, Loader2 } from 'lucide-react'
 
 const inputClasses =
     'w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 ' +
     'focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-colors'
+
+/** Domínio raiz para mostrar o preview do subdomínio. */
+const DOMINIO_RAIZ = process.env.NEXT_PUBLIC_DOMINIO_RAIZ || 'barbeariabrutal.com'
+
+/** Normalização de slug no client — replica a lógica do backend de forma simplificada. */
+function normalizarSlugLocal(texto: string): string {
+    return texto
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_.]+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-{2,}/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 63)
+        .replace(/-+$/, '')
+}
+
+type SlugStatus = 'idle' | 'checking' | 'available' | 'unavailable'
 
 export default function RegisterPage() {
     const router = useRouter()
@@ -26,12 +47,20 @@ export default function RegisterPage() {
         confirmarSenha: '',
         endereco: '',
         documento: '',
+        subdominio: '',
         aceitoTermos: false,
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [fieldErrors, setFieldErrors] = useState<{ email?: string; telefone?: string }>({})
     const [erroDocumento, setErroDocumento] = useState<string | null>(null)
+
+    // Estado do verificador de subdomínio
+    const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle')
+    const [slugNormalizado, setSlugNormalizado] = useState('')
+    const [slugMensagem, setSlugMensagem] = useState('')
+    const [subdominioEditado, setSubdominioEditado] = useState(false)
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target
@@ -40,6 +69,63 @@ export default function RegisterPage() {
             [name]: type === 'checkbox' ? checked : value,
         }))
     }
+
+    // Auto-gerar sugestão de subdomínio quando o nome muda (se não foi editado manualmente)
+    useEffect(() => {
+        if (!subdominioEditado && formData.nome) {
+            const slug = normalizarSlugLocal(formData.nome)
+            setFormData((prev) => ({ ...prev, subdominio: slug }))
+        }
+    }, [formData.nome, subdominioEditado])
+
+    // Verificar disponibilidade com debounce
+    const verificarSlug = useCallback(async (slug: string) => {
+        if (!slug || slug.length < 3) {
+            setSlugStatus('idle')
+            setSlugNormalizado('')
+            setSlugMensagem('')
+            return
+        }
+
+        setSlugStatus('checking')
+        try {
+            const res = await fetch(`/api/tenants/verificar-slug/${encodeURIComponent(slug)}`)
+            const data = await res.json()
+
+            setSlugNormalizado(data.slug || slug)
+            if (data.disponivel) {
+                setSlugStatus('available')
+                setSlugMensagem('')
+            } else {
+                setSlugStatus('unavailable')
+                setSlugMensagem(data.mensagem || 'Indisponível')
+            }
+        } catch {
+            setSlugStatus('idle')
+            setSlugMensagem('Erro ao verificar. Tente novamente.')
+        }
+    }, [])
+
+    // Debounce da verificação quando o subdomínio muda
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+
+        const slug = normalizarSlugLocal(formData.subdominio)
+        if (!slug || slug.length < 3) {
+            setSlugStatus('idle')
+            setSlugNormalizado('')
+            setSlugMensagem('')
+            return
+        }
+
+        debounceRef.current = setTimeout(() => {
+            verificarSlug(slug)
+        }, 500)
+
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+        }
+    }, [formData.subdominio, verificarSlug])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -75,6 +161,14 @@ export default function RegisterPage() {
             return
         }
 
+        // Se o slug foi preenchido mas não está disponível, bloqueia
+        const slugFinal = normalizarSlugLocal(formData.subdominio)
+        if (slugFinal && slugFinal.length >= 3 && slugStatus === 'unavailable') {
+            setError('O endereço escolhido não está disponível. Escolha outro.')
+            toastError('Endereço indisponível', 'Escolha outro endereço para sua barbearia.')
+            return
+        }
+
         setLoading(true)
         try {
             const response = await fetch('/api/auth/tenant/register', {
@@ -87,6 +181,7 @@ export default function RegisterPage() {
                     senha: formData.senha,
                     endereco: formData.endereco || undefined,
                     documento: limparDocumento(formData.documento),
+                    dominio: slugFinal && slugFinal.length >= 3 ? slugFinal : undefined,
                 }),
             })
             const data = await response.json().catch(() => ({}))
@@ -112,6 +207,8 @@ export default function RegisterPage() {
             setLoading(false)
         }
     }
+
+    const slugPreview = normalizarSlugLocal(formData.subdominio)
 
     return (
         <AuthShell>
@@ -139,6 +236,80 @@ export default function RegisterPage() {
                         placeholder="Nome da barbearia"
                         className={inputClasses}
                     />
+
+                    {/* Escolha de subdomínio */}
+                    <div>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <Globe size={16} className="text-zinc-500" />
+                            </div>
+                            <input
+                                type="text"
+                                name="subdominio"
+                                value={formData.subdominio}
+                                onChange={(e) => {
+                                    setSubdominioEditado(true)
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        subdominio: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                                    }))
+                                }}
+                                placeholder="seu-endereco"
+                                className={`${inputClasses} pl-9 pr-10 ${
+                                    slugStatus === 'available'
+                                        ? 'border-green-500/60 focus:border-green-500 focus:ring-green-500'
+                                        : slugStatus === 'unavailable'
+                                          ? 'border-red-500/60 focus:border-red-500 focus:ring-red-500'
+                                          : ''
+                                }`}
+                            />
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                                {slugStatus === 'checking' && (
+                                    <Loader2 size={16} className="text-zinc-400 animate-spin" />
+                                )}
+                                {slugStatus === 'available' && (
+                                    <Check size={16} className="text-green-400" />
+                                )}
+                                {slugStatus === 'unavailable' && (
+                                    <X size={16} className="text-red-400" />
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Preview do endereço */}
+                        {slugPreview && slugPreview.length >= 3 ? (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                                {slugStatus === 'available' ? (
+                                    <p className="text-xs text-green-400">
+                                        ✓ Disponível —{' '}
+                                        <span className="font-mono font-medium">
+                                            {slugNormalizado || slugPreview}.{DOMINIO_RAIZ}
+                                        </span>
+                                    </p>
+                                ) : slugStatus === 'unavailable' ? (
+                                    <p className="text-xs text-red-400">
+                                        ✗ {slugMensagem}
+                                    </p>
+                                ) : slugStatus === 'checking' ? (
+                                    <p className="text-xs text-zinc-400">
+                                        Verificando disponibilidade...
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-zinc-500">
+                                        Seu endereço será{' '}
+                                        <span className="font-mono text-zinc-400">
+                                            {slugPreview}.{DOMINIO_RAIZ}
+                                        </span>
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="mt-1 text-xs text-zinc-500">
+                                Escolha o endereço online da sua barbearia (mínimo 3 caracteres).
+                            </p>
+                        )}
+                    </div>
+
                     <div>
                         <input
                             type="email"

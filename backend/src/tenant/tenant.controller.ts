@@ -76,6 +76,15 @@ export class TenantController {
     return this.tenantService.getAgendamentos(user.id);
   }
 
+  /**
+   * Verifica se um slug (subdomínio) está disponível para uso.
+   * Público, sem autenticação — usado pelo formulário de cadastro.
+   */
+  @Get('verificar-slug/:slug')
+  verificarSlug(@Param('slug') slug: string) {
+    return this.tenantService.verificarSlug(slug);
+  }
+
   /** Landing pública da barbearia (sem autenticação) — por domínio ou id. */
   @Get('publico/:identificador')
   getPaginaPublica(@Param('identificador') identificador: string) {

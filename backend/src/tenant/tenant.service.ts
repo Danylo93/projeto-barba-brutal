@@ -323,6 +323,46 @@ export class TenantService {
   }
 
   /**
+   * Verifica se um slug (subdomínio) está disponível para uma nova barbearia.
+   * Normaliza o slug, verifica a lista de reservados e confere no banco.
+   */
+  async verificarSlug(bruto: string): Promise<{
+    disponivel: boolean;
+    slug: string;
+    mensagem?: string;
+  }> {
+    // Rejeita punycode antes de normalizar.
+    const problemaBruto = problemaAntesDeNormalizar(bruto);
+    if (problemaBruto) {
+      return { disponivel: false, slug: '', mensagem: problemaBruto };
+    }
+
+    const slug = normalizarSlug(bruto);
+    const problema = problemaDoSlug(slug);
+    if (problema) {
+      return { disponivel: false, slug, mensagem: problema };
+    }
+
+    // Verifica se já existe alguma barbearia usando este slug (ativo ou antigo).
+    const ocupado = await this.prisma.tenant.findFirst({
+      where: {
+        OR: [{ dominio: slug }, { dominiosAntigos: { has: slug } }],
+      },
+      select: { id: true },
+    });
+
+    if (ocupado) {
+      return {
+        disponivel: false,
+        slug,
+        mensagem: 'Este endereço já está em uso. Escolha outro.',
+      };
+    }
+
+    return { disponivel: true, slug };
+  }
+
+  /**
    * Campos que o dono pode alterar na própria barbearia.
    *
    * A lista existe porque tipo de TypeScript some em tempo de execução:

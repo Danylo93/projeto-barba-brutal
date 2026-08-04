@@ -9,7 +9,7 @@ import { emailBoasVindas } from '../notificacao/templates';
 import { paraCriar, servicosQueFaltam } from '../servico/catalogo-padrao';
 import * as bcrypt from 'bcrypt';
 import { novaSessao } from './sessao';
-import { slugDisponivel } from '../tenant/slug';
+import { slugDisponivel, normalizarSlug, problemaDoSlug, problemaAntesDeNormalizar } from '../tenant/slug';
 
 /** Valida formato de e-mail. */
 function validarEmail(email: string): boolean {
@@ -411,6 +411,7 @@ export class AuthService {
     senha: string;
     endereco?: string;
     documento: string;
+    dominio?: string;
   }) {
     if (!validarEmail(data.email)) {
       throw new BadRequestException('E-mail inválido. Informe um e-mail válido (ex: nome@email.com)');
@@ -453,18 +454,43 @@ export class AuthService {
 
     // Endereço público da barbearia — vira `latita.barbeariabrutal.com`.
     //
-    // Passa pela lista de reservados: antes, "Barbearia WWW" recebia o slug
-    // `www` calado, e com o subdomínio no ar isso entregaria
-    // www.barbeariabrutal.com para um cliente qualquer.
-    const slug = await slugDisponivel(data.nome, async (candidato) => {
+    // Se o dono escolheu um subdomínio no cadastro, valida e usa ele.
+    // Senão, gera automaticamente a partir do nome.
+    let slug: string;
+    if (data.dominio) {
+      const problemaBruto = problemaAntesDeNormalizar(data.dominio);
+      if (problemaBruto) throw new BadRequestException(problemaBruto);
+
+      const normalizado = normalizarSlug(data.dominio);
+      const problema = problemaDoSlug(normalizado);
+      if (problema) throw new BadRequestException(problema);
+
       const ocupado = await this.prisma.tenant.findFirst({
         where: {
-          OR: [{ dominio: candidato }, { dominiosAntigos: { has: candidato } }],
+          OR: [{ dominio: normalizado }, { dominiosAntigos: { has: normalizado } }],
         },
         select: { id: true },
       });
-      return !!ocupado;
-    });
+      if (ocupado) {
+        throw new BadRequestException(
+          'Este endereço já está em uso. Escolha outro.',
+        );
+      }
+      slug = normalizado;
+    } else {
+      // Passa pela lista de reservados: antes, "Barbearia WWW" recebia o slug
+      // `www` calado, e com o subdomínio no ar isso entregaria
+      // www.barbeariabrutal.com para um cliente qualquer.
+      slug = await slugDisponivel(data.nome, async (candidato) => {
+        const ocupado = await this.prisma.tenant.findFirst({
+          where: {
+            OR: [{ dominio: candidato }, { dominiosAntigos: { has: candidato } }],
+          },
+          select: { id: true },
+        });
+        return !!ocupado;
+      });
+    }
 
     // A sessão já nasce com o cadastro: uma consulta a menos, e a conta nunca
     // fica um instante sem `sessaoId` (que reprovaria o token recém-emitido).

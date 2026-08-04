@@ -5,8 +5,18 @@ import { Globe, Copy, Check, ExternalLink } from 'lucide-react'
 import { Card } from './Painel'
 
 /**
- * Card do painel do dono com o link da página pública da barbearia
- * (/barbearia/<dominio-ou-id>), para copiar e compartilhar com os clientes.
+ * Domínio raiz do SaaS. Quando definido, o link público da barbearia vira
+ * `slug.barbeariabrutal.com` em vez de `barbeariabrutal.com/barbearia/slug`.
+ */
+const DOMINIO_RAIZ = process.env.NEXT_PUBLIC_DOMINIO_RAIZ || ''
+
+/**
+ * Card do painel do dono com o link da página pública da barbearia,
+ * para copiar e compartilhar com os clientes.
+ *
+ * Quando `NEXT_PUBLIC_DOMINIO_RAIZ` está definido e a barbearia tem domínio
+ * (slug), o endereço exibido é `https://{slug}.{dominioRaiz}`.
+ * Sem isso, fallback para `{origin}/barbearia/{slug}`.
  */
 export default function PaginaPublicaCard({
     dominio,
@@ -16,13 +26,13 @@ export default function PaginaPublicaCard({
     id: number
 }) {
     const slug = dominio || String(id)
-    const [url, setUrl] = useState(`/barbearia/${slug}`)
+    const [url, setUrl] = useState(() => montarUrl(slug))
     const [copiado, setCopiado] = useState(false)
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            setUrl(`${window.location.origin}/barbearia/${slug}`)
-        }
+        // No client, recalcula para ter a origin correta caso o DOMINIO_RAIZ
+        // não esteja definido (fallback usa window.location.origin).
+        setUrl(montarUrl(slug))
     }, [slug])
 
     async function copiar() {
@@ -75,4 +85,18 @@ export default function PaginaPublicaCard({
             </div>
         </Card>
     )
+}
+
+/** Monta a URL pública da barbearia, priorizando o formato de subdomínio. */
+function montarUrl(slug: string): string {
+    // Se o domínio raiz está definido e o slug é alfanumérico (não é um id
+    // numérico puro), monta como subdomínio.
+    if (DOMINIO_RAIZ && !/^\d+$/.test(slug)) {
+        return `https://${slug}.${DOMINIO_RAIZ}`
+    }
+    // Fallback: usa a origin atual + /barbearia/slug
+    if (typeof window !== 'undefined') {
+        return `${window.location.origin}/barbearia/${slug}`
+    }
+    return `/barbearia/${slug}`
 }
