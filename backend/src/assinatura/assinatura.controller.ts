@@ -13,6 +13,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { AssinaturaService } from './assinatura.service';
+import { DominioPixDto } from './assinatura.dto';
+import { OPCOES_DE_DOMINIO } from './dominio';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantAuthGuard } from '../auth/tenant-auth.guard';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
@@ -94,10 +96,25 @@ export class AssinaturaController {
     return this.assinaturaService.criarPagamentoPix(exigirTenant(user), data?.planoId);
   }
 
+  /** Opções e preços do adicional — a tela monta a oferta a partir daqui. */
+  @Get('dominio/opcoes')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  opcoesDeDominio() {
+    return OPCOES_DE_DOMINIO.map(({ opcao, preco, titulo, resumo }) => ({
+      opcao,
+      preco,
+      titulo,
+      resumo,
+    }));
+  }
+
   @Post('me/dominio/pix')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
-  criarPixDominio(@CurrentUser() user: any) {
-    return this.assinaturaService.criarPagamentoPixDominio(exigirTenant(user));
+  criarPixDominio(@CurrentUser() user: any, @Body() data: DominioPixDto) {
+    return this.assinaturaService.criarPagamentoPixDominio(
+      exigirTenant(user),
+      data?.opcao,
+    );
   }
 
   @Get('me/pix/:id')

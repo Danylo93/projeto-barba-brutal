@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckCircle, AlertCircle, Crown, QrCode, Copy, RefreshCw, CreditCard } from 'lucide-react'
+import { CheckCircle, AlertCircle, Crown, QrCode, Copy, RefreshCw, CreditCard, Headset } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import useUsuario from '@/data/hooks/useUsuario'
 import Modal from '@/components/painel/Modal'
@@ -26,7 +26,39 @@ interface PixData {
   plano: string
   qrCode: string | null
   qrCodeBase64: string | null
+  /** Vem só na cobrança de domínio: nada é ligado sozinho, o suporte executa. */
+  atendimentoManual?: boolean
+  resumoDominio?: string
 }
+
+type OpcaoDominio = 'proprio' | 'novo'
+
+/**
+ * Preços do adicional de domínio.
+ *
+ * Ficam também no backend (`assinatura/dominio.ts`), que é quem cobra — aqui é
+ * só vitrine. Se divergirem, vale o que o backend devolve na cobrança: a tela
+ * mostra `pixData.valor`, não estes números.
+ */
+const OPCOES_DOMINIO: {
+  opcao: OpcaoDominio
+  titulo: string
+  preco: string
+  detalhe: string
+}[] = [
+  {
+    opcao: 'proprio',
+    titulo: 'Já tenho um domínio',
+    preco: 'R$ 29,90',
+    detalhe: 'A gente configura e aponta para a sua página.',
+  },
+  {
+    opcao: 'novo',
+    titulo: 'Ainda não tenho',
+    preco: 'R$ 69,90',
+    detalhe: 'A gente registra no seu nome, configura e aponta.',
+  },
+]
 
 export default function PlanosPage() {
   const { httpGet, httpPost } = useAPI()
@@ -70,7 +102,7 @@ export default function PlanosPage() {
     else if (tipo === 'pix') abrirPix(plano)
   }
 
-  const gerarPixDominio = async () => {
+  const gerarPixDominio = async (opcao: OpcaoDominio) => {
     setModalDominioAberto(false)
     if (!isTenant) return
     setPixAberto(true)
@@ -79,13 +111,15 @@ export default function PlanosPage() {
     setPixLoading(true)
     setCopiado(false)
     try {
-      const resposta = await httpPost('/assinaturas/me/dominio/pix', {})
+      const resposta = await httpPost('/assinaturas/me/dominio/pix', { opcao })
       if (resposta?.statusCode >= 400 || resposta?.message) {
         throw new Error(resposta.message || 'Não foi possível gerar o Pix do domínio')
       }
       setPixData(resposta)
     } catch (err) {
-      setPixErro(err instanceof Error ? err.message : 'Erro ao gerar o Pix do domínio')
+      const mensagem = err instanceof Error ? err.message : 'Erro ao gerar o Pix do domínio'
+      setPixErro(mensagem)
+      toastError(mensagem)
     } finally {
       setPixLoading(false)
     }
@@ -188,7 +222,14 @@ export default function PlanosPage() {
       const r = await httpGet(`/assinaturas/me/pix/${pixData.pagamentoId}`)
       if (r?.status === 'approved') {
         setPixAberto(false)
-        setSucesso('Pagamento confirmado! Sua assinatura está ativa.')
+        // O adicional de domínio não é assinatura: dizer "sua assinatura está
+        // ativa" aqui seria mentir duas vezes — não é assinatura, e não tem
+        // nada ativo ainda, porque quem configura é o suporte.
+        const mensagem = pixData.atendimentoManual
+          ? 'Pagamento confirmado! Nosso suporte vai entrar em contato pelo WhatsApp com os próximos passos do seu domínio.'
+          : 'Pagamento confirmado! Sua assinatura está ativa.'
+        setSucesso(mensagem)
+        toastSuccess('Pagamento confirmado', mensagem)
         await carregar()
       } else {
         setPixErro('Pagamento ainda não confirmado. Assim que o Pix cair, clique novamente.')
@@ -391,7 +432,24 @@ export default function PlanosPage() {
               <p className="text-zinc-400 text-sm">
                 {pixData.plano} · <span className="text-white font-semibold">R$ {pixData.valor.toFixed(2).replace('.', ',')}</span>
               </p>
+              {pixData.resumoDominio && (
+                <p className="text-zinc-500 text-xs mt-1">{pixData.resumoDominio}</p>
+              )}
             </div>
+
+            {/* Repetido aqui de propósito: é a última tela antes de o dinheiro
+                sair, e é onde a promessa precisa estar clara. */}
+            {pixData.atendimentoManual && (
+              <div className="flex gap-2 rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-3">
+                <Headset size={16} className="text-yellow-400 shrink-0 mt-0.5" />
+                <p className="text-zinc-300 text-xs leading-relaxed">
+                  Assim que o pagamento cair,{' '}
+                  <strong>alguém do nosso suporte entra em contato pelo WhatsApp</strong> com os
+                  próximos passos. O domínio não é ativado automaticamente — a configuração é
+                  feita junto com você.
+                </p>
+              </div>
+            )}
             {pixData.qrCodeBase64 ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -448,28 +506,48 @@ export default function PlanosPage() {
               <Crown size={32} />
             </div>
             <p className="text-zinc-400 text-sm">
-              Que tal ter um link como <strong>suabarbearia.com.br</strong> ao invés do padrão? 
-              Destaque-se da concorrência com um domínio próprio por apenas <strong className="text-white">R$ 59,90 (taxa única)</strong>.
+              Que tal um link como <strong className="text-white">suabarbearia.com.br</strong> no
+              lugar do padrão? Taxa única, sem mensalidade.
             </p>
           </div>
-          
-          <div className="flex flex-col gap-3 mt-8">
-            <button
-              onClick={() => gerarPixDominio()}
-              className="w-full py-3 rounded-xl bg-yellow-400 text-zinc-900 font-bold hover:bg-yellow-300 transition-colors flex justify-center items-center gap-2"
-            >
-              Sim, quero um domínio próprio
-            </button>
-            <button
-              onClick={() => {
-                setModalDominioAberto(false)
-                if (acaoPendente) executarAcao(acaoPendente.tipo, acaoPendente.plano)
-              }}
-              className="w-full py-3 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors font-medium"
-            >
-              Não, quero apenas assinar o plano agora
-            </button>
+
+          <div className="flex flex-col gap-3">
+            {OPCOES_DOMINIO.map((op) => (
+              <button
+                key={op.opcao}
+                onClick={() => gerarPixDominio(op.opcao)}
+                className="w-full text-left p-4 rounded-xl border border-zinc-700 hover:border-yellow-400 hover:bg-zinc-800/60 transition-colors"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-semibold text-white">{op.titulo}</span>
+                  <span className="text-yellow-400 font-bold whitespace-nowrap">{op.preco}</span>
+                </div>
+                <p className="text-zinc-400 text-xs mt-1">{op.detalhe}</p>
+              </button>
+            ))}
           </div>
+
+          {/* Dito ANTES de pagar, não depois. A oferta antiga sumia no
+              pagamento: o dono pagava, nada mudava na conta dele, e a única
+              saída era pedir estorno. */}
+          <div className="mt-4 flex gap-2 rounded-xl border border-zinc-700 bg-zinc-800/50 p-3">
+            <Headset size={16} className="text-yellow-400 shrink-0 mt-0.5" />
+            <p className="text-zinc-400 text-xs leading-relaxed">
+              Domínio não liga sozinho. Depois do pagamento,{' '}
+              <strong className="text-zinc-200">alguém do nosso suporte entra em contato</strong>{' '}
+              pelo WhatsApp com os próximos passos e cuida da configuração com você.
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              setModalDominioAberto(false)
+              if (acaoPendente) executarAcao(acaoPendente.tipo, acaoPendente.plano)
+            }}
+            className="w-full mt-4 py-3 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors font-medium"
+          >
+            Agora não, quero apenas assinar o plano
+          </button>
         </div>
       </Modal>
     </div>

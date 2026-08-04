@@ -12,6 +12,7 @@ import {
   pagamentoRenovaPlano,
   traduzirStatus,
 } from './mercadopago-assinatura';
+import { dominioDaOpcao } from './dominio';
 
 @Injectable()
 export class AssinaturaService {
@@ -284,8 +285,21 @@ export class AssinaturaService {
 
   /**
    * Cria uma cobrança Pix para o Adicional de Domínio Próprio.
+   *
+   * São dois serviços com preços diferentes: configurar um domínio que a
+   * barbearia já tem (R$ 29,90) ou registrar um novo e configurar (R$ 69,90).
+   * Nenhum dos dois liga sozinho — quem entrega é o suporte —, e a resposta
+   * carrega isso para a tela dizer, em vez de deixar o dono esperando algo que
+   * nunca ia acontecer.
    */
-  async criarPagamentoPixDominio(tenantId: number) {
+  async criarPagamentoPixDominio(tenantId: number, opcao: unknown) {
+    const escolha = dominioDaOpcao(opcao);
+    if (!escolha) {
+      throw new BadRequestException(
+        'Escolha se você já tem um domínio ou se quer que a gente registre um.',
+      );
+    }
+
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       include: { assinatura: true },
@@ -301,17 +315,15 @@ export class AssinaturaService {
       );
     }
 
-    const valorDominio = 59.90;
-
     const mp = await this.mpFetch('/v1/payments', {
       method: 'POST',
-      headers: { 'X-Idempotency-Key': `dominio-${tenantId}-${Date.now()}` },
+      headers: { 'X-Idempotency-Key': `dominio-${escolha.opcao}-${tenantId}-${Date.now()}` },
       body: JSON.stringify({
-        transaction_amount: valorDominio,
-        description: `Barba Brutal - Adicional Domínio Próprio`,
+        transaction_amount: escolha.preco,
+        description: `Barba Brutal - ${escolha.titulo}`,
         payment_method_id: 'pix',
         payer: { email: tenant.email, first_name: tenant.nome },
-        metadata: { tenantId, dominio: true },
+        metadata: { tenantId, dominio: true, opcaoDominio: escolha.opcao },
       }),
     });
 
@@ -320,19 +332,31 @@ export class AssinaturaService {
       data: {
         tenantId,
         planoId: idPlano,
-        valor: valorDominio,
-        metodo: 'pix_dominio',
+        valor: escolha.preco,
+        // O prefixo `pix_dominio` é o que impede este pagamento de renovar o
+        // plano de graça. A opção fica no sufixo para o suporte saber, na
+        // lista de pagamentos, qual dos dois serviços foi comprado.
+        metodo: escolha.metodo,
         status: mp.status || 'pending',
         mpPaymentId: String(mp.id),
         qrCode: td.qr_code || null,
       },
     });
 
+    this.logger.log(
+      `Domínio próprio (${escolha.opcao}) contratado pela barbearia #${tenantId} ` +
+        `— pagamento #${pagamento.id}. Assim que aprovar, o suporte precisa entrar em contato.`,
+    );
+
     return {
       pagamentoId: pagamento.id,
       status: pagamento.status,
-      valor: valorDominio,
-      plano: 'Domínio Próprio (Taxa Única)',
+      valor: escolha.preco,
+      plano: escolha.titulo,
+      opcaoDominio: escolha.opcao,
+      resumoDominio: escolha.resumo,
+      // A tela usa isto para não prometer nada automático.
+      atendimentoManual: true,
       qrCode: td.qr_code || null,
       qrCodeBase64: td.qr_code_base64 || null,
       ticketUrl: td.ticket_url || null,

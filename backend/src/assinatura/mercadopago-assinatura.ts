@@ -154,12 +154,20 @@ export function traduzirStatus(statusMp: string): 'active' | 'canceled' | 'pendi
  * Não renova o adicional de domínio próprio: é taxa única de um serviço à
  * parte, não mensalidade. A trava existia só no caminho do "já paguei —
  * verificar"; o webhook do Mercado Pago chamava `ativarAssinaturaPaga` direto,
- * então quem pagava R$ 59,90 pelo domínio ganhava 30 dias de plano de graça —
- * até R$ 159,90 no Premium — sem nada na tela indicando isso.
+ * então quem pagava pelo domínio ganhava 30 dias de plano de graça — até
+ * R$ 159,90 no Premium — sem nada na tela indicando isso.
+ *
+ * A comparação é por PREFIXO: o adicional virou duas opções
+ * (`pix_dominio_proprio` e `pix_dominio_novo`) e uma lista fechada deixaria a
+ * porta aberta de novo na terceira. Qualquer método que comece com
+ * `pix_dominio` é adicional, não mensalidade.
  */
-export const METODOS_QUE_NAO_RENOVAM = ['pix_dominio'] as const;
+export const PREFIXOS_QUE_NAO_RENOVAM = ['pix_dominio'] as const;
+
+/** @deprecated Use `PREFIXOS_QUE_NAO_RENOVAM`. */
+export const METODOS_QUE_NAO_RENOVAM = PREFIXOS_QUE_NAO_RENOVAM;
 
 export function pagamentoRenovaPlano(pagamento: { metodo?: string | null }): boolean {
   const metodo = (pagamento?.metodo ?? '').trim().toLowerCase();
-  return !(METODOS_QUE_NAO_RENOVAM as readonly string[]).includes(metodo);
+  return !PREFIXOS_QUE_NAO_RENOVAM.some((prefixo) => metodo.startsWith(prefixo));
 }
