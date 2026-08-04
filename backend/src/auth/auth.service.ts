@@ -9,6 +9,7 @@ import { emailBoasVindas } from '../notificacao/templates';
 import { paraCriar, servicosQueFaltam } from '../servico/catalogo-padrao';
 import * as bcrypt from 'bcrypt';
 import { novaSessao } from './sessao';
+import { slugDisponivel } from '../tenant/slug';
 
 /** Valida formato de e-mail. */
 function validarEmail(email: string): boolean {
@@ -450,25 +451,20 @@ export class AuthService {
       existentes.length,
     );
 
-    // Gerar domínio único (slug)
-    let baseSlug = slugify(data.nome);
-    if (!baseSlug) baseSlug = 'barbearia';
-    
-    let slug = baseSlug;
-    let contador = 1;
-    let slugExiste = await this.prisma.tenant.findUnique({
-      where: { dominio: slug },
-      select: { id: true },
-    });
-
-    while (slugExiste) {
-      slug = `${baseSlug}-${contador}`;
-      contador++;
-      slugExiste = await this.prisma.tenant.findUnique({
-        where: { dominio: slug },
+    // Endereço público da barbearia — vira `latita.barbeariabrutal.com`.
+    //
+    // Passa pela lista de reservados: antes, "Barbearia WWW" recebia o slug
+    // `www` calado, e com o subdomínio no ar isso entregaria
+    // www.barbeariabrutal.com para um cliente qualquer.
+    const slug = await slugDisponivel(data.nome, async (candidato) => {
+      const ocupado = await this.prisma.tenant.findFirst({
+        where: {
+          OR: [{ dominio: candidato }, { dominiosAntigos: { has: candidato } }],
+        },
         select: { id: true },
       });
-    }
+      return !!ocupado;
+    });
 
     // A sessão já nasce com o cadastro: uma consulta a menos, e a conta nunca
     // fica um instante sem `sessaoId` (que reprovaria o token recém-emitido).
