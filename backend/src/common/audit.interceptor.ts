@@ -37,10 +37,12 @@ export class AuditInterceptor implements NestInterceptor {
               durationMs: Date.now() - started,
             } as any;
 
-            // Usa SQL para evitar depender de client gerado
+            // Usa SQL para evitar depender de client gerado. A coluna metadata é
+            // jsonb; o Prisma envia o parâmetro como text, então o cast é quem
+            // garante que o Postgres aceite (sem ele: 42804 no ar).
             await this.prisma.$executeRawUnsafe(
               `INSERT INTO "audit_log" ("tenantId","userId","action","entity","entityId","metadata","createdAt")
-               VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+               VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7)`,
               tenant?.id || user?.tenantId || null,
               user?.id || null,
               method,
