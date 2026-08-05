@@ -23,17 +23,49 @@ export interface DadosDoAviso {
 }
 
 /**
- * Confirmação, logo depois de agendar.
+ * Solicitação, logo depois de agendar.
  *
- * O texto morava dentro de um nó de código do n8n, em duas cópias que já
- * divergiam entre si. Aqui ele fica versionado, revisável e coberto por teste
- * — mensagem que chega no celular do cliente não é detalhe de infraestrutura.
+ * O cliente e o barbeiro recebem um aviso inicial de que a solicitação
+ * foi registrada, e que estão aguardando a confirmação oficial no sistema.
+ */
+export function mensagemSolicitacaoCliente(a: DadosDoAviso): string {
+  return [
+    `⏳ *Solicitação de agendamento recebida!*`,
+    ``,
+    `Olá, ${a.cliente}! Seu horário na *${a.barbearia}* foi pré-agendado e está aguardando confirmação do barbeiro:`,
+    ``,
+    `✂️ ${a.servicos}`,
+    `👤 ${a.barbeiro}`,
+    `📅 ${a.data}`,
+    `🕐 ${a.horario}`,
+    ``,
+    `Avisaremos assim que for confirmado! 🪒`,
+  ].join('\n');
+}
+
+export function mensagemSolicitacaoBarbeiro(a: DadosDoAviso): string {
+  return [
+    `📅 *Nova solicitação de agendamento!*`,
+    ``,
+    `${a.barbeiro}, você tem uma solicitação de horário na *${a.barbearia}*:`,
+    ``,
+    `👤 Cliente: ${a.cliente}`,
+    `✂️ ${a.servicos}`,
+    `📅 ${a.data}`,
+    `🕐 ${a.horario}`,
+    ``,
+    `Acesse sua agenda para *confirmar* o horário.`,
+  ].join('\n');
+}
+
+/**
+ * Confirmação real, enviada quando o barbeiro aprova na agenda.
  */
 export function mensagemConfirmacaoCliente(a: DadosDoAviso): string {
   return [
     `✅ *Agendamento confirmado!*`,
     ``,
-    `Olá, ${a.cliente}! Seu horário na *${a.barbearia}* está marcado:`,
+    `Olá, ${a.cliente}! O barbeiro confirmou o seu horário na *${a.barbearia}*:`,
     ``,
     `✂️ ${a.servicos}`,
     `👤 ${a.barbeiro}`,
@@ -41,19 +73,6 @@ export function mensagemConfirmacaoCliente(a: DadosDoAviso): string {
     `🕐 ${a.horario}`,
     ``,
     `Qualquer imprevisto, é só chamar por aqui. Até logo! 🪒`,
-  ].join('\n');
-}
-
-export function mensagemConfirmacaoBarbeiro(a: DadosDoAviso): string {
-  return [
-    `📅 *Novo agendamento!*`,
-    ``,
-    `${a.barbeiro}, você tem um novo horário na *${a.barbearia}*:`,
-    ``,
-    `👤 Cliente: ${a.cliente}`,
-    `✂️ ${a.servicos}`,
-    `📅 ${a.data}`,
-    `🕐 ${a.horario}`,
   ].join('\n');
 }
 

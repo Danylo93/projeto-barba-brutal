@@ -163,6 +163,14 @@ export class AgendamentoController {
     if (novoStatus === 'cancelado') {
       this.avisarCancelamento(agendamento);
     }
+    
+    if (novoStatus === 'confirmado' && agendamento.status !== 'confirmado') {
+      this.notificacao.notificarConfirmacaoAgendamento(+id).catch((erro) => {
+        this.logger.error(
+          `Falha ao avisar o cliente da confirmação do agendamento ${id}: ${erro?.message ?? erro}`,
+        );
+      });
+    }
 
     return { id: agendamento.id, status: novoStatus };
   }

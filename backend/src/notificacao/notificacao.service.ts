@@ -11,6 +11,8 @@ import {
   remetente,
 } from './resend';
 import { PrismaService } from '../db/prisma.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { mensagemConfirmacaoCliente } from '../whatsapp/mensagens';
 
 /** Por onde o e-mail sai deste servidor. */
 export type CanalDeEmail = 'resend' | 'smtp' | 'nenhum';
@@ -34,7 +36,10 @@ export class NotificacaoService {
   private readonly transporter: nodemailer.Transporter | null;
   private readonly resendKey: string | undefined;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly whatsapp: WhatsappService,
+  ) {
     this.resendKey = chaveDoResend();
 
     const host = process.env.SMTP_HOST;
@@ -133,6 +138,33 @@ export class NotificacaoService {
       await this.dispararWebhook(ag, 'agendamento_cancelado');
     } catch(e: any) {
       this.logger.warn(`Falha ao notificar cancelamento do agendamento ${agendamento.id}: ${e?.message}`);
+    }
+  }
+
+  /** Dispara a confirmação real no WhatsApp quando o barbeiro aprova na agenda */
+  async notificarConfirmacaoAgendamento(agendamentoId: number): Promise<void> {
+    try {
+      const ag = await this.prisma.agendamento.findUnique({
+        where: { id: agendamentoId },
+        include: { tenant: true, usuario: true, profissional: true, servicos: true },
+      });
+      if (!ag || !ag.usuario?.telefone) return;
+
+      const dataStr = new Date(ag.data).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      const horaStr = new Date(ag.data).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+      
+      const texto = mensagemConfirmacaoCliente({
+        cliente: ag.usuario.nome || 'cliente',
+        barbeiro: ag.profissional?.nome || 'barbeiro',
+        barbearia: ag.tenant?.nome || 'Barbearia',
+        servicos: ag.servicos.map(s => s.nome).join(', '),
+        data: dataStr,
+        horario: horaStr,
+      });
+
+      await this.whatsapp.enviarTexto(ag.usuario.telefone, texto);
+    } catch(e: any) {
+      this.logger.warn(`Falha ao notificar confirmação do agendamento ${agendamentoId}: ${e?.message}`);
     }
   }
 

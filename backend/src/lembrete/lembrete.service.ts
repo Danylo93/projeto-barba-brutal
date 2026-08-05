@@ -3,8 +3,8 @@ import { PrismaService } from '../db/prisma.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   DadosDoAviso,
-  mensagemConfirmacaoBarbeiro,
-  mensagemConfirmacaoCliente,
+  mensagemSolicitacaoBarbeiro,
+  mensagemSolicitacaoCliente,
   mensagemLembreteBarbeiro,
   mensagemLembreteCliente,
 } from '../whatsapp/mensagens';
@@ -329,27 +329,31 @@ export class LembreteService {
         continue;
       }
 
-      envios.push({
-        agendamentoId: a.id,
-        tenantId: a.tenantId,
-        para: 'cliente',
-        numero: doCliente,
-        mensagem:
+        const textoCliente =
           tipo === 'lembrete'
             ? mensagemLembreteCliente(dados)
-            : mensagemConfirmacaoCliente(dados),
-      });
+            : mensagemSolicitacaoCliente(dados);
 
-      if (telefoneUtilizavel(doBarbeiro)) {
+        envios.push({
+          agendamentoId: a.id,
+          tenantId: a.tenantId,
+          para: 'cliente',
+          numero: doCliente,
+          mensagem: textoCliente,
+        });
+
+        if (telefoneUtilizavel(doBarbeiro)) {
+        const textoBarbeiro =
+          tipo === 'lembrete'
+            ? mensagemLembreteBarbeiro(dados)
+            : mensagemSolicitacaoBarbeiro(dados);
+
         envios.push({
           agendamentoId: a.id,
           tenantId: a.tenantId,
           para: 'barbeiro',
           numero: doBarbeiro,
-          mensagem:
-            tipo === 'lembrete'
-              ? mensagemLembreteBarbeiro(dados)
-              : mensagemConfirmacaoBarbeiro(dados),
+          mensagem: textoBarbeiro,
         });
       }
     }
