@@ -34,30 +34,52 @@ function LoginContent() {
 
     const destino = params.get('destino')
     // Barbearia (tenant) de origem: quando o cliente chega pela landing pública
-    // /barbearia/<x>, o id do tenant vem em ?tenant=. Sem isso, usa o padrão.
+    // /barbearia/<x>, o id do tenant vem em ?tenant=. Sem isso, tenta o subdomínio.
     const tenantParam = Number(params.get('tenant'))
-    // Quando há ?tenant=, estamos no login DO SITE DA BARBEARIA (só cliente e
-    // profissional daquela barbearia). Sem isso, é o login DO SAAS (só o admin
-    // do sistema e o dono/administrador da barbearia).
-    const contextoBarbearia = Number.isFinite(tenantParam) && tenantParam > 0
-    const tenantId = contextoBarbearia
-        ? tenantParam
-        : Number(process.env.NEXT_PUBLIC_TENANT_DEFAULT_ID || 1)
-
-    // Quando o cliente chega por uma barbearia específica (?tenant=), mostramos
-    // o nome dela na tela de login em vez da marca do sistema.
+    
+    // Estado para guardar o tenant detectado (via param ou subdomínio)
     const [barbeariaNome, setBarbeariaNome] = useState<string | undefined>()
+    const [tenantIdState, setTenantIdState] = useState<number | undefined>(tenantParam > 0 ? tenantParam : undefined)
+    const [isSubdomain, setIsSubdomain] = useState(false)
+
     useEffect(() => {
-        if (!(tenantParam > 0)) return
-        fetch(`${API_BASE}/tenants/publico/${tenantParam}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((d) => {
-                if (d?.nome) setBarbeariaNome(d.nome)
-                if (d?.corPrimaria) document.documentElement.style.setProperty('--tenant-primary', d.corPrimaria)
-                if (d?.corSecundaria) document.documentElement.style.setProperty('--tenant-secondary', d.corSecundaria)
-            })
-            .catch(() => {})
+        // Se tem o parâmetro, carrega direto por ele
+        if (tenantParam > 0) {
+            fetch(`${API_BASE}/tenants/publico/${tenantParam}`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((d) => {
+                    if (d?.nome) setBarbeariaNome(d.nome)
+                    if (d?.corPrimaria) document.documentElement.style.setProperty('--tenant-primary', d.corPrimaria)
+                    if (d?.corSecundaria) document.documentElement.style.setProperty('--tenant-secondary', d.corSecundaria)
+                })
+                .catch(() => {})
+            return
+        }
+
+        // Se não tem o parâmetro, tenta ver se está acessando via subdomínio (ex: latita.barbeariabrutal.com)
+        const hostname = window.location.hostname
+        const parts = hostname.split('.')
+        // ignorar localhost, www, etc. Se tiver um subdomínio válido
+        if (parts.length >= 3 && parts[0] !== 'www') {
+            const slug = parts[0]
+            setIsSubdomain(true)
+            fetch(`${API_BASE}/tenants/publico/${slug}`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((d) => {
+                    if (d?.id) {
+                        setTenantIdState(d.id)
+                        if (d.nome) setBarbeariaNome(d.nome)
+                        if (d.corPrimaria) document.documentElement.style.setProperty('--tenant-primary', d.corPrimaria)
+                        if (d.corSecundaria) document.documentElement.style.setProperty('--tenant-secondary', d.corSecundaria)
+                    }
+                })
+                .catch(() => {})
+        }
     }, [tenantParam])
+
+    // Determina se estamos no contexto de uma barbearia (seja por parametro ou por subdominio detectado)
+    const contextoBarbearia = tenantIdState !== undefined && tenantIdState > 0
+    const tenantId = contextoBarbearia ? tenantIdState : Number(process.env.NEXT_PUBLIC_TENANT_DEFAULT_ID || 1)
 
     function irPara(padraoDoPapel: string, honrarDestino: boolean) {
         // Só o cliente/barbeiro volta para a página que tentou acessar (destino).
@@ -199,7 +221,7 @@ function LoginContent() {
                     {modo === 'cadastrar'
                         ? 'Cadastre-se para agendar seus horários'
                         : contextoBarbearia
-                          ? 'Entre como cliente ou profissional da barbearia'
+                          ? 'Acesse sua conta para continuar'
                           : 'Entre como administrador do sistema ou dono de barbearia'}
                 </p>
             </div>

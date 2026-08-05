@@ -120,14 +120,19 @@ export class AuthService {
       const usuario = await tentar(() => this.loginUsuario(email, senha, tenantId));
       if (usuario) return { ...usuario, papel: 'usuario' };
 
-      // Sonda sem autenticar: chamar `loginTenant` aqui geraria uma sessão
-      // nova e derrubaria o dono que estivesse logado no painel, por causa de
-      // uma tentativa que a gente vai recusar de qualquer jeito.
+      // O dono da barbearia tentou entrar pela URL do próprio subdomínio
+      const dono = await tentar(() => this.loginTenant(email, senha));
+      if (dono && dono.tenant.id === tenantId) {
+        return { ...dono, papel: 'tenant' };
+      }
+
+      // Sonda sem autenticar: chamar `loginAdmin` aqui geraria uma sessão
+      // nova e derrubaria o admin que estivesse logado no painel.
       if (await this.ehCredencialDeAdministracao(email, senha)) {
         return {
           contextoErrado: 'administracao',
           message:
-            'Esta é uma conta de dono ou administrador. Entre pelo painel do sistema, não pela página da barbearia.',
+            'Esta é uma conta de dono ou administrador de outro contexto. Entre pelo painel correto.',
         };
       }
       // Repete a tentativa só para devolver a mensagem exata (assinatura
