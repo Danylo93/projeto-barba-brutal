@@ -430,6 +430,20 @@ export class TenantService {
   }
 
   async fixLatita() {
+    // 1. Procurar quem está segurando o domínio 'latita'
+    const donoAntigo = await this.prisma.tenant.findUnique({
+      where: { dominio: 'latita' },
+    });
+
+    // 2. Se existe e não é o 14, renomeamos o domínio dele para liberar
+    if (donoAntigo && donoAntigo.id !== 14) {
+      await this.prisma.tenant.update({
+        where: { id: donoAntigo.id },
+        data: { dominio: `latita-antigo-${donoAntigo.id}` },
+      });
+    }
+
+    // 3. Agora podemos atribuir com segurança ao 14
     return this.prisma.tenant.update({
       where: { id: 14 },
       data: { dominio: 'latita' },
