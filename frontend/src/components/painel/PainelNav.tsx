@@ -44,7 +44,7 @@ export default function PainelNav() {
             setBarbeariaNome(undefined)
             return
         }
-        httpGet(`tenants/${usuario.tenantId}`)
+        httpGet(`tenants/publico/${usuario.tenantId}`)
             .then((t) => {
                 if (t?.nome) setBarbeariaNome(t.nome)
                 if (t?.corPrimaria) document.documentElement.style.setProperty('--tenant-primary', t.corPrimaria)
