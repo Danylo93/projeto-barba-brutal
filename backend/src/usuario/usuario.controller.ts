@@ -23,7 +23,7 @@ export class UsuarioController {
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   async findAll(@CurrentTenant() tenant: any) {
     return this.prisma.usuario.findMany({
-      where: { tenantId: tenant.id },
+      where: { tenantId: tenant.id, barbeiro: false },
       select: {
         id: true,
         nome: true,
