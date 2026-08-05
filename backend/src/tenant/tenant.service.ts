@@ -429,6 +429,13 @@ export class TenantService {
     return { disponivel: true };
   }
 
+  async fixLatita() {
+    return this.prisma.tenant.update({
+      where: { id: 14 },
+      data: { dominio: 'latita' },
+    });
+  }
+
   /**
    * Campos que o dono pode alterar na própria barbearia.
    *

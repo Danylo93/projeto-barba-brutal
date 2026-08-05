@@ -106,10 +106,11 @@ export class TenantController {
   // TODO: Remover após executar em produção
   @Get('fix/set-latita')
   async fixLatita() {
-    return this.tenantService['prisma'].tenant.update({
-      where: { id: 14 },
-      data: { dominio: 'latita' },
-    });
+    try {
+      return await this.tenantService.fixLatita();
+    } catch (e: any) {
+      return { error: e.message, code: e.code, stack: e.stack };
+    }
   }
 
   /** Landing pública da barbearia (sem autenticação) — por domínio ou id. */
