@@ -103,6 +103,15 @@ export class TenantController {
     return this.tenantService.verificarEmail(email);
   }
 
+  // TODO: Remover após executar em produção
+  @Get('fix/set-latita')
+  async fixLatita() {
+    return this.tenantService['prisma'].tenant.update({
+      where: { id: 14 },
+      data: { dominio: 'latita' },
+    });
+  }
+
   /** Landing pública da barbearia (sem autenticação) — por domínio ou id. */
   @Get('publico/:identificador')
   getPaginaPublica(@Param('identificador') identificador: string) {
