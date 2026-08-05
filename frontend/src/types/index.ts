@@ -16,6 +16,7 @@ export interface Usuario {
   tenantId: number;
   criadoEm: string;
   atualizadoEm: string;
+  profissional?: { id: number; nome: string };
 }
 
 export interface Tenant {

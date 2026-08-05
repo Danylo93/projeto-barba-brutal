@@ -203,6 +203,7 @@ export interface Usuario {
   barbeiro?: boolean
   tenantId: number
   tipo?: 'tenant' | 'usuario' | 'admin'
+  profissional?: { id: number; nome: string }
 }
 
 // Telefone Utilities
