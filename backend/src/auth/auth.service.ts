@@ -353,6 +353,7 @@ export class AuthService {
       tipo: 'usuario',
       email: usuario.email,
       barbeiro: usuario.barbeiro,
+      profissionalId: usuario.profissional?.id,
       sid,
     };
 

@@ -92,6 +92,7 @@ export function ProvedorSessao(props: any) {
                 barbeiro: decoded.barbeiro || false, // Para tenant, barbeiro é false
                 tenantId: decoded.tenantId,
                 tipo: decoded.tipo,
+                profissional: decoded.profissionalId ? { id: decoded.profissionalId, nome: '' } : undefined,
             }
             return {
                 token: jwt,
