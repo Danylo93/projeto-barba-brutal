@@ -23,7 +23,7 @@ export default function useBarbearia(): BarbeariaResumo | null {
             setBarbearia(null)
             return
         }
-        httpGet(`tenants/${usuario.tenantId}`)
+        httpGet(`tenants/publico/${usuario.tenantId}`)
             .then((t) => {
                 if (t?.nome) {
                     setBarbearia({ nome: t.nome, telefone: t.telefone, email: t.email })

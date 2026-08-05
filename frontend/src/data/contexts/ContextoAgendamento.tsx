@@ -108,7 +108,7 @@ export function ProvedorAgendamento({ children }: { children: React.ReactNode })
         async function (data: Date, profissional: Profissional): Promise<string[]> {
             try {
                 if (!data || !profissional) return []
-                const dtString = data.toISOString().slice(0, 10)
+                const dtString = DataUtils.toLocalISOString(data)
                 const ocupacao = await httpGet(
                     `agendamentos/ocupacao/${profissional!.id}/${dtString}`
                 )

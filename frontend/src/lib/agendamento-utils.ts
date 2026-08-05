@@ -10,8 +10,20 @@ export function formatarDataEHora(data: Date): string {
   })
 }
 
+export function toLocalISOString(date: Date): string {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
 export function hoje(): Date {
-  return new Date()
+  const data = new Date()
+  // Se já passou das 21h (fim do expediente padrão), avança para o dia seguinte
+  if (data.getHours() >= 21) {
+    data.setDate(data.getDate() + 1)
+  }
+  return data
 }
 
 export function aplicarHorario(data: Date, horario: string): Date {
@@ -253,6 +265,7 @@ export const DataUtils = {
   hoje,
   aplicarHorario,
   formatarDataEHora,
+  toLocalISOString,
 }
 
 // Agenda Utilities - export as object for compatibility

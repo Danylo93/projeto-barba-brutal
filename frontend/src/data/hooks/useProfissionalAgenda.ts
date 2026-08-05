@@ -1,4 +1,4 @@
-import { Agendamento } from '@/lib/agendamento-utils'
+import { Agendamento, DataUtils } from '@/lib/agendamento-utils'
 import { useCallback, useEffect, useState } from 'react'
 import useUsuario from './useUsuario'
 import useAPI from './useAPI'
@@ -8,13 +8,13 @@ export default function useProfissionalAgenda() {
     const { usuario } = useUsuario()
     const { httpGet, httpDelete, httpPatch } = useAPI()
     const { success, error: toastError } = useToast()
-    const [data, setData] = useState<Date>(new Date())
+    const [data, setData] = useState<Date>(DataUtils.hoje())
     const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
 
     const carregarAgendamentos = useCallback(async () => {
         if (!usuario) return
         const profissionalId = usuario.profissional?.id || usuario.id
-        const dtString = data.toISOString().slice(0, 10)
+        const dtString = DataUtils.toLocalISOString(data)
         const resposta = await httpGet(`agendamentos/${profissionalId}/${dtString}`)
         setAgendamentos(Array.isArray(resposta) ? resposta : [])
     }, [httpGet, usuario, data])
