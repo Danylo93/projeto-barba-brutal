@@ -7,6 +7,12 @@ Dois fluxos, um trabalho cada:
 | `barbabrutal-1-confirmacao-agendamento.json` | Ao **criar** um agendamento, avisa cliente e barbeiro | a cada 1 min |
 | `barbabrutal-2-lembrete-1h.json` | **1 hora antes** do horário, lembra cliente e barbeiro | a cada 5 min |
 
+O arquivo `../Fluxo_WhatsApp_Barbearia_Premium.json` é o fluxo de entrada:
+recebe o webhook `messages.upsert` da Evolution, conversa com o cliente e usa
+somente a API do backend para consultar, criar, cancelar ou reagendar. Ele não
+grava mais diretamente no Postgres, portanto todas as mesmas validações do
+aplicativo também valem no WhatsApp.
+
 Os dois têm dois nós de trabalho: um relógio e uma chamada HTTP. **Quem busca,
 monta a mensagem, envia pela Evolution e marca o que saiu é o backend.**
 
@@ -65,6 +71,21 @@ apikey da Evolution. As duas ficam só no backend.
 |---|---|
 | `BACKEND_URL` | `https://barba-brutal-api.onrender.com` |
 | `LEMBRETE_TOKEN` | mesmo valor do backend |
+
+Para o fluxo **Assistente IA WhatsApp**, configure também:
+
+| Variável | Descrição |
+|---|---|
+| `WHATSAPP_BOT_TOKEN` | mesmo segredo definido no backend |
+| `WHATSAPP_TENANT_ID` | id da barbearia atendida por esta instância/fluxo |
+
+No backend, inclua o segredo no mapa `WHATSAPP_BOT_TOKENS` (por exemplo,
+`{"1":"segredo-do-tenant-1"}`). No n8n, `WHATSAPP_BOT_TOKEN` recebe apenas o
+segredo do tenant daquele fluxo. Importe uma cópia do fluxo inbound
+por barbearia/instância e mantenha o `WHATSAPP_TENANT_ID` correspondente. O
+telefone recebido da Evolution identifica o cliente; em cancelamento e
+reagendamento a API ainda confirma que o agendamento pertence a esse telefone,
+evitando que a IA altere a agenda de outra pessoa.
 
 ---
 

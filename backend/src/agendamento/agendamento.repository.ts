@@ -521,7 +521,10 @@ export class AgendamentoRepository implements RepositorioAgendamento {
 
       await tx.agendamento.update({
         where: { id, tenantId },
-        data: { data },
+        // O novo horário precisa gerar uma nova confirmação e um novo
+        // lembrete; manter as marcas antigas fazia a alteração aparecer no
+        // aplicativo, mas silenciava o WhatsApp.
+        data: { data, confirmacaoEnviadaEm: null, lembreteEnviadoEm: null },
       });
     });
   }
@@ -550,4 +553,3 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     return agendamentos.map(paraLeitura) as unknown as Agendamento[];
   }
 }
-
