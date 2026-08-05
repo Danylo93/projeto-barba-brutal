@@ -10,6 +10,7 @@ import { NotificacaoModule } from 'src/notificacao/notificacao.module';
   imports: [DbModule, UsuarioModule, NotificacaoModule],
   controllers: [AgendamentoController],
   providers: [AgendamentoRepository],
+  exports: [AgendamentoRepository],
 })
 export class AgendamentoModule {
   configure(consumer: MiddlewareConsumer) {

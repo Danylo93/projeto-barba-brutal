@@ -15,6 +15,7 @@ import { BloqueioModule } from './bloqueio/bloqueio.module';
 import { ClubeModule } from './clube/clube.module';
 import { LgpdModule } from './lgpd/lgpd.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { WhatsappAgendaModule } from './whatsapp/whatsapp-agenda.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { TenantedThrottlerGuard } from './common/tenanted-throttler.guard';
@@ -37,6 +38,7 @@ import { TenantedThrottlerGuard } from './common/tenanted-throttler.guard';
     ClubeModule,
     LgpdModule,
     WhatsappModule,
+    WhatsappAgendaModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,

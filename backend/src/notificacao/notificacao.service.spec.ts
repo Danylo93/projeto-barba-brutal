@@ -34,7 +34,7 @@ describe('NotificacaoService com Resend', () => {
     global.fetch = fetchOriginal;
   });
 
-  const criar = () => new NotificacaoService({} as any);
+  const criar = () => new NotificacaoService({} as any, {} as any);
 
   it('escolhe o Resend quando há chave, mesmo sem SMTP', () => {
     expect(criar().canal).toBe('resend');
