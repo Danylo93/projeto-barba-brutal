@@ -48,8 +48,9 @@ export class AssinaturaService {
 
   /**
    * Troca/adesão de plano feita pelo próprio tenant (barbeiro-admin).
-   * Ao adquirir um plano sem assinatura ativa, inicia um TESTE de 30 dias
-   * (status "trialing"). A cobrança (Pix) converte para "active".
+   * Sem assinatura ativa e sem teste usado, inicia um TESTE de 30 dias.
+   * Com assinatura ativa, faz a troca do plano e calcula a diferença
+   * proporcional do restante do ciclo para orientar a cobrança.
    */
   async changePlan(tenantId: number, planoId: number) {
     const plano = await this.prisma.plano.findUnique({ where: { id: planoId } });
@@ -63,6 +64,25 @@ export class AssinaturaService {
       assinatura &&
       (assinatura.status === 'active' || assinatura.status === 'trialing') &&
       assinatura.dataFim > agora;
+    const planoAtual = assinatura
+      ? await this.prisma.plano.findUnique({ where: { id: assinatura.planoId } })
+      : null;
+    const eUpgrade = !!planoAtual && plano.preco > planoAtual.preco;
+    const eDowngrade = !!planoAtual && plano.preco < planoAtual.preco;
+    const diasRestantes = assinatura && assinatura.dataFim > agora
+      ? Math.max(0, Math.ceil((assinatura.dataFim.getTime() - agora.getTime()) / 86400000))
+      : 0;
+    const diasNoCiclo = assinatura
+      ? Math.max(
+          1,
+          Math.ceil((assinatura.dataFim.getTime() - assinatura.dataInicio.getTime()) / 86400000),
+        )
+      : 30;
+    const proporcaoRestante = diasRestantes / diasNoCiclo;
+    const diferencaProporcional =
+      eUpgrade && planoAtual
+        ? Number(Math.max(0, (plano.preco - planoAtual.preco) * proporcaoRestante).toFixed(2))
+        : 0;
 
     // Teste grátis é UMA vez por barbearia, e a marca fica no tenant para
     // sobreviver a cancelamento. Sem isso bastava cancelar e escolher um
@@ -107,7 +127,11 @@ export class AssinaturaService {
       });
 
       await this.avisarPlanoContratado(tenantId, plano, dataFim, true);
-      return criada;
+      return {
+        assinatura: criada,
+        tipoAlteracao: 'trial',
+        valorProporcional: 0,
+      };
     }
 
     // Já gastou o teste e não tem assinatura vigente: precisa pagar para voltar.
@@ -117,20 +141,22 @@ export class AssinaturaService {
       );
     }
 
-    // Já tem plano vigente (teste ou pago) → só troca o plano, mantém a validade.
+    // Já tem plano vigente (teste ou pago) → troca o plano.
     const trocada = await this.prisma.assinatura.update({
       where: { tenantId },
       data: { planoId },
       include: { plano: true },
     });
 
-    await this.avisarPlanoContratado(
-      tenantId,
-      plano,
-      trocada.dataFim,
-      trocada.status === 'trialing',
-    );
-    return trocada;
+    const ehTrial = trocada.status === 'trialing';
+    const retornoValidoAte = ehTrial ? trocada.dataFim : trocada.dataFim;
+    await this.avisarPlanoContratado(tenantId, plano, retornoValidoAte, ehTrial);
+    return {
+      assinatura: trocada,
+      tipoAlteracao: eUpgrade ? 'upgrade' : eDowngrade ? 'downgrade' : 'troca',
+      valorProporcional: diferencaProporcional,
+      diasRestantes,
+    };
   }
 
   /**
@@ -284,6 +310,89 @@ export class AssinaturaService {
   }
 
   /**
+   * Cria um Pix de upgrade usando o valor proporcional calculado pela troca.
+   * Se o valor for zero ou inválido, volta para o preço cheio do plano.
+   */
+  async criarPixUpgrade(tenantId: number, planoId: number) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { assinatura: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant não encontrado');
+
+    const plano = await this.prisma.plano.findUnique({ where: { id: planoId } });
+    if (!plano || !plano.ativo) throw new NotFoundException('Plano não encontrado ou inativo');
+
+    const assinatura = tenant.assinatura;
+    const agora = new Date();
+    const planoAtual = assinatura
+      ? await this.prisma.plano.findUnique({ where: { id: assinatura.planoId } })
+      : null;
+    const diasRestantes = assinatura && assinatura.dataFim > agora
+      ? Math.max(0, Math.ceil((assinatura.dataFim.getTime() - agora.getTime()) / 86400000))
+      : 0;
+    const diasNoCiclo = assinatura
+      ? Math.max(
+          1,
+          Math.ceil((assinatura.dataFim.getTime() - assinatura.dataInicio.getTime()) / 86400000),
+        )
+      : 30;
+    const proporcaoRestante = diasRestantes / diasNoCiclo;
+    const valorBase = planoAtual ? Math.max(0, plano.preco - planoAtual.preco) : plano.preco;
+    const valorCobranca = Number(Math.max(0.01, valorBase * proporcaoRestante || plano.preco).toFixed(2));
+
+    if (!this.mpToken) {
+      throw new BadRequestException(
+        'Pagamento Pix indisponível: configure MERCADO_PAGO_ACCESS_TOKEN no servidor.',
+      );
+    }
+
+    const mp = await this.mpFetch('/v1/payments', {
+      method: 'POST',
+      headers: { 'X-Idempotency-Key': `upgrade-${tenantId}-${planoId}-${Date.now()}` },
+      body: JSON.stringify({
+        transaction_amount: valorCobranca,
+        description: `Barba Brutal - Upgrade para ${plano.nome}`,
+        payment_method_id: 'pix',
+        payer: { email: tenant.email, first_name: tenant.nome },
+        metadata: {
+          tenantId,
+          planoId,
+          upgrade: true,
+          valorBase,
+          diasRestantes,
+        },
+      }),
+    });
+
+    const td = mp?.point_of_interaction?.transaction_data ?? {};
+    const pagamento = await this.prisma.pagamento.create({
+      data: {
+        tenantId,
+        planoId,
+        valor: valorCobranca,
+        metodo: 'pix_upgrade',
+        status: mp.status || 'pending',
+        mpPaymentId: String(mp.id),
+        qrCode: td.qr_code || null,
+      },
+    });
+
+    return {
+      pagamentoId: pagamento.id,
+      status: pagamento.status,
+      valor: valorCobranca,
+      plano: plano.nome,
+      qrCode: td.qr_code || null,
+      qrCodeBase64: td.qr_code_base64 || null,
+      ticketUrl: td.ticket_url || null,
+      tipoAlteracao: planoAtual && plano.preco > planoAtual.preco ? 'upgrade' : 'troca',
+      valorBase,
+      diasRestantes,
+    };
+  }
+
+  /**
    * Cria uma cobrança Pix para o Adicional de Domínio Próprio.
    *
    * São dois serviços com preços diferentes: configurar um domínio que a
@@ -387,7 +496,9 @@ export class AssinaturaService {
       }
     }
 
-    if (pagamento.status === 'approved' && pagamentoRenovaPlano(pagamento)) {
+    if (pagamento.status === 'approved' && pagamento.metodo === 'pix_upgrade') {
+      await this.ativarUpgradePago(pagamento.tenantId, pagamento.planoId);
+    } else if (pagamento.status === 'approved' && pagamentoRenovaPlano(pagamento)) {
       await this.ativarAssinaturaPaga(pagamento.tenantId, pagamento.planoId);
     }
 
@@ -427,6 +538,35 @@ export class AssinaturaService {
       select: { nome: true, preco: true },
     });
     if (plano) await this.avisarPlanoContratado(tenantId, plano, dataFim, false);
+  }
+
+  /** Atualiza o plano sem reiniciar o ciclo, usado para upgrade proporcional. */
+  private async ativarUpgradePago(tenantId: number, planoId: number) {
+    const assinatura = await this.prisma.assinatura.findUnique({ where: { tenantId } });
+    if (!assinatura) {
+      await this.ativarAssinaturaPaga(tenantId, planoId);
+      return;
+    }
+
+    await this.prisma.assinatura.update({
+      where: { tenantId },
+      data: {
+        planoId,
+        status: assinatura.status === 'trialing' ? 'trialing' : 'active',
+        emTeste: assinatura.status === 'trialing',
+        renovacaoAutomatica: true,
+        meioPagamento: 'pix_upgrade',
+      },
+    });
+
+    const plano = await this.prisma.plano.findUnique({
+      where: { id: planoId },
+      select: { nome: true, preco: true },
+    });
+    if (plano) {
+      const fim = assinatura.dataFim ?? new Date();
+      await this.avisarPlanoContratado(tenantId, plano, fim, assinatura.status === 'trialing');
+    }
   }
 
   // ───────────────── Assinatura recorrente (cartão ou Pix) ─────────────────
@@ -815,6 +955,10 @@ export class AssinaturaService {
       where: { id: pagamentoId },
       data: { status: 'approved' },
     });
+    if (pagamento.metodo === 'pix_upgrade') {
+      await this.ativarUpgradePago(pagamento.tenantId, pagamento.planoId);
+      return { ok: true, status: 'approved', renovouPlano: true };
+    }
     // Mesma regra do webhook: confirmar um pagamento de domínio não pode
     // renovar o plano da barbearia.
     const renovou = pagamentoRenovaPlano(pagamento);

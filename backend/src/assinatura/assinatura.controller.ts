@@ -96,6 +96,12 @@ export class AssinaturaController {
     return this.assinaturaService.criarPagamentoPix(exigirTenant(user), data?.planoId);
   }
 
+  @Post('me/upgrade/pix')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  criarPixUpgrade(@CurrentUser() user: any, @Body() data: { planoId: number }) {
+    return this.assinaturaService.criarPixUpgrade(exigirTenant(user), data?.planoId);
+  }
+
   /** Opções e preços do adicional — a tela monta a oferta a partir daqui. */
   @Get('dominio/opcoes')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
