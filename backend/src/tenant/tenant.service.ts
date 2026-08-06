@@ -493,6 +493,33 @@ export class TenantService {
       comoAdmin ? TenantService.CAMPOS_DO_ADMIN : TenantService.CAMPOS_DO_DONO,
     );
 
+    if (limpo.configuracoes !== undefined) {
+      const conf = limpo.configuracoes;
+      if (conf && typeof conf === 'object' && 'evolutionInstance' in conf) {
+        const instancia = String((conf as any).evolutionInstance ?? '').trim();
+        if (!instancia) {
+          throw new BadRequestException('Informe a instance da Evolution API.');
+        }
+        if (!/^[a-zA-Z0-9._:-]{3,80}$/.test(instancia)) {
+          throw new BadRequestException('Instance da Evolution API inválida.');
+        }
+        const existente = await this.prisma.tenant.findFirst({
+          where: {
+            id: { not: id },
+            ativo: true,
+            configuracoes: {
+              path: ['evolutionInstance'],
+              equals: instancia,
+            } as any,
+          },
+          select: { id: true },
+        });
+        if (existente) {
+          throw new BadRequestException('Esta instance da Evolution API já está sendo usada por outra barbearia.');
+        }
+      }
+    }
+
     if (limpo.dominio !== undefined) {
       await this.prepararTrocaDeEndereco(id, limpo);
     }

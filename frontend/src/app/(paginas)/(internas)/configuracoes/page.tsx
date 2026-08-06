@@ -51,6 +51,7 @@ export default function ConfiguracoesPage() {
     // Integrações
     const [webhookUrl, setWebhookUrl] = useState('')
     const [evolutionToken, setEvolutionToken] = useState('')
+    const [evolutionInstance, setEvolutionInstance] = useState('')
 
     useEffect(() => {
         if (token) fetchConfiguracoes()
@@ -66,6 +67,7 @@ export default function ConfiguracoesPage() {
             if (response?.corSecundaria) setCorSecundaria(response.corSecundaria)
             if (conf?.webhookUrl) setWebhookUrl(conf.webhookUrl)
             if (conf?.evolutionToken) setEvolutionToken(conf.evolutionToken)
+            if (conf?.evolutionInstance) setEvolutionInstance(conf.evolutionInstance)
             // Deriva o horário de cada dia (aceita formato novo e o antigo).
             setHorarios(DIAS_SEMANA.map((d) => horarioDoDia(conf, d.id)))
         } catch (err) {
@@ -102,6 +104,14 @@ export default function ConfiguracoesPage() {
             return
         }
 
+        const instanciaLimpa = evolutionInstance.trim()
+        if (instanciaLimpa && !/^[a-zA-Z0-9._:-]{3,80}$/.test(instanciaLimpa)) {
+            const msg = 'Instance da Evolution API inválida. Use só letras, números, ponto, traço, underline ou dois-pontos.'
+            setError(msg)
+            toastError('Instance inválida', msg)
+            return
+        }
+
         try {
             setSaving(true)
             setError('')
@@ -112,6 +122,7 @@ export default function ConfiguracoesPage() {
                 horarios,
                 webhookUrl,
                 evolutionToken,
+                evolutionInstance: instanciaLimpa,
                 // Mantém as chaves antigas por compatibilidade com leitores legados.
                 diasAbertos,
                 horaAbertura: (horarios.find((h) => h.aberto) ?? horarios[1]).abertura,
@@ -368,6 +379,21 @@ export default function ConfiguracoesPage() {
                                         onChange={(e) => setEvolutionToken(e.target.value)}
                                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-400 transition-colors"
                                     />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-300 mb-1">
+                                        Instance da Evolution API
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="barbearia-premium-01"
+                                        value={evolutionInstance}
+                                        onChange={(e) => setEvolutionInstance(e.target.value)}
+                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-400 transition-colors"
+                                    />
+                                    <p className="text-xs text-zinc-500 mt-1">
+                                        Essa instance identifica automaticamente qual barbearia está falando com o fluxo.
+                                    </p>
                                 </div>
                             </div>
                         </div>

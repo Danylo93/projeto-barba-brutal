@@ -76,16 +76,19 @@ Para o fluxo **Assistente IA WhatsApp**, configure também:
 
 | Variável | Descrição |
 |---|---|
-| `WHATSAPP_BOT_TOKEN` | mesmo segredo definido no backend |
-| `WHATSAPP_TENANT_ID` | id da barbearia atendida por esta instância/fluxo |
+| `WHATSAPP_BOT_TOKEN` | segredo global do bot do WhatsApp, usado pelo fluxo para falar com o backend |
 
-No backend, inclua o segredo no mapa `WHATSAPP_BOT_TOKENS` (por exemplo,
-`{"1":"segredo-do-tenant-1"}`). No n8n, `WHATSAPP_BOT_TOKEN` recebe apenas o
-segredo do tenant daquele fluxo. Importe uma cópia do fluxo inbound
-por barbearia/instância e mantenha o `WHATSAPP_TENANT_ID` correspondente. O
-telefone recebido da Evolution identifica o cliente; em cancelamento e
-reagendamento a API ainda confirma que o agendamento pertence a esse telefone,
-evitando que a IA altere a agenda de outra pessoa.
+No backend, o webhook do WhatsApp agora resolve a barbearia automaticamente
+pela `instance` da Evolution, lida da configuração do tenant
+(`configuracoes.evolutionInstance` ou campos equivalentes). O fluxo n8n não
+precisa mais de `WHATSAPP_TENANT_ID` fixo: ele chama `GET /whatsapp/agenda/resolver`
+com a `instance` recebida no webhook, obtém `tenantId` e `tenantNome`, e então
+segue para catálogo, criação, cancelamento e reagendamento.
+
+Se você quiser manter compatibilidade com a instalação antiga, o backend ainda
+aceita `WHATSAPP_BOT_TOKENS` como mapa por tenant, mas o caminho recomendado é
+usar um `WHATSAPP_BOT_TOKEN` global no n8n e deixar a barbearia ser descoberta
+automaticamente pela `instance`.
 
 ---
 

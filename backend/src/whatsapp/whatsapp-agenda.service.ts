@@ -13,18 +13,49 @@ export class WhatsappAgendaService {
     private readonly whatsapp: WhatsappService,
   ) {}
 
+  private normalizarInstance(valor: string): string {
+    return String(valor ?? '').trim().toLowerCase();
+  }
+
   private autenticar(token: string, tenantTexto: string): number {
     const tenantId = Number(tenantTexto);
     if (!Number.isInteger(tenantId) || tenantId < 1) throw new BadRequestException('tenantId inválido.');
+    const tokenGlobal = String(process.env.WHATSAPP_BOT_TOKEN || '').trim();
     let tokens: Record<string, string> = {};
     try {
       tokens = JSON.parse(process.env.WHATSAPP_BOT_TOKENS || '{}');
     } catch {
       throw new UnauthorizedException('WHATSAPP_BOT_TOKENS inválido no backend.');
     }
+    if (tokenGlobal && token === tokenGlobal) return tenantId;
     const esperado = tokens[String(tenantId)];
     if (!esperado || token !== esperado) throw new UnauthorizedException('Token do WhatsApp inválido.');
     return tenantId;
+  }
+
+  async resolverPorInstance(instance: string) {
+    const normalizada = this.normalizarInstance(instance);
+    if (!normalizada) throw new BadRequestException('instance inválida.');
+
+    const tenants = await this.prisma.tenant.findMany({
+      where: { ativo: true },
+      select: { id: true, nome: true, configuracoes: true },
+    });
+
+    const tenant = tenants.find((t) => {
+      const conf = (t.configuracoes as any) || {};
+      const inst = this.normalizarInstance(conf.evolutionInstance || conf.instance || conf.whatsappInstance);
+      return inst === normalizada;
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Nenhum tenant encontrado para esta instance da Evolution.');
+    }
+
+    return {
+      tenantId: tenant.id,
+      tenantNome: tenant.nome,
+    };
   }
 
   private digitos(valor: string): string {

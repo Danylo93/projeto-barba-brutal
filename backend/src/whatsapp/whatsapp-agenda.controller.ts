@@ -6,6 +6,11 @@ import { WhatsappAgendaService } from './whatsapp-agenda.service';
 export class WhatsappAgendaController {
   constructor(private readonly service: WhatsappAgendaService) {}
 
+  @Get('resolver')
+  resolver(@Query('instance') instance: string) {
+    return this.service.resolverPorInstance(instance);
+  }
+
   @Get('catalogo')
   catalogo(@Headers('x-whatsapp-token') token: string, @Query('tenantId') tenantId: string) {
     return this.service.catalogo(token, tenantId);
