@@ -24,6 +24,21 @@ export interface Envio {
   para: 'cliente' | 'barbeiro';
   numero: string;
   mensagem: string;
+  /**
+   * Instância da Evolution da barbearia — o número de WhatsApp de onde a
+   * mensagem sai. Sem ela vale o do ambiente. Faltando isso, o lembrete de
+   * toda barbearia sairia de um número só.
+   */
+  instancia?: string | null;
+}
+
+/** Lê a instância da Evolution guardada nas configurações da barbearia. */
+export function instanciaDaBarbearia(tenant: any): string | null {
+  const conf = (tenant?.configuracoes as any) ?? {};
+  const bruto =
+    conf.evolutionInstance ?? conf.instance ?? conf.whatsappInstance ?? '';
+  const limpo = String(bruto).trim();
+  return limpo || null;
 }
 
 type Tipo = 'lembrete' | 'confirmacao';
@@ -194,7 +209,11 @@ export class LembreteService {
           continue;
         }
 
-        const ok = await this.whatsapp.enviarTexto(envio.numero, envio.mensagem);
+        const ok = await this.whatsapp.enviarTexto(
+          envio.numero,
+          envio.mensagem,
+          envio.instancia,
+        );
         if (!ok) {
           falhas++;
           this.logger.warn(
@@ -338,6 +357,7 @@ export class LembreteService {
           agendamentoId: a.id,
           tenantId: a.tenantId,
           para: 'cliente',
+          instancia: instanciaDaBarbearia(a.tenant),
           numero: doCliente,
           mensagem: textoCliente,
         });
@@ -352,6 +372,7 @@ export class LembreteService {
           agendamentoId: a.id,
           tenantId: a.tenantId,
           para: 'barbeiro',
+          instancia: instanciaDaBarbearia(a.tenant),
           numero: doBarbeiro,
           mensagem: textoBarbeiro,
         });

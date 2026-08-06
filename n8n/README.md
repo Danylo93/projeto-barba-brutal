@@ -59,6 +59,16 @@ apikey da Evolution. As duas ficam só no backend.
 > mensagem do que falta** — de propósito: marcar como enviado sem ter enviado
 > tiraria o agendamento da fila sem ninguém ser avisado.
 
+### De qual número sai a mensagem
+
+Cada barbearia envia pela instância da Evolution dela, guardada em
+`tenant.configuracoes.evolutionInstance`. Quem não tiver uma configurada cai no
+`EVOLUTION_INSTANCE` do backend.
+
+Isso importa porque o disparo atende **todas** as barbearias numa batida só:
+sem essa resolução, o cliente da Latita receberia o lembrete pelo WhatsApp de
+outra barbearia — e responderia para o número errado.
+
 ### No n8n
 
 Uma credencial, e nada de variável de ambiente:
