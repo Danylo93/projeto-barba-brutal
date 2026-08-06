@@ -12,8 +12,8 @@ export class WhatsappAgendaController {
   }
 
   @Get('catalogo')
-  catalogo(@Headers('x-whatsapp-token') token: string, @Query('tenantId') tenantId: string) {
-    return this.service.catalogo(token, tenantId);
+  catalogo(@Headers('x-whatsapp-token') token: string, @Query('tenantId') tenantId: string, @Query('instance') instance: string) {
+    return this.service.catalogo(token, tenantId, instance);
   }
 
   @Get('agendamentos')
@@ -21,8 +21,9 @@ export class WhatsappAgendaController {
     @Headers('x-whatsapp-token') token: string,
     @Query('tenantId') tenantId: string,
     @Query('telefone') telefone: string,
+    @Query('instance') instance: string,
   ) {
-    return this.service.listar(token, tenantId, telefone);
+    return this.service.listar(token, tenantId, telefone, instance);
   }
 
   @Post('agendamentos')
@@ -30,8 +31,9 @@ export class WhatsappAgendaController {
     @Headers('x-whatsapp-token') token: string,
     @Query('tenantId') tenantId: string,
     @Body() body: any,
+    @Query('instance') instance: string,
   ) {
-    return this.service.criar(token, tenantId, body);
+    return this.service.criar(token, tenantId, body, instance);
   }
 
   @Post('agendamentos/:id/cancelar')
@@ -40,8 +42,9 @@ export class WhatsappAgendaController {
     @Query('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body('telefone') telefone: string,
+    @Query('instance') instance: string,
   ) {
-    return this.service.cancelar(token, tenantId, id, telefone);
+    return this.service.cancelar(token, tenantId, id, telefone, instance);
   }
 
   @Patch('agendamentos/:id/reagendar')
@@ -50,7 +53,8 @@ export class WhatsappAgendaController {
     @Query('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() body: { telefone?: string; data?: string },
+    @Query('instance') instance: string,
   ) {
-    return this.service.reagendar(token, tenantId, id, body);
+    return this.service.reagendar(token, tenantId, id, body, instance);
   }
 }

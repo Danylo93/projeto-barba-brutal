@@ -31,6 +31,15 @@ services:
         sync: false
       - key: EVOLUTION_INSTANCE
         sync: false # nome da instância conectada ao número
+      # Bot de WhatsApp. A barbearia sai da instance da Evolution (única por
+      # barbearia, configurada pelo dono no painel), nunca do `?tenantId=` da
+      # URL. Cliente novo não pede variável nova nem deploy.
+      - key: WHATSAPP_BOT_TOKEN
+        sync: false
+      # Alternativa, para isolar de verdade: um token por barbearia.
+      # Ex.: {"1":"token-um","2":"token-dois"}
+      - key: WHATSAPP_BOT_TOKENS
+        sync: false
       # Segredo que o n8n usa para disparar confirmação e lembrete.
       # Sem ele as rotas /lembretes respondem 503 e nenhum aviso sai.
       - key: LEMBRETE_TOKEN

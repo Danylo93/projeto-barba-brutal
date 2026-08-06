@@ -347,3 +347,53 @@ describe('marcação avulsa', () => {
     expect(marcacoes[0].where.tenantId).toBe(7);
   });
 });
+
+describe('de qual número sai a mensagem', () => {
+  // O sistema passou a ter uma instância da Evolution por barbearia. Sem
+  // carregar isso no envio, o cliente da Latita receberia o lembrete pelo
+  // WhatsApp de outra barbearia — e responderia para o número errado.
+  it('usa a instância da barbearia', async () => {
+    const { service } = montarServico({
+      lista: [
+        agendamento({
+          tenant: {
+            nome: 'Barbearia do Marcão',
+            ativo: true,
+            configuracoes: { evolutionInstance: 'marcao' },
+          },
+        }),
+      ],
+    });
+    const { envios } = await service.proximos(60, 5);
+    expect(envios.every((e) => e.instancia === 'marcao')).toBe(true);
+  });
+
+  it('sem instância própria, deixa o envio cair no padrão do ambiente', async () => {
+    const { service } = montarServico();
+    const { envios } = await service.proximos(60, 5);
+    expect(envios.every((e) => e.instancia === null)).toBe(true);
+  });
+
+  it('a instância chega em quem envia', async () => {
+    const usadas: (string | null | undefined)[] = [];
+    const { service, whatsapp } = montarServico({
+      lista: [
+        agendamento({
+          tenant: {
+            nome: 'Latita',
+            ativo: true,
+            configuracoes: { evolutionInstance: 'latita' },
+          },
+        }),
+      ],
+    });
+    (whatsapp as any).enviarTexto = jest.fn(
+      async (_n: string, _t: string, instancia?: string | null) => {
+        usadas.push(instancia);
+        return true;
+      },
+    );
+    await service.disparar('lembrete');
+    expect(usadas).toEqual(['latita', 'latita']);
+  });
+});

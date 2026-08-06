@@ -3,6 +3,21 @@
   "nodes": [
     {
       "parameters": {
+        "content": "## Confirmação de agendamento\n\nO n8n aqui é só o relógio. Quem busca, envia e marca é o backend, em `POST /lembretes/confirmacoes/disparar`.\n\n**Por que assim:** a versão anterior lia o Postgres direto e guardava no Redis o id do último agendamento processado — e avançava esse marcador **antes** de a mensagem sair. Evolution recusou? Aquele cliente nunca era avisado, sem erro em lugar nenhum. E se o Redis fosse limpo, o marcador voltava a zero e todo mundo recebia a confirmação de novo.\n\nAgora a marca é `agendamento.confirmacaoEnviadaEm`, gravada **só depois** de a Evolution aceitar. O que falhou volta na próxima rodada sozinho.\n\n**De qual número sai:** cada barbearia usa a instância da Evolution dela (`configuracoes.evolutionInstance`). Quem não tiver uma cai no `EVOLUTION_INSTANCE` do backend. Uma batida só atende todas as barbearias, cada uma pelo seu WhatsApp.\n\n**Credencial:** uma só, do tipo *Header Auth*, com nome `x-lembrete-token` e o valor do `LEMBRETE_TOKEN` do backend. A URL está escrita no nó de disparo.\n\nNão há credencial de Postgres nem de Redis neste fluxo — e a apikey da Evolution fica só no backend.",
+        "height": 530,
+        "width": 460
+      },
+      "id": "nota-confirmacao",
+      "name": "Como funciona",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -180
+      ]
+    },
+    {
+      "parameters": {
         "rule": {
           "interval": [
             {
@@ -17,131 +32,99 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        220,
+        240,
         300
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "get",
-        "propertyName": "ultimoId",
-        "key": "bb:marcao:ultimo_agendamento",
-        "keyType": "string",
-        "options": {}
-      },
-      "id": "ler-último-id-(redis)",
-      "name": "Ler último id (Redis)",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
-      "position": [
-        440,
-        300
-      ],
-      "credentials": {
-        "redis": {
-          "id": "bb-redis",
-          "name": "Redis Barbearia Brutal"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT a.id,\n  to_char(a.data AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY') AS data_br,\n  to_char(a.data AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI')    AS hora_br,\n  cli.nome AS cliente_nome, cli.telefone AS cliente_tel,\n  p.nome   AS barbeiro_nome, bu.telefone AS barbeiro_tel,\n  t.nome   AS barbearia,\n  COALESCE(string_agg(DISTINCT s.nome, ', '), 'Serviço') AS servicos\nFROM agendamento a\nJOIN usuario cli        ON cli.id = a.\"usuarioId\"\nJOIN profissional p     ON p.id  = a.\"profissionalId\"\nLEFT JOIN usuario bu    ON bu.id = p.\"usuarioId\"\nJOIN tenant t           ON t.id  = a.\"tenantId\"\nLEFT JOIN \"_AgendamentoToServico\" ags ON ags.\"A\" = a.id\nLEFT JOIN servico s     ON s.id  = ags.\"B\"\nWHERE a.\"tenantId\" = 1\n  AND a.id > {{ $json.ultimoId || 0 }}\n  AND a.\"createdAt\" >= now() - interval '1 hour'\n  AND a.status IN ('agendado','confirmado')\nGROUP BY a.id, a.data, cli.nome, cli.telefone, p.nome, bu.telefone, t.nome\nORDER BY a.id ASC",
-        "options": {}
-      },
-      "id": "buscar-novos-agendamentos",
-      "name": "Buscar novos agendamentos",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.4,
-      "position": [
-        680,
-        300
-      ],
-      "credentials": {
-        "postgres": {
-          "id": "bb-neon",
-          "name": "Neon Barbearia Brutal"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "set",
-        "key": "bb:marcao:ultimo_agendamento",
-        "keyType": "string",
-        "value": "={{ Math.max(0, ...$items('Buscar novos agendamentos').map(i => i.json.id)) }}",
-        "expire": false,
-        "valueIsJSON": false,
-        "options": {}
-      },
-      "id": "salvar-último-id-(redis)",
-      "name": "Salvar último id (Redis)",
-      "type": "n8n-nodes-base.redis",
-      "typeVersion": 1,
-      "position": [
-        920,
-        180
-      ],
-      "credentials": {
-        "redis": {
-          "id": "bb-redis",
-          "name": "Redis Barbearia Brutal"
-        }
-      },
-      "executeOnce": true
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "\n// Monta 1 mensagem para o cliente e 1 para o barbeiro por agendamento novo.\nconst norm = (t) => {\n  let n = String(t || '').replace(/\\D/g, '');\n  if (!n) return '';\n  if (!n.startsWith('55')) n = '55' + n;   // garante DDI Brasil\n  return n;\n};\nconst saida = [];\nfor (const item of $input.all()) {\n  const a = item.json;\n  const cliente = norm(a.cliente_tel);\n  const barbeiro = norm(a.barbeiro_tel);\n  if (cliente) {\n    saida.push({ json: { numero: cliente, tipo: 'cliente', mensagem:\n      `✅ *Agendamento confirmado!*\\n\\n` +\n      `Olá, ${a.cliente_nome}! Seu horário na *${a.barbearia}* está marcado:\\n\\n` +\n      `✂️ Serviços: ${a.servicos}\\n` +\n      `👤 Profissional: ${a.barbeiro_nome}\\n` +\n      `📅 Data: ${a.data_br}\\n` +\n      `🕐 Horário: ${a.hora_br}\\n\\n` +\n      `Qualquer imprevisto, é só chamar por aqui. Até logo! 🪒` } });\n  }\n  if (barbeiro) {\n    saida.push({ json: { numero: barbeiro, tipo: 'barbeiro', mensagem:\n      `📅 *Novo agendamento!*\\n\\n` +\n      `${a.barbeiro_nome}, você tem um novo horário na *${a.barbearia}*:\\n\\n` +\n      `👤 Cliente: ${a.cliente_nome}\\n` +\n      `✂️ Serviços: ${a.servicos}\\n` +\n      `📅 Data: ${a.data_br}\\n` +\n      `🕐 Horário: ${a.hora_br}` } });\n  }\n}\nreturn saida;\n"
-      },
-      "id": "montar-mensagens",
-      "name": "Montar mensagens",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        920,
-        420
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://evolutionapi.vps10196.panel.icontainer.net/message/sendText/barbabrutal",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "S38yQF2yccSeEJkDM7Ak7fnQ6pQkZJAY"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { \"number\": $json.numero, \"text\": $json.mensagem } }}",
+        "url": "https://barba-brutal-api.onrender.com/lembretes/confirmacoes/disparar",
         "options": {
-          "batching": {
-            "batch": {
-              "batchSize": 1,
-              "batchInterval": 1200
+          "response": {
+            "response": {
+              "fullResponse": false
             }
-          }
-        }
+          },
+          "timeout": 180000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
-      "id": "enviar-whatsapp-(evolution)",
-      "name": "Enviar WhatsApp (Evolution)",
+      "id": "disparar-confirmacoes",
+      "name": "Disparar confirmações",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1160,
-        420
+        520,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notesInFlow": true,
+      "notes": "Timeout alto de propósito: o backend no Render free dorme, e a primeira chamada acorda o serviço. Falha aqui deixa a execução VERMELHA — é para ser barulhento; o agendamento continua pendente e sai na próxima rodada.",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bb-lembrete-token",
+          "name": "Token do lembrete"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "houve-falha",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ $json.falhas }}",
+              "rightValue": 0
+            },
+            {
+              "id": "sem-telefone",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.semTelefone }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "algo-para-olhar",
+      "name": "Algo para olhar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        300
       ]
+    },
+    {
+      "parameters": {},
+      "id": "registrar-pendencia",
+      "name": "Registrar pendência",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        220
+      ],
+      "notesInFlow": true,
+      "notes": "Envio recusado ou cliente sem telefone. O que falhou volta sozinho na próxima rodada; quem não tem telefone nunca vai receber — vale cobrar o cadastro."
     }
   ],
   "connections": {
@@ -149,55 +132,42 @@
       "main": [
         [
           {
-            "node": "Ler último id (Redis)",
+            "node": "Disparar confirmações",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Ler último id (Redis)": {
+    "Disparar confirmações": {
       "main": [
         [
           {
-            "node": "Buscar novos agendamentos",
+            "node": "Algo para olhar?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Buscar novos agendamentos": {
+    "Algo para olhar?": {
       "main": [
         [
           {
-            "node": "Salvar último id (Redis)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Montar mensagens",
+            "node": "Registrar pendência",
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "Montar mensagens": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp (Evolution)",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        ],
+        []
       ]
     }
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
   },
   "pinData": {},
   "tags": [

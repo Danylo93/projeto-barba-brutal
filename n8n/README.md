@@ -7,12 +7,6 @@ Dois fluxos, um trabalho cada:
 | `barbabrutal-1-confirmacao-agendamento.json` | Ao **criar** um agendamento, avisa cliente e barbeiro | a cada 1 min |
 | `barbabrutal-2-lembrete-1h.json` | **1 hora antes** do horário, lembra cliente e barbeiro | a cada 5 min |
 
-O arquivo `../Fluxo_WhatsApp_Barbearia_Premium.json` é o fluxo de entrada:
-recebe o webhook `messages.upsert` da Evolution, conversa com o cliente e usa
-somente a API do backend para consultar, criar, cancelar ou reagendar. Ele não
-grava mais diretamente no Postgres, portanto todas as mesmas validações do
-aplicativo também valem no WhatsApp.
-
 Os dois têm dois nós de trabalho: um relógio e uma chamada HTTP. **Quem busca,
 monta a mensagem, envia pela Evolution e marca o que saiu é o backend.**
 
@@ -65,38 +59,49 @@ apikey da Evolution. As duas ficam só no backend.
 > mensagem do que falta** — de propósito: marcar como enviado sem ter enviado
 > tiraria o agendamento da fila sem ninguém ser avisado.
 
+### Bot de WhatsApp (o agente de IA)
+
+A barbearia sai da **instance da Evolution**, nunca do `?tenantId=` da URL. A
+instance já é única por barbearia, o dono configura no painel dele, e ela chega
+no fluxo pelo webhook da própria Evolution — ninguém digita.
+
+Por isso **barbearia nova não pede variável nem deploy**: basta o dono
+configurar a instance dele.
+
+| Variável | Quando usar |
+|---|---|
+| `WHATSAPP_BOT_TOKEN` | um token para o n8n do SaaS; a instance diz de quem é a conversa |
+| `WHATSAPP_BOT_TOKENS` | um token por barbearia (`{"1":"tok-um"}`), quando se quer isolar de verdade |
+
+### De qual número sai a mensagem
+
+Cada barbearia envia pela instância da Evolution dela, guardada em
+`tenant.configuracoes.evolutionInstance`. Quem não tiver uma configurada cai no
+`EVOLUTION_INSTANCE` do backend.
+
+Isso importa porque o disparo atende **todas** as barbearias numa batida só:
+sem essa resolução, o cliente da Latita receberia o lembrete pelo WhatsApp de
+outra barbearia — e responderia para o número errado.
+
 ### No n8n
 
-| Variável | Exemplo |
-|---|---|
-| `BACKEND_URL` | `https://barba-brutal-api.onrender.com` |
-| `LEMBRETE_TOKEN` | mesmo valor do backend |
+Uma credencial, e nada de variável de ambiente:
 
-Para o fluxo **Assistente IA WhatsApp**, configure também:
+- Tipo: **Header Auth**
+- Name: `x-lembrete-token`
+- Value: o mesmo valor do `LEMBRETE_TOKEN` do backend
 
-| Variável | Descrição |
-|---|---|
-| `WHATSAPP_BOT_TOKEN` | segredo global do bot do WhatsApp, usado pelo fluxo para falar com o backend |
-
-No backend, o webhook do WhatsApp agora resolve a barbearia automaticamente
-pela `instance` da Evolution, lida da configuração do tenant
-(`configuracoes.evolutionInstance` ou campos equivalentes). O fluxo n8n não
-precisa mais de `WHATSAPP_TENANT_ID` fixo: ele chama `GET /whatsapp/agenda/resolver`
-com a `instance` recebida no webhook, obtém `tenantId` e `tenantNome`, e então
-segue para catálogo, criação, cancelamento e reagendamento.
-
-Se você quiser manter compatibilidade com a instalação antiga, o backend ainda
-aceita `WHATSAPP_BOT_TOKENS` como mapa por tenant, mas o caminho recomendado é
-usar um `WHATSAPP_BOT_TOKEN` global no n8n e deixar a barbearia ser descoberta
-automaticamente pela `instance`.
+A URL da API está escrita no nó de disparo. Foi por aí em vez de `$env.*`
+porque as *Variables* do n8n são recurso pago, e credencial é melhor de
+qualquer jeito: o valor não viaja no JSON exportado nem vai para o repositório.
 
 ---
 
 ## Importar e ativar
 
 1. n8n → **Workflows** → **Import from File** → selecione os dois `.json`.
-2. Confira as duas variáveis acima. **Não há credencial para vincular** — nem
-   Postgres, nem Redis.
+2. Vincule a credencial **Token do lembrete** (Header Auth). Não há credencial
+   de Postgres nem de Redis.
 3. Teste manual no nó de disparo: deve responder um resumo como
    `{ "tipo": "lembrete", "enviados": 0, "falhas": 0, "marcados": 0, "pendentes": 0, "semTelefone": [] }`.
 4. **Ative** os dois.

@@ -2,30 +2,102 @@
   "name": "Fluxo WhatsApp Barbearia Premium",
   "nodes": [
     {
-      "parameters": { "httpMethod": "POST", "path": "webhook-whatsapp", "options": {} },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook-whatsapp",
+        "options": {}
+      },
       "id": "webhook-evo",
       "name": "Webhook EVO",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300]
+      "position": [
+        240,
+        300
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "api-token", "name": "apiToken", "value": "={{ $env.WHATSAPP_BOT_TOKEN }}", "type": "string" },
-            { "id": "backend-url", "name": "backendUrl", "value": "={{ $env.BACKEND_URL }}", "type": "string" },
-            { "id": "evolution-url", "name": "evolutionUrl", "value": "={{ $env.EVOLUTION_URL }}", "type": "string" },
-            { "id": "tenant-id", "name": "tenantId", "value": "={{ $node['Resolver Tenant'].json.tenantId }}", "type": "string" },
-            { "id": "tenant-nome", "name": "tenantNome", "value": "={{ $node['Resolver Tenant'].json.tenantNome }}", "type": "string" },
-            { "id": "telefone", "name": "Telefone", "value": "={{ $json.Telefone }}", "type": "string" },
-            { "id": "mensagem", "name": "Mensagem", "value": "={{ $json.Mensagem }}", "type": "string" },
-            { "id": "nome", "name": "NomeWpp", "value": "={{ $json.NomeWpp }}", "type": "string" },
-            { "id": "intent", "name": "intent", "value": "={{ $json.intent }}", "type": "string" },
-            { "id": "agendamento-id", "name": "agendamentoId", "value": "={{ $json.agendamentoId }}", "type": "number" },
-            { "id": "data-iso", "name": "dataIso", "value": "={{ $json.dataIso }}", "type": "string" },
-            { "id": "state-stage", "name": "stateStage", "value": "={{ $json.stateStage }}", "type": "number" },
-            { "id": "state-payload", "name": "statePayload", "value": "={{ $json.statePayload }}", "type": "object" }
+            {
+              "id": "api-token",
+              "name": "apiToken",
+              "value": "={{ $env.WHATSAPP_BOT_TOKEN }}",
+              "type": "string"
+            },
+            {
+              "id": "backend-url",
+              "name": "backendUrl",
+              "value": "={{ $env.BACKEND_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "evolution-url",
+              "name": "evolutionUrl",
+              "value": "={{ $env.EVOLUTION_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "tenant-id",
+              "name": "tenantId",
+              "value": "={{ $node['Resolver Tenant'].json.tenantId }}",
+              "type": "string"
+            },
+            {
+              "id": "tenant-nome",
+              "name": "tenantNome",
+              "value": "={{ $node['Resolver Tenant'].json.tenantNome }}",
+              "type": "string"
+            },
+            {
+              "id": "telefone",
+              "name": "Telefone",
+              "value": "={{ $json.Telefone }}",
+              "type": "string"
+            },
+            {
+              "id": "mensagem",
+              "name": "Mensagem",
+              "value": "={{ $json.Mensagem }}",
+              "type": "string"
+            },
+            {
+              "id": "nome",
+              "name": "NomeWpp",
+              "value": "={{ $json.NomeWpp }}",
+              "type": "string"
+            },
+            {
+              "id": "intent",
+              "name": "intent",
+              "value": "={{ $json.intent }}",
+              "type": "string"
+            },
+            {
+              "id": "agendamento-id",
+              "name": "agendamentoId",
+              "value": "={{ $json.agendamentoId }}",
+              "type": "number"
+            },
+            {
+              "id": "data-iso",
+              "name": "dataIso",
+              "value": "={{ $json.dataIso }}",
+              "type": "string"
+            },
+            {
+              "id": "state-stage",
+              "name": "stateStage",
+              "value": "={{ $json.stateStage }}",
+              "type": "number"
+            },
+            {
+              "id": "state-payload",
+              "name": "statePayload",
+              "value": "={{ $json.statePayload }}",
+              "type": "object"
+            }
           ]
         },
         "options": {}
@@ -34,7 +106,10 @@
       "name": "Variaveis do sistema",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [480, 300]
+      "position": [
+        480,
+        300
+      ]
     },
     {
       "parameters": {
@@ -44,7 +119,10 @@
       "name": "Extrair Dados",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [720, 300]
+      "position": [
+        720,
+        300
+      ]
     },
     {
       "parameters": {
@@ -56,39 +134,83 @@
       "name": "Resolver Tenant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 140]
+      "position": [
+        720,
+        140
+      ]
     },
     {
       "parameters": {
         "propertyName": "intent",
         "rules": [
-          { "operation": "equal", "value1": "={{ $json.intent }}", "value2": "ajuda" },
-          { "operation": "equal", "value1": "={{ $json.intent }}", "value2": "listar_servicos" },
-          { "operation": "equal", "value1": "={{ $json.intent }}", "value2": "listar_profissionais" },
-          { "operation": "equal", "value1": "={{ $json.intent }}", "value2": "consultar_meus_agendamentos" },
-          { "operation": "equal", "value1": "={{ $json.intent }}", "value2": "criar_agendamento" },
-          { "operation": "equal", "value1": "={{ $json.intent }}", "value2": "cancelar_agendamento" },
-          { "operation": "equal", "value1": "={{ $json.intent }}", "value2": "reagendar_agendamento" }
+          {
+            "operation": "equal",
+            "value1": "={{ $json.intent }}",
+            "value2": "ajuda"
+          },
+          {
+            "operation": "equal",
+            "value1": "={{ $json.intent }}",
+            "value2": "listar_servicos"
+          },
+          {
+            "operation": "equal",
+            "value1": "={{ $json.intent }}",
+            "value2": "listar_profissionais"
+          },
+          {
+            "operation": "equal",
+            "value1": "={{ $json.intent }}",
+            "value2": "consultar_meus_agendamentos"
+          },
+          {
+            "operation": "equal",
+            "value1": "={{ $json.intent }}",
+            "value2": "criar_agendamento"
+          },
+          {
+            "operation": "equal",
+            "value1": "={{ $json.intent }}",
+            "value2": "cancelar_agendamento"
+          },
+          {
+            "operation": "equal",
+            "value1": "={{ $json.intent }}",
+            "value2": "reagendar_agendamento"
+          }
         ]
       },
       "id": "roteador",
       "name": "Roteador",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 2,
-      "position": [960, 300]
+      "position": [
+        960,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?tenantId=' + $json.tenantId }}",
+        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "x-whatsapp-token", "value": "={{ $json.apiToken }}" } ] }
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-whatsapp-token",
+              "value": "={{ $json.apiToken }}"
+            }
+          ]
+        }
       },
       "id": "catalogo-servicos",
       "name": "Catalogo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1180, 80]
+      "position": [
+        1180,
+        80
+      ]
     },
     {
       "parameters": {
@@ -98,29 +220,45 @@
       "name": "Formatar Serviços",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1410, 80]
+      "position": [
+        1410,
+        80
+      ]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?tenantId=' + $json.tenantId }}",
+        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "x-whatsapp-token", "value": "={{ $json.apiToken }}" } ] }
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-whatsapp-token",
+              "value": "={{ $json.apiToken }}"
+            }
+          ]
+        }
       },
       "id": "catalogo-profissionais",
       "name": "Catalogo Profissionais",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1180, 220]
+      "position": [
+        1180,
+        220
+      ]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?tenantId=' + $json.tenantId }}",
+        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-whatsapp-token", "value": "={{ $json.apiToken }}" }
+            {
+              "name": "x-whatsapp-token",
+              "value": "={{ $json.apiToken }}"
+            }
           ]
         }
       },
@@ -128,7 +266,10 @@
       "name": "Catalogo Saudacao",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1180, 20]
+      "position": [
+        1180,
+        20
+      ]
     },
     {
       "parameters": {
@@ -138,7 +279,10 @@
       "name": "Formatar Saudacao",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1410, 20]
+      "position": [
+        1410,
+        20
+      ]
     },
     {
       "parameters": {
@@ -148,20 +292,33 @@
       "name": "Formatar Profissionais",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1410, 220]
+      "position": [
+        1410,
+        220
+      ]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos?tenantId=' + $json.tenantId + '&telefone=' + encodeURIComponent($json.Telefone) }}",
+        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId + '&telefone=' + encodeURIComponent($json.Telefone) }}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "x-whatsapp-token", "value": "={{ $json.apiToken }}" } ] }
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-whatsapp-token",
+              "value": "={{ $json.apiToken }}"
+            }
+          ]
+        }
       },
       "id": "meus-agendamentos",
       "name": "Meus Agendamentos",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1180, 360]
+      "position": [
+        1180,
+        360
+      ]
     },
     {
       "parameters": {
@@ -171,20 +328,33 @@
       "name": "Formatar Agendamentos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1410, 360]
+      "position": [
+        1410,
+        360
+      ]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?tenantId=' + $json.tenantId }}",
+        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "x-whatsapp-token", "value": "={{ $json.apiToken }}" } ] }
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-whatsapp-token",
+              "value": "={{ $json.apiToken }}"
+            }
+          ]
+        }
       },
       "id": "catalogo-agendamento",
       "name": "Catalogo Agendamento",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1180, 500]
+      "position": [
+        1180,
+        500
+      ]
     },
     {
       "parameters": {
@@ -194,22 +364,48 @@
       "name": "Formatar Criar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1410, 500]
+      "position": [
+        1410,
+        500
+      ]
     },
     {
-      "parameters": { "conditions": { "boolean": [ { "value1": "={{ $json.podeCriar }}", "value2": true } ] } },
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.podeCriar }}",
+              "value2": true
+            }
+          ]
+        }
+      },
       "id": "pode-criar",
       "name": "Pode Criar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1640, 500]
+      "position": [
+        1640,
+        500
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos?tenantId=' + $json.tenantId }}",
+        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "x-whatsapp-token", "value": "={{ $json.apiToken }}" }, { "name": "Content-Type", "value": "application/json" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-whatsapp-token",
+              "value": "={{ $json.apiToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { telefone: $json.Telefone, nome: $json.NomeWpp, profissionalId: $json.profissionalId, servicoId: $json.servicoId, data: $json.dataIso } }}"
@@ -218,7 +414,10 @@
       "name": "Criar Agendamento Final",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1880, 500]
+      "position": [
+        1880,
+        500
+      ]
     },
     {
       "parameters": {
@@ -228,14 +427,28 @@
       "name": "Formatar Criar Final",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2110, 500]
+      "position": [
+        2110,
+        500
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos/' + $json.agendamentoId + '/cancelar?tenantId=' + $json.tenantId }}",
+        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos/' + $json.agendamentoId + '/cancelar?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "x-whatsapp-token", "value": "={{ $json.apiToken }}" }, { "name": "Content-Type", "value": "application/json" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-whatsapp-token",
+              "value": "={{ $json.apiToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { telefone: $json.Telefone } }}"
@@ -244,7 +457,10 @@
       "name": "Cancelar Agendamento",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1180, 640]
+      "position": [
+        1180,
+        640
+      ]
     },
     {
       "parameters": {
@@ -254,14 +470,28 @@
       "name": "Formatar Cancelar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1410, 640]
+      "position": [
+        1410,
+        640
+      ]
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos/' + $json.agendamentoId + '/reagendar?tenantId=' + $json.tenantId }}",
+        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos/' + $json.agendamentoId + '/reagendar?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "x-whatsapp-token", "value": "={{ $json.apiToken }}" }, { "name": "Content-Type", "value": "application/json" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-whatsapp-token",
+              "value": "={{ $json.apiToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { telefone: $json.Telefone, data: $json.dataIso } }}"
@@ -270,7 +500,10 @@
       "name": "Reagendar Agendamento",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1180, 780]
+      "position": [
+        1180,
+        780
+      ]
     },
     {
       "parameters": {
@@ -280,14 +513,28 @@
       "name": "Formatar Reagendar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1410, 780]
+      "position": [
+        1410,
+        780
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "={{ $json.evolutionUrl + '/message/sendText/' + $json.instance }}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "apikey", "value": "={{ $json.apiToken }}" }, { "name": "Content-Type", "value": "application/json" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.apiToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { number: $json.Telefone.startsWith('55') ? $json.Telefone : '55' + $json.Telefone, text: $json.mensagemEnvio || $json.Mensagem } }}"
@@ -296,47 +543,304 @@
       "name": "Enviar WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1660, 360]
+      "position": [
+        1660,
+        360
+      ]
     }
   ],
   "connections": {
-    "Webhook EVO": { "main": [[{ "node": "Variaveis do sistema", "type": "main", "index": 0 }]] },
-    "Variaveis do sistema": { "main": [[{ "node": "Extrair Dados", "type": "main", "index": 0 }]] },
-    "Extrair Dados": { "main": [[{ "node": "Resolver Tenant", "type": "main", "index": 0 }]] },
-    "Resolver Tenant": { "main": [[{ "node": "Roteador", "type": "main", "index": 0 }]] },
+    "Webhook EVO": {
+      "main": [
+        [
+          {
+            "node": "Variaveis do sistema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variaveis do sistema": {
+      "main": [
+        [
+          {
+            "node": "Extrair Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Dados": {
+      "main": [
+        [
+          {
+            "node": "Resolver Tenant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver Tenant": {
+      "main": [
+        [
+          {
+            "node": "Roteador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Roteador": {
       "main": [
-        [{ "node": "Catalogo Saudacao", "type": "main", "index": 0 }],
-        [{ "node": "Catalogo", "type": "main", "index": 0 }],
-        [{ "node": "Catalogo Profissionais", "type": "main", "index": 0 }],
-        [{ "node": "Meus Agendamentos", "type": "main", "index": 0 }],
-        [{ "node": "Catalogo Agendamento", "type": "main", "index": 0 }],
-        [{ "node": "Cancelar Agendamento", "type": "main", "index": 0 }],
-        [{ "node": "Reagendar Agendamento", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Catalogo Saudacao",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Catalogo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Catalogo Profissionais",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Meus Agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Catalogo Agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cancelar Agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reagendar Agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Catalogo": { "main": [[{ "node": "Formatar Serviços", "type": "main", "index": 0 }]] },
-    "Catalogo Saudacao": { "main": [[{ "node": "Formatar Saudacao", "type": "main", "index": 0 }]] },
-    "Formatar Saudacao": { "main": [[{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]] },
-    "Formatar Serviços": { "main": [[{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]] },
-    "Catalogo Profissionais": { "main": [[{ "node": "Formatar Profissionais", "type": "main", "index": 0 }]] },
-    "Formatar Profissionais": { "main": [[{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]] },
-    "Meus Agendamentos": { "main": [[{ "node": "Formatar Agendamentos", "type": "main", "index": 0 }]] },
-    "Formatar Agendamentos": { "main": [[{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]] },
-    "Catalogo Agendamento": { "main": [[{ "node": "Formatar Criar", "type": "main", "index": 0 }]] },
-    "Formatar Criar": { "main": [[{ "node": "Pode Criar?", "type": "main", "index": 0 }]] },
+    "Catalogo": {
+      "main": [
+        [
+          {
+            "node": "Formatar Serviços",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catalogo Saudacao": {
+      "main": [
+        [
+          {
+            "node": "Formatar Saudacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Saudacao": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Serviços": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catalogo Profissionais": {
+      "main": [
+        [
+          {
+            "node": "Formatar Profissionais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Profissionais": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meus Agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Formatar Agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catalogo Agendamento": {
+      "main": [
+        [
+          {
+            "node": "Formatar Criar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Criar": {
+      "main": [
+        [
+          {
+            "node": "Pode Criar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Pode Criar?": {
       "main": [
-        [{ "node": "Criar Agendamento Final", "type": "main", "index": 0 }],
-        [{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Criar Agendamento Final",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Criar Agendamento Final": { "main": [[{ "node": "Formatar Criar Final", "type": "main", "index": 0 }]] },
-    "Formatar Criar Final": { "main": [[{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]] },
-    "Cancelar Agendamento": { "main": [[{ "node": "Formatar Cancelar", "type": "main", "index": 0 }]] },
-    "Formatar Cancelar": { "main": [[{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]] },
-    "Reagendar Agendamento": { "main": [[{ "node": "Formatar Reagendar", "type": "main", "index": 0 }]] },
-    "Formatar Reagendar": { "main": [[{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]] }
+    "Criar Agendamento Final": {
+      "main": [
+        [
+          {
+            "node": "Formatar Criar Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Criar Final": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancelar Agendamento": {
+      "main": [
+        [
+          {
+            "node": "Formatar Cancelar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Cancelar": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reagendar Agendamento": {
+      "main": [
+        [
+          {
+            "node": "Formatar Reagendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Reagendar": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
   "settings": {},
