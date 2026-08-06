@@ -58,41 +58,62 @@ export function diaEmBrasilia(data: Date): string {
 }
 
 /**
+ * Uma data que ainda faz sentido para uma barbearia marcar.
+ *
+ * O ano 9999 fazia o Prisma estourar ao somar o fuso e virar 500. Cinco anos
+ * é folga de sobra para quem marca corte de cabelo.
+ */
+const ANOS_DE_ALCANCE = 5;
+
+/** Só é fuso escrito o que termina em `Z` ou em `±hh:mm`/`±hhmm`. */
+const TEM_FUSO_ESCRITO = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+
+/**
  * Lê a data que o fluxo mandou, assumindo Brasília quando não vem fuso.
  *
- * Aceita o que aparece na prática: ISO com fuso, ISO sem fuso, data e hora
- * separadas por espaço, e o formato brasileiro `07/08/2026 15:00`. Devolve
- * `null` para qualquer coisa que não seja um instante de verdade — quem chama
- * transforma isso em frase, e não em 500.
+ * Aceita o que aparece na prática: `2026-08-07`, `2026-8-7 15:00`,
+ * `07/08/2026 15:00:00`, com `T` ou espaço, com ou sem segundos — e ISO com
+ * fuso escrito, que manda em cima de tudo.
+ *
+ * O que NÃO faz é cair no `new Date(texto)` para uma data sem fuso. Esse era o
+ * furo: `"2026-8-13 15:00"` não casava com a expressão daqui, ia para o
+ * construtor do Date e virava 15h **do servidor** — meio-dia em Brasília, com
+ * a API respondendo 201. O cliente aparecia às 15h e o barbeiro tinha outra
+ * pessoa na cadeira. Agora, sem fuso escrito, ou casa aqui ou é `null`.
  */
 export function instanteEmBrasilia(valor: unknown): Date | null {
   if (valor instanceof Date) {
-    return Number.isNaN(valor.getTime()) ? null : valor;
+    return Number.isNaN(valor.getTime()) ? null : dentroDoAlcance(valor);
   }
   const texto = String(valor ?? '').trim();
   if (!texto) return null;
 
-  // 07/08/2026 15:00 (ou 7-8-2026, ou só a data)
+  // 07/08/2026, 7-8-2026 15:00, 07/08/2026 15:00:00
   const brasileiro = texto.match(
-    /^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})(?:[ T](\d{1,2}):(\d{2}))?$/,
+    /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/,
   );
   if (brasileiro) {
     const [, d, m, a, h = '0', min = '0'] = brasileiro;
     return montar(a, m, d, h, min);
   }
 
-  // 2026-08-07, 2026-08-07T15:00, 2026-08-07 15:00[:00]
+  // 2026-08-07, 2026-8-7T15:00, 2026-08-07 15:00:00
   const iso = texto.match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/,
   );
   if (iso) {
     const [, a, m, d, h = '0', min = '0'] = iso;
     return montar(a, m, d, h, min);
   }
 
-  // Já veio com fuso (Z ou ±hh:mm): o próprio Date resolve.
-  const comFuso = new Date(texto);
-  return Number.isNaN(comFuso.getTime()) ? null : comFuso;
+  // Fuso escrito é o único caso em que o construtor do Date pode decidir: ali
+  // ele não tem o que chutar.
+  if (TEM_FUSO_ESCRITO.test(texto)) {
+    const comFuso = new Date(texto);
+    return Number.isNaN(comFuso.getTime()) ? null : dentroDoAlcance(comFuso);
+  }
+
+  return null;
 }
 
 function montar(a: string, m: string, d: string, h: string, min: string): Date | null {
@@ -101,14 +122,25 @@ function montar(a: string, m: string, d: string, h: string, min: string): Date |
     `${pad(a, 4)}-${pad(m)}-${pad(d)}T${pad(h)}:${pad(min)}:00${OFFSET_BRASILIA}`,
   );
   if (Number.isNaN(montada.getTime())) return null;
-  // 31/02 vira 03/03 no construtor do Date. Data que não existe é erro de
-  // digitação do cliente, e ele precisa ouvir isso em vez de ser mandado para
-  // outro dia sem saber.
+  // 31/02 vira 03/03 no construtor do Date, e 25:00 vira o dia seguinte. Data
+  // que não existe é erro de digitação do cliente, e ele precisa ouvir isso em
+  // vez de ser mandado para outro dia sem saber.
   const [aa, mm, dd] = diaEmBrasilia(montada).split('-');
   if (Number(aa) !== Number(a) || Number(mm) !== Number(m) || Number(dd) !== Number(d)) {
     return null;
   }
-  return montada;
+  if (horaEmBrasilia(montada) !== `${pad(h)}:${pad(min)}`) return null;
+  return dentroDoAlcance(montada);
+}
+
+function dentroDoAlcance(data: Date): Date | null {
+  const limite = new Date();
+  limite.setFullYear(limite.getFullYear() + ANOS_DE_ALCANCE);
+  if (data.getTime() > limite.getTime()) return null;
+  // Antes de 2000 não é agenda de barbearia, é lixo — e o Prisma não gosta de
+  // data negativa.
+  if (data.getFullYear() < 2000) return null;
+  return data;
 }
 
 /** Mesmo dia do calendário, do ponto de vista de quem está em Brasília. */

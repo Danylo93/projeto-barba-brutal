@@ -7,8 +7,11 @@ export class WhatsappAgendaController {
   constructor(private readonly service: WhatsappAgendaService) {}
 
   @Get('resolver')
-  resolver(@Query('instance') instance: string) {
-    return this.service.resolverPorInstance(instance);
+  resolver(
+    @Headers('x-whatsapp-token') token: string,
+    @Query('instance') instance: string,
+  ) {
+    return this.service.resolver(token, instance);
   }
 
   @Get('catalogo')

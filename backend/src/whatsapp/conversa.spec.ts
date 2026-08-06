@@ -56,6 +56,48 @@ describe('instanteEmBrasilia', () => {
     expect(instanteEmBrasilia(undefined)).toBeNull();
     expect(instanteEmBrasilia({})).toBeNull();
   });
+
+  // O furo que a revisão pegou: estes formatos NÃO casavam com as expressões
+  // daqui, caíam no `new Date(texto)` e viravam a hora do SERVIDOR. Em UTC,
+  // "2026-8-13 15:00" era gravado como meio-dia de Brasília — com 201 na
+  // resposta. O cliente aparecia às 15h e o barbeiro tinha outra pessoa na
+  // cadeira.
+  it('mês e dia sem zero à esquerda continuam sendo Brasília', () => {
+    expect(instanteEmBrasilia('2026-8-13 15:00')!.toISOString()).toBe(
+      '2026-08-13T18:00:00.000Z',
+    );
+    expect(instanteEmBrasilia('2026-8-7T9:05')!.toISOString()).toBe(
+      '2026-08-07T12:05:00.000Z',
+    );
+  });
+
+  it('com segundos também', () => {
+    expect(instanteEmBrasilia('12/09/2026 16:00:00')!.toISOString()).toBe(
+      '2026-09-12T19:00:00.000Z',
+    );
+    expect(instanteEmBrasilia('2026-08-07 15:00:00')!.toISOString()).toBe(
+      '2026-08-07T18:00:00.000Z',
+    );
+  });
+
+  // A regra que fecha a porta: sem fuso escrito, ou casa com um formato
+  // conhecido ou é `null`. Nunca o fuso do servidor.
+  it('sem fuso escrito e fora dos formatos conhecidos, é null', () => {
+    expect(instanteEmBrasilia('Aug 7 2026 15:00')).toBeNull();
+    expect(instanteEmBrasilia('2026/08/07 15:00')).toBeNull();
+    expect(instanteEmBrasilia('7 de agosto às 15h')).toBeNull();
+  });
+
+  it('hora que não existe é recusada', () => {
+    expect(instanteEmBrasilia('2026-08-07 25:00')).toBeNull();
+    expect(instanteEmBrasilia('07/08/2026 10:75')).toBeNull();
+  });
+
+  // O ano 9999 fazia o Prisma estourar ao somar o fuso, e virava 500.
+  it('data fora do alcance de uma agenda é recusada', () => {
+    expect(instanteEmBrasilia('9999-12-31')).toBeNull();
+    expect(instanteEmBrasilia('1500-01-01')).toBeNull();
+  });
 });
 
 describe('dia e hora em Brasília', () => {

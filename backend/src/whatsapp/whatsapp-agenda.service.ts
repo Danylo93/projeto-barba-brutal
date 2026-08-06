@@ -27,7 +27,11 @@ import {
   planoTemRobo,
   porqueNaoDaParaRemarcar,
 } from './conversa';
-import { duracaoEmMinutos, expedienteDoDia } from '../agendamento/agendamento.validacao';
+import {
+  duracaoEmMinutos,
+  expedienteDoDia,
+  validarServicosDoAgendamento,
+} from '../agendamento/agendamento.validacao';
 
 @Injectable()
 export class WhatsappAgendaService {
@@ -136,6 +140,36 @@ export class WhatsappAgendaService {
     if (!valendo || !planoTemRobo(assinatura!.plano)) {
       throw new ForbiddenException(ROBO_FORA_DO_PLANO);
     }
+  }
+
+  /**
+   * Só confere se o token é um dos nossos, sem escolher barbearia.
+   *
+   * Serve para a rota `/resolver`, que precisa de porteiro mas não pode
+   * chamar `autenticar` — é ela que resolve a instância que o `autenticar`
+   * usa. Aberta, ela deixava qualquer um chutar nomes de instância e
+   * descobrir o id e o nome de cada barbearia do SaaS.
+   */
+  private conferirToken(token: string): void {
+    try {
+      quemEsteTokenAutoriza(token, {
+        tokenGlobal: process.env.WHATSAPP_BOT_TOKEN,
+        tokensPorTenant: process.env.WHATSAPP_BOT_TOKENS,
+      });
+    } catch (erro) {
+      if (erro instanceof ConfiguracaoDoBotInvalida) {
+        throw new ServiceUnavailableException(erro.message);
+      }
+      if (erro instanceof TokenDoBotInvalido) {
+        throw new UnauthorizedException(erro.message);
+      }
+      throw erro;
+    }
+  }
+
+  async resolver(token: string, instance: string) {
+    this.conferirToken(token);
+    return this.resolverPorInstance(instance);
   }
 
   async resolverPorInstance(instance: string) {
@@ -411,7 +445,7 @@ export class WhatsappAgendaService {
     }
     const profissional = await this.prisma.profissional.findFirst({
       where: { id: profissionalId, tenantId, ativo: true },
-      select: { id: true, nome: true },
+      select: { id: true, nome: true, servicos: { select: { id: true } } },
     });
     if (!profissional) {
       throw new NotFoundException('Esse profissional não atende nesta barbearia.');
@@ -419,14 +453,26 @@ export class WhatsappAgendaService {
 
     // Sem serviço informado vale um slot: é a menor janela possível, então
     // sobra o máximo de opções para o robô conversar.
-    const ids = String(params.servicos ?? '')
+    const pedidos = String(params.servicos ?? '').trim();
+    const ids = pedidos
       .split(',')
       .map((s) => Number(String(s).trim()))
       .filter((n) => Number.isInteger(n) && n > 0);
+
+    // `servicos=undefined` — que é o que sai quando o agente monta a URL com
+    // um id que ele não tem — virava "nenhum serviço" e devolvia a lista
+    // inteira calculada para 30 minutos. O robô prometia horário para um
+    // atendimento de uma hora que não cabia ali.
+    if (pedidos && !ids.length) {
+      throw new BadRequestException(
+        'Não entendi qual serviço você quer. Me diz pelo nome que eu procuro no cardápio.',
+      );
+    }
+
     const servicos = ids.length
       ? await this.prisma.servico.findMany({
           where: { id: { in: ids }, tenantId, ativo: true },
-          select: { id: true, nome: true, qtdeSlots: true },
+          select: { id: true, nome: true, qtdeSlots: true, ehCombo: true },
         })
       : [];
     if (ids.length && servicos.length !== ids.length) {
@@ -434,7 +480,24 @@ export class WhatsappAgendaService {
         'Um dos serviços não existe mais no cardápio. Me diz de novo o que você quer fazer.',
       );
     }
+
+    // As MESMAS regras que a marcação aplica: combo é exclusivo, e o
+    // profissional só faz o que está vinculado a ele. Sem isto, a lista saía
+    // cheia de horários para um serviço que aquele barbeiro não faz — e o
+    // robô oferecia o que a API ia recusar em seguida. Prometer e negar é
+    // pior do que já dizer não.
+    if (servicos.length) {
+      const erro = validarServicosDoAgendamento(
+        servicos,
+        profissional.servicos.map((s) => s.id),
+      );
+      if (erro) throw new BadRequestException(erro);
+    }
+
     const duracaoMin = duracaoEmMinutos(servicos);
+
+    const inicioDoDia = new Date(`${dia}T00:00:00-03:00`);
+    const fimDoDia = new Date(inicioDoDia.getTime() + 24 * 60 * 60000);
 
     const [barbearia, agendamentos, bloqueios] = await Promise.all([
       this.prisma.tenant.findUnique({
@@ -446,14 +509,25 @@ export class WhatsappAgendaService {
           tenantId,
           profissionalId,
           status: { in: ['agendado', 'confirmado'] },
-          data: {
-            gte: new Date(`${dia}T00:00:00-03:00`),
-            lt: new Date(`${dia}T23:59:59-03:00`),
-          },
+          data: { gte: inicioDoDia, lt: fimDoDia },
         },
         select: { data: true, servicos: { select: { qtdeSlots: true } } },
       }),
-      this.agendamentos.buscarBloqueios(profissionalId, quando, tenantId),
+      // O recorte do dia é feito AQUI, com o fuso de Brasília escrito, e não
+      // pelo `buscarBloqueios` do repositório: lá o dia é cortado com
+      // `setHours` no fuso do processo, que no Render é UTC. O dia "de UTC"
+      // termina às 20:59 de Brasília, então folga marcada das 21h em diante
+      // ficava invisível — o endpoint oferecia 21:00 e a marcação recusava
+      // com "o profissional não está disponível neste horário".
+      this.prisma.bloqueio.findMany({
+        where: {
+          tenantId,
+          OR: [{ profissionalId }, { profissionalId: null }],
+          inicio: { lt: fimDoDia },
+          fim: { gt: inicioDoDia },
+        },
+        select: { inicio: true, fim: true },
+      }),
     ]);
 
     const ocupados = [
@@ -464,7 +538,7 @@ export class WhatsappAgendaService {
           fim: new Date(inicio.getTime() + duracaoEmMinutos(a.servicos) * 60000),
         };
       }),
-      ...bloqueios,
+      ...bloqueios.map((b) => ({ inicio: new Date(b.inicio), fim: new Date(b.fim) })),
     ];
 
     // O dia da semana sai do fuso de Brasília: às 22h de Brasília o UTC já
@@ -483,7 +557,7 @@ export class WhatsappAgendaService {
 
     return {
       dia,
-      profissional,
+      profissional: { id: profissional.id, nome: profissional.nome },
       servicos,
       duracaoMin,
       horarios: livres,
