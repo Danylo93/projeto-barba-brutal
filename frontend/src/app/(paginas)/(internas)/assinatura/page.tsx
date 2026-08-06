@@ -21,6 +21,7 @@ import useSessao from '@/data/hooks/useSessao'
 import useTrialStatus from '@/hooks/useTrialStatus'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useToast } from '@/hooks/use-toast'
+import UpgradeCallout from '@/components/painel/UpgradeCallout'
 
 interface Assinatura {
   id: number
@@ -216,6 +217,18 @@ export default function AssinaturaPage() {
               <ArrowRight size={16} />
             </button>
           </motion.div>
+        )}
+
+        {assinatura && assinatura.plano?.nome === 'Básico' && (
+          <div className="mb-6">
+            <UpgradeCallout
+              titulo="Seu plano atual é Básico"
+              descricao="Faça upgrade para o Profissional para liberar as funções da equipe e, se quiser tudo completo, o Premium libera os relatórios avançados."
+              ctaPrincipal="Ver planos"
+              ctaSecundario="Abrir assinatura"
+              destinoSecundario="/assinatura"
+            />
+          </div>
         )}
 
         {/* Active Subscription */}

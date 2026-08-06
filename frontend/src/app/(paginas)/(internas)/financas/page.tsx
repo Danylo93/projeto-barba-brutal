@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { DollarSign, TrendingUp, Calendar, Scissors } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import useUsuario from '@/data/hooks/useUsuario'
@@ -8,6 +9,8 @@ import Cabecalho from '@/components/shared/Cabecalho'
 import { Skeleton } from '@/components/ui/skeleton'
 import RelatorioComissoes from '@/components/painel/RelatorioComissoes'
 import GestaoBloqueios from '@/components/painel/GestaoBloqueios'
+import UpgradeCallout from '@/components/painel/UpgradeCallout'
+import usePlanoAssinatura from '@/hooks/usePlanoAssinatura'
 
 interface Servico {
   nome: string
@@ -34,12 +37,13 @@ function valorDoAgendamento(agendamento: Agendamento): number {
 }
 
 export default function FinancasPage() {
+  const router = useRouter()
   const { usuario } = useUsuario()
   const { httpGet } = useAPI()
+  const plano = usePlanoAssinatura()
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [planoNome, setPlanoNome] = useState<string>('Básico')
   const [abaAtual, setAbaAtual] = useState<'basico' | 'comissoes' | 'avancado'>('basico')
 
   const isTenant = usuario?.tipo === 'tenant'
@@ -55,14 +59,8 @@ export default function FinancasPage() {
       const uri = 'agendamentos/barbeiro/meus-horarios'
       const resposta = await httpGet(uri)
       setAgendamentos(Array.isArray(resposta) ? resposta : [])
-
-      if (isTenant && usuario.tenantId) {
-        const tenantInfo = await httpGet(`tenants/${usuario.tenantId}`)
-        const nomePlano = tenantInfo?.assinatura?.plano?.nome || 'Básico'
-        setPlanoNome(nomePlano)
-        if (nomePlano === 'Profissional' || nomePlano === 'Premium') {
-          setAbaAtual('comissoes')
-        }
+      if (isTenant && usuario.tenantId && (plano.isProfissional || plano.isPremium)) {
+        setAbaAtual('comissoes')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar finanças')
@@ -70,7 +68,7 @@ export default function FinancasPage() {
     } finally {
       setLoading(false)
     }
-  }, [httpGet, usuario, isEmployeeBarber, isTenant])
+  }, [httpGet, usuario, isEmployeeBarber, isTenant, plano.isPremium, plano.isProfissional])
 
   useEffect(() => {
     carregar()
@@ -87,17 +85,25 @@ export default function FinancasPage() {
 
   // Dono da barbearia: vê relatórios baseados no plano
   if (isTenant) {
-    const isBasico = planoNome === 'Básico' || planoNome === 'Gratuito'
-    const isProfissional = planoNome === 'Profissional' || planoNome === 'Premium'
-    const isPremium = planoNome === 'Premium'
+    const isBasico = plano.isBasico
+    const isProfissional = plano.isProfissional
+    const isPremium = plano.isPremium
 
     return (
       <div className="flex flex-col bg-zinc-900 min-h-screen">
         <Cabecalho
           titulo="Financeiro"
-          descricao={`Faturamento, relatórios e comissões. (Plano ${planoNome})`}
+          descricao={`Faturamento, relatórios e comissões. (Plano ${plano.nome})`}
         />
         <div className="container mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 md:px-0">
+          {isBasico && (
+            <UpgradeCallout
+              descricao="Seu plano atual é Básico. Para liberar relatórios de comissão e visão avançada, faça upgrade para o Profissional. Se quiser tudo liberado, o Premium destrava os relatórios completos."
+              ctaPrincipal="Ver planos"
+              ctaSecundario="Gerenciar assinatura"
+            />
+          )}
+
           {/* Navegação de Abas Baseada no Plano */}
           <div className="flex border-b border-zinc-800 mb-6">
             <button
@@ -107,7 +113,7 @@ export default function FinancasPage() {
               Dashboard Básico
             </button>
             <button
-              onClick={() => isProfissional ? setAbaAtual('comissoes') : null}
+              onClick={() => isProfissional ? setAbaAtual('comissoes') : router.push('/planos')}
               disabled={!isProfissional}
               className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'comissoes' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500'} ${!isProfissional ? 'opacity-50 cursor-not-allowed' : 'hover:text-zinc-300'}`}
               title={!isProfissional ? 'Exclusivo para planos Profissional e Premium' : ''}
@@ -115,7 +121,7 @@ export default function FinancasPage() {
               Comissões da Equipe {!isProfissional && '🔒'}
             </button>
             <button
-              onClick={() => isPremium ? setAbaAtual('avancado') : null}
+              onClick={() => isPremium ? setAbaAtual('avancado') : router.push('/planos')}
               disabled={!isPremium}
               className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'avancado' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500'} ${!isPremium ? 'opacity-50 cursor-not-allowed' : 'hover:text-zinc-300'}`}
               title={!isPremium ? 'Exclusivo para plano Premium' : ''}
@@ -128,7 +134,24 @@ export default function FinancasPage() {
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 flex flex-col items-center justify-center text-center">
               <TrendingUp size={48} className="text-zinc-700 mb-4" />
               <h3 className="text-xl font-bold text-white mb-2">Visão Geral de Agendamentos</h3>
-              <p className="text-zinc-400 max-w-md">No plano básico você pode acompanhar no dashboard inicial a quantidade de agendamentos realizados. Para análises de comissão, faça upgrade para o Profissional.</p>
+              <p className="text-zinc-400 max-w-md">
+                No plano básico você pode acompanhar no dashboard inicial a quantidade de agendamentos realizados.
+                Para análises de comissão, faça upgrade para o Profissional.
+              </p>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <button
+                  onClick={() => router.push('/planos')}
+                  className="inline-flex items-center justify-center rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-zinc-900 hover:bg-yellow-300 transition-colors"
+                >
+                  Fazer upgrade
+                </button>
+                <button
+                  onClick={() => router.push('/assinatura')}
+                  className="inline-flex items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900/70 px-5 py-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-800 transition-colors"
+                >
+                  Ver minha assinatura
+                </button>
+              </div>
             </div>
           )}
 
@@ -152,6 +175,36 @@ export default function FinancasPage() {
                   Exportar Excel
                 </button>
               </div>
+            </div>
+          )}
+
+          {abaAtual === 'comissoes' && !isProfissional && (
+            <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-6 text-center">
+              <h3 className="text-lg font-bold text-white">Relatório de comissão indisponível no Básico</h3>
+              <p className="mt-2 text-sm text-zinc-400">
+                Faça upgrade para o plano Profissional para liberar essa área e acompanhar comissões da equipe.
+              </p>
+              <button
+                onClick={() => router.push('/planos')}
+                className="mt-4 inline-flex items-center justify-center rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-zinc-900 hover:bg-yellow-300 transition-colors"
+              >
+                Fazer upgrade
+              </button>
+            </div>
+          )}
+
+          {abaAtual === 'avancado' && !isPremium && (
+            <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-6 text-center">
+              <h3 className="text-lg font-bold text-white">Relatório completo disponível no Premium</h3>
+              <p className="mt-2 text-sm text-zinc-400">
+                O plano Premium libera os relatórios avançados da barbearia.
+              </p>
+              <button
+                onClick={() => router.push('/planos')}
+                className="mt-4 inline-flex items-center justify-center rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-zinc-900 hover:bg-yellow-300 transition-colors"
+              >
+                Fazer upgrade
+              </button>
             </div>
           )}
 

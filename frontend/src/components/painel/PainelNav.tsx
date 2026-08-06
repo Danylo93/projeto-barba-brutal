@@ -9,6 +9,7 @@ import Logo from '@/components/shared/Logo'
 import useUsuario from '@/data/hooks/useUsuario'
 import useAPI from '@/data/hooks/useAPI'
 import useTrialStatus from '@/hooks/useTrialStatus'
+import usePlanoAssinatura from '@/hooks/usePlanoAssinatura'
 
 interface LinkNav {
     href: string
@@ -32,11 +33,14 @@ export default function PainelNav() {
     const [menuConta, setMenuConta] = useState(false)
     const [barbeariaNome, setBarbeariaNome] = useState<string | undefined>()
     const trial = useTrialStatus()
+    const plano = usePlanoAssinatura()
     const contaRef = useRef<HTMLDivElement>(null)
 
     const isTenant = usuario?.tipo === 'tenant'
     const isAdmin = usuario?.tipo === 'admin'
     const isBarbeiro = !!usuario?.barbeiro
+    const isPlanoProfissional = plano.isProfissional
+    const isPlanoPremium = plano.isPremium
 
     // Nome da barbearia (tenant) para exibir na marca — o admin do SaaS mantém a marca do sistema.
     useEffect(() => {
@@ -51,7 +55,7 @@ export default function PainelNav() {
                 if (t?.corSecundaria) document.documentElement.style.setProperty('--tenant-secondary', t.corSecundaria)
             })
             .catch(() => {})
-    }, [usuario?.tenantId, isAdmin, httpGet])
+    }, [usuario?.tenantId, isAdmin])
 
     useEffect(() => {
         if (!usuario) return
@@ -102,9 +106,13 @@ export default function PainelNav() {
             { href: '/profissionais', rotulo: 'Profissionais' },
             { href: '/servicos', rotulo: 'Serviços' },
             { href: '/financas', rotulo: 'Financeiro' },
-            { href: '/clube', rotulo: 'Clube' },
-            { href: '/marketing', rotulo: 'Marketing' },
         ]
+        if (isPlanoProfissional) {
+            links.push({ href: '/clube', rotulo: 'Clube' })
+        }
+        if (isPlanoPremium) {
+            links.push({ href: '/marketing', rotulo: 'Marketing' })
+        }
         conta = [
             { href: '/assinatura', rotulo: 'Meu Plano' },
             { href: '/configuracoes', rotulo: 'Configurações' },
