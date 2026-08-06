@@ -59,6 +59,20 @@ apikey da Evolution. As duas ficam só no backend.
 > mensagem do que falta** — de propósito: marcar como enviado sem ter enviado
 > tiraria o agendamento da fila sem ninguém ser avisado.
 
+### Bot de WhatsApp (o agente de IA)
+
+A barbearia sai da **instance da Evolution**, nunca do `?tenantId=` da URL. A
+instance já é única por barbearia, o dono configura no painel dele, e ela chega
+no fluxo pelo webhook da própria Evolution — ninguém digita.
+
+Por isso **barbearia nova não pede variável nem deploy**: basta o dono
+configurar a instance dele.
+
+| Variável | Quando usar |
+|---|---|
+| `WHATSAPP_BOT_TOKEN` | um token para o n8n do SaaS; a instance diz de quem é a conversa |
+| `WHATSAPP_BOT_TOKENS` | um token por barbearia (`{"1":"tok-um"}`), quando se quer isolar de verdade |
+
 ### De qual número sai a mensagem
 
 Cada barbearia envia pela instância da Evolution dela, guardada em

@@ -12,8 +12,10 @@ import { AgendamentoRepository } from '../agendamento/agendamento.repository';
 import { WhatsappService } from './whatsapp.service';
 import {
   ConfiguracaoDoBotInvalida,
+  MOTIVO_SEM_INSTANCIA,
   TokenDoBotInvalido,
-  tenantDoToken,
+  conferirTenantPedido,
+  quemEsteTokenAutoriza,
 } from './token-do-bot';
 
 @Injectable()
@@ -36,19 +38,56 @@ export class WhatsappAgendaService {
    * tivesse esse token trocava o número na URL e lia a agenda, os telefones
    * dos clientes, criava e cancelava agendamento de qualquer barbearia.
    */
-  private autenticar(token: string, tenantTexto: string): number {
+  /**
+   * Qual barbearia esta requisição pode operar.
+   *
+   * O tenant sai do TOKEN ou da INSTÂNCIA — nunca do `?tenantId=`, que só é
+   * conferido. Antes o token do n8n era aceito com qualquer tenantId na URL:
+   * bastava trocar o número para ler a agenda, os telefones dos clientes,
+   * criar e cancelar agendamento de qualquer barbearia.
+   *
+   * A instância é o identificador certo porque já é única por barbearia,
+   * validada no cadastro, e chega no fluxo pelo webhook da própria Evolution.
+   * Barbearia nova não pede variável de ambiente nem deploy: o dono configura
+   * a instância dele no painel e o bot passa a atender.
+   */
+  private async autenticar(
+    token: string,
+    tenantTexto?: string,
+    instance?: string,
+  ): Promise<number> {
+    let autorizacao;
     try {
-      return tenantDoToken(token, tenantTexto, {
+      autorizacao = quemEsteTokenAutoriza(token, {
         tokenGlobal: process.env.WHATSAPP_BOT_TOKEN,
-        tenantDoTokenGlobal: process.env.WHATSAPP_BOT_TENANT_ID,
         tokensPorTenant: process.env.WHATSAPP_BOT_TOKENS,
       });
     } catch (erro) {
-      // Configuração errada do servidor não é credencial errada do cliente:
-      // 503 com o que falta, para não mandar o dono caçar senha à toa.
+      // Configuração errada do servidor não é credencial errada do chamador:
+      // 503 com o que falta, para não mandar ninguém caçar senha à toa.
       if (erro instanceof ConfiguracaoDoBotInvalida) {
         throw new ServiceUnavailableException(erro.message);
       }
+      if (erro instanceof TokenDoBotInvalido) {
+        throw new UnauthorizedException(erro.message);
+      }
+      throw erro;
+    }
+
+    let tenantId: number;
+    if (autorizacao.tipo === 'barbearia') {
+      tenantId = autorizacao.tenantId;
+    } else {
+      if (!String(instance ?? '').trim()) {
+        throw new BadRequestException(MOTIVO_SEM_INSTANCIA);
+      }
+      const { tenantId: resolvido } = await this.resolverPorInstance(instance!);
+      tenantId = resolvido;
+    }
+
+    try {
+      return conferirTenantPedido(tenantId, tenantTexto);
+    } catch (erro) {
       if (erro instanceof TokenDoBotInvalido) {
         throw new UnauthorizedException(erro.message);
       }
@@ -127,8 +166,8 @@ export class WhatsappAgendaService {
     return usuario;
   }
 
-  async catalogo(token: string, tenantTexto: string) {
-    const tenantId = this.autenticar(token, tenantTexto);
+  async catalogo(token: string, tenantTexto?: string, instance?: string) {
+    const tenantId = await this.autenticar(token, tenantTexto, instance);
     const [tenant, servicos, profissionais] = await Promise.all([
       this.prisma.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true, nome: true } }),
       this.prisma.servico.findMany({ where: { tenantId, ativo: true }, select: { id: true, nome: true, preco: true, qtdeSlots: true } }),
@@ -138,14 +177,14 @@ export class WhatsappAgendaService {
     return { tenant, servicos, profissionais };
   }
 
-  async listar(token: string, tenantTexto: string, telefone: string) {
-    const tenantId = this.autenticar(token, tenantTexto);
+  async listar(token: string, tenantTexto: string, telefone: string, instance?: string) {
+    const tenantId = await this.autenticar(token, tenantTexto, instance);
     const usuario = await this.cliente(tenantId, telefone);
     return this.agendamentos.buscarPorUsuario(usuario.id);
   }
 
-  async criar(token: string, tenantTexto: string, body: any) {
-    const tenantId = this.autenticar(token, tenantTexto);
+  async criar(token: string, tenantTexto: string, body: any, instance?: string) {
+    const tenantId = await this.autenticar(token, tenantTexto, instance);
     const usuario = await this.cliente(tenantId, body.telefone, body.nome, true);
     const id = await this.agendamentos.salvar({
       tenantId,
@@ -167,8 +206,8 @@ export class WhatsappAgendaService {
     return agendamento;
   }
 
-  async cancelar(token: string, tenantTexto: string, idTexto: string, telefone: string) {
-    const tenantId = this.autenticar(token, tenantTexto);
+  async cancelar(token: string, tenantTexto: string, idTexto: string, telefone: string, instance?: string) {
+    const tenantId = await this.autenticar(token, tenantTexto, instance);
     const agendamento = await this.doCliente(tenantId, idTexto, telefone);
     if (agendamento.status === 'cancelado') return { id: agendamento.id, status: 'cancelado' };
     if (agendamento.status === 'concluido') throw new BadRequestException('Agendamento já concluído.');
@@ -188,8 +227,8 @@ export class WhatsappAgendaService {
     return { id: agendamento.id, status: 'cancelado' };
   }
 
-  async reagendar(token: string, tenantTexto: string, idTexto: string, body: { telefone?: string; data?: string }) {
-    const tenantId = this.autenticar(token, tenantTexto);
+  async reagendar(token: string, tenantTexto: string, idTexto: string, body: { telefone?: string; data?: string }, instance?: string) {
+    const tenantId = await this.autenticar(token, tenantTexto, instance);
     const agendamento = await this.doCliente(tenantId, idTexto, body.telefone || '');
     if (!body.data) throw new BadRequestException('Nova data é obrigatória.');
     if (['cancelado', 'concluido'].includes(agendamento.status)) throw new BadRequestException('Este agendamento não pode ser reagendado.');

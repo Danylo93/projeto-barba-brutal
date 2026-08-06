@@ -1,32 +1,38 @@
 /**
  * Quem o token do bot de WhatsApp autoriza — e em qual barbearia.
  *
- * A regra do projeto é que o tenant vem do token, nunca da query string. Aqui
- * ela estava furada: havia um `WHATSAPP_BOT_TOKEN` global que era aceito com
- * QUALQUER `?tenantId=`. Quem tivesse esse token — o n8n, quem lesse o fluxo
- * exportado, quem visse a variável de ambiente — podia trocar o número na URL
- * e ler a agenda, os telefones dos clientes, criar e cancelar agendamento de
- * qualquer barbearia do sistema.
+ * A regra do projeto é que o tenant nunca vem da query string. Aqui ela estava
+ * furada: o `WHATSAPP_BOT_TOKEN` era aceito com QUALQUER `?tenantId=`. Quem
+ * tivesse esse token trocava o número na URL e lia a agenda, os telefones dos
+ * clientes, criava e cancelava agendamento de qualquer barbearia.
  *
- * Agora o token global precisa vir com a barbearia dele declarada
- * (`WHATSAPP_BOT_TENANT_ID`), e o mapa por barbearia continua sendo o caminho
- * recomendado para mais de uma.
+ * A correção NÃO pode ser uma variável de ambiente por barbearia: isso pediria
+ * um deploy a cada cliente novo, o que num SaaS é o mesmo que não funcionar.
+ *
+ * Quem identifica a barbearia é a **instância da Evolution** — que já é única
+ * por barbearia, validada no cadastro, e chega no fluxo pelo webhook da
+ * própria Evolution, não por digitação de ninguém. O token só prova "este é o
+ * nosso n8n"; a instância diz de quem é a conversa.
  */
 
 export interface ConfigDoBot {
-  /** Token único, quando a instalação atende uma barbearia só. */
+  /** Token do n8n do SaaS. Sozinho não escolhe barbearia — a instância escolhe. */
   tokenGlobal?: string;
-  /** A barbearia daquele token único. Sem ela, o token não vale. */
-  tenantDoTokenGlobal?: string;
-  /** JSON `{"1":"token-da-um","2":"token-da-dois"}`. */
+  /** JSON `{"1":"token-da-um","2":"token-da-dois"}`, quando se quer um por barbearia. */
   tokensPorTenant?: string;
 }
 
+/** O token bastou para saber a barbearia, ou ainda falta a instância? */
+export type QuemEsteTokenAutoriza =
+  | { tipo: 'barbearia'; tenantId: number }
+  | { tipo: 'precisa-da-instancia' };
+
 export const MOTIVO_TOKEN_INVALIDO = 'Token do WhatsApp inválido.';
-export const MOTIVO_GLOBAL_SEM_TENANT =
-  'WHATSAPP_BOT_TOKEN definido sem WHATSAPP_BOT_TENANT_ID. ' +
-  'Diga de qual barbearia é esse token, ou use WHATSAPP_BOT_TOKENS.';
+export const MOTIVO_SEM_INSTANCIA =
+  'Informe a instance da Evolution: é ela que identifica a barbearia.';
 export const MOTIVO_MAPA_INVALIDO = 'WHATSAPP_BOT_TOKENS inválido no backend.';
+export const MOTIVO_SEM_CONFIGURACAO =
+  'Bot de WhatsApp não configurado (defina WHATSAPP_BOT_TOKEN ou WHATSAPP_BOT_TOKENS).';
 
 /** Erros de configuração e de credencial são coisas diferentes. */
 export class ConfiguracaoDoBotInvalida extends Error {}
@@ -45,57 +51,60 @@ function mapaDeTokens(bruto?: string): Record<string, string> {
   }
   const mapa: Record<string, string> = {};
   for (const [tenant, token] of Object.entries(lido as Record<string, unknown>)) {
-    if (typeof token === 'string' && token.trim()) mapa[String(tenant)] = token.trim();
+    const id = Number(tenant);
+    if (typeof token === 'string' && token.trim() && Number.isInteger(id) && id > 0) {
+      mapa[String(id)] = token.trim();
+    }
   }
   return mapa;
 }
 
 /**
- * Devolve a barbearia que este token pode operar.
+ * O que este token autoriza.
  *
- * O `tenantId` pedido serve só para conferência: se não bater com o do token,
- * é recusado. Nunca é ele que decide.
+ * Token por barbearia resolve sozinho. O token do SaaS não escolhe nada — quem
+ * escolhe é a instância, e é o chamador que resolve isso no banco.
  */
-export function tenantDoToken(
+export function quemEsteTokenAutoriza(
   token: unknown,
-  tenantPedido: unknown,
   config: ConfigDoBot,
-): number {
+): QuemEsteTokenAutoriza {
   const apresentado = String(token ?? '').trim();
   if (!apresentado) throw new TokenDoBotInvalido(MOTIVO_TOKEN_INVALIDO);
 
   const mapa = mapaDeTokens(config.tokensPorTenant);
   const global = String(config.tokenGlobal ?? '').trim();
 
-  let tenantAutorizado: number | null = null;
+  if (!global && Object.keys(mapa).length === 0) {
+    throw new ConfiguracaoDoBotInvalida(MOTIVO_SEM_CONFIGURACAO);
+  }
 
-  if (global && apresentado === global) {
-    const declarado = Number(config.tenantDoTokenGlobal);
-    // Falha fechada: token global sem barbearia declarada não vale nada. Era
-    // exatamente essa combinação que abria todas as barbearias de uma vez.
-    if (!Number.isInteger(declarado) || declarado < 1) {
-      throw new ConfiguracaoDoBotInvalida(MOTIVO_GLOBAL_SEM_TENANT);
-    }
-    tenantAutorizado = declarado;
-  } else {
-    for (const [tenant, esperado] of Object.entries(mapa)) {
-      if (apresentado === esperado) {
-        tenantAutorizado = Number(tenant);
-        break;
-      }
+  for (const [tenant, esperado] of Object.entries(mapa)) {
+    if (apresentado === esperado) {
+      return { tipo: 'barbearia', tenantId: Number(tenant) };
     }
   }
 
-  if (tenantAutorizado === null || !Number.isInteger(tenantAutorizado) || tenantAutorizado < 1) {
-    throw new TokenDoBotInvalido(MOTIVO_TOKEN_INVALIDO);
-  }
+  if (global && apresentado === global) return { tipo: 'precisa-da-instancia' };
 
-  // Pedir outra barbearia é recusado, e não silenciosamente redirecionado:
-  // um fluxo apontando para o tenant errado precisa aparecer.
+  throw new TokenDoBotInvalido(MOTIVO_TOKEN_INVALIDO);
+}
+
+/**
+ * Confere o `tenantId` que veio na URL contra o que o token e a instância
+ * resolveram.
+ *
+ * Ele nunca decide — só é conferido. Divergência é recusada em vez de
+ * silenciosamente redirecionada: fluxo apontado para a barbearia errada
+ * precisa aparecer, e não atender a barbearia errada.
+ */
+export function conferirTenantPedido(
+  tenantResolvido: number,
+  tenantPedido: unknown,
+): number {
   const pedido = Number(tenantPedido);
-  if (Number.isInteger(pedido) && pedido > 0 && pedido !== tenantAutorizado) {
+  if (Number.isInteger(pedido) && pedido > 0 && pedido !== tenantResolvido) {
     throw new TokenDoBotInvalido(MOTIVO_TOKEN_INVALIDO);
   }
-
-  return tenantAutorizado;
+  return tenantResolvido;
 }
