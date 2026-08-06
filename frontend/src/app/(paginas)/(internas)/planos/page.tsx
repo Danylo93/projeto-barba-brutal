@@ -264,10 +264,12 @@ export default function PlanosPage() {
     <div className="min-h-screen bg-zinc-950">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Planos</h1>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Planos e upgrades</h1>
           <p className="text-zinc-400 mt-2">
             {isTenant
-              ? 'Teste 30 dias grátis e pague com Pix quando quiser'
+              ? emTeste
+                ? 'Seu teste está ativo. Se quiser, migre para um plano maior ou escolha a forma de pagamento.'
+                : 'Gerencie sua assinatura, faça upgrade ou troque de plano quando quiser'
               : 'Somente a conta da barbearia pode alterar o plano'}
           </p>
           {isTenant && emTeste && diasRestantes !== null && (
@@ -362,16 +364,25 @@ export default function PlanosPage() {
                             onClick={() => tentarAcao('pix', plano)}
                             className="w-full py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 text-sm"
                           >
-                            <QrCode size={16} /> Pagar um mês por Pix
+                            <QrCode size={16} /> Pagar plano por Pix
                           </button>
                         </>
                       ) : (
-                        <button
-                          disabled
-                          className="w-full py-2.5 rounded-lg bg-zinc-800 text-zinc-500 cursor-default"
-                        >
-                          Plano atual
-                        </button>
+                        <>
+                          <button
+                            disabled
+                            className="w-full py-2.5 rounded-lg bg-zinc-800 text-zinc-500 cursor-default"
+                          >
+                            Plano atual
+                          </button>
+                          <button
+                            onClick={() => tentarAcao('recorrente', plano)}
+                            disabled={salvandoId !== null}
+                            className="w-full py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-60 transition-colors flex items-center justify-center gap-2 text-sm"
+                          >
+                            <CreditCard size={16} /> Gerenciar assinatura
+                          </button>
+                        </>
                       )
                     ) : (
                       <>
@@ -380,7 +391,11 @@ export default function PlanosPage() {
                           disabled={salvandoId !== null}
                           className="w-full py-2.5 rounded-lg bg-yellow-400 text-zinc-900 font-semibold hover:bg-yellow-300 disabled:opacity-60 transition-colors"
                         >
-                          {salvandoId === plano.id ? 'Ativando...' : 'Testar 30 dias grátis'}
+                          {salvandoId === plano.id
+                            ? 'Salvando...'
+                            : emTeste
+                              ? 'Mudar para este plano'
+                              : 'Fazer upgrade'}
                         </button>
                         <button
                           onClick={() => {
@@ -390,13 +405,13 @@ export default function PlanosPage() {
                           disabled={salvandoId !== null}
                           className="w-full py-2 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-60 transition-colors flex items-center justify-center gap-2 text-sm"
                         >
-                          <CreditCard size={16} /> Assinar com cartão ou Pix
+                          <CreditCard size={16} /> Assinar por cartão ou Pix
                         </button>
                         <button
                           onClick={() => abrirPix(plano)}
                           className="w-full py-2 rounded-lg border border-zinc-800 text-zinc-400 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 text-xs"
                         >
-                          <QrCode size={14} /> Pagar um mês por Pix
+                          <QrCode size={14} /> Pagar plano por Pix
                         </button>
                       </>
                     )}
