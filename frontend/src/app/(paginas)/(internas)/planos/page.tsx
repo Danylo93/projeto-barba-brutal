@@ -200,13 +200,6 @@ export default function PlanosPage() {
   }
 
   const atualPlano = planos.find((p) => p.id === planoAtualId)
-  const valorUpgradeEstimado = (plano: Plano) => {
-    if (!atualPlano || plano.preco <= atualPlano.preco) return 0
-    if (!diasRestantes || diasRestantes <= 0) return Number((plano.preco - atualPlano.preco).toFixed(2))
-    const ciclo = atualPlano.duracao || 30
-    return Number((((plano.preco - atualPlano.preco) * diasRestantes) / ciclo).toFixed(2))
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -261,7 +254,6 @@ export default function PlanosPage() {
             const atual = plano.id === planoAtualId
             const ilimitado = plano.maxUsuarios >= 999999
             const precoAtual = atualPlano?.preco ?? plano.preco
-            const valorUpgrade = valorUpgradeEstimado(plano)
             const acaoTexto = atual
               ? 'Plano atual'
               : plano.preco > precoAtual
@@ -291,11 +283,6 @@ export default function PlanosPage() {
                 <p className="text-xs text-green-400 mb-4">
                   {atual && emTeste ? 'Teste grátis ativo' : atual ? 'Assinatura ativa' : 'Upgrade disponível'}
                 </p>
-                {!atual && valorUpgrade > 0 && (
-                  <div className="mb-4 rounded-xl border border-yellow-400/20 bg-yellow-400/5 px-3 py-2 text-sm text-yellow-200">
-                    Cobrança proporcional estimada no upgrade: R$ {valorUpgrade.toFixed(2).replace('.', ',')}
-                  </div>
-                )}
                 <ul className="space-y-2 my-4 flex-1">
                   <li className="flex items-center gap-2 text-sm text-zinc-300">
                     <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
