@@ -31,6 +31,16 @@ services:
         sync: false
       - key: EVOLUTION_INSTANCE
         sync: false # nome da instância conectada ao número
+      # Bot de WhatsApp: o tenant sai do TOKEN, nunca do `?tenantId=` da URL.
+      # As duas de baixo andam juntas — token sem barbearia declarada responde
+      # 503, de propósito: essa combinação abria a agenda de todas de uma vez.
+      - key: WHATSAPP_BOT_TOKEN
+        sync: false
+      - key: WHATSAPP_BOT_TENANT_ID
+        sync: false
+      # Alternativa para várias barbearias: {"1":"token-um","2":"token-dois"}
+      - key: WHATSAPP_BOT_TOKENS
+        sync: false
       # Segredo que o n8n usa para disparar confirmação e lembrete.
       # Sem ele as rotas /lembretes respondem 503 e nenhum aviso sai.
       - key: LEMBRETE_TOKEN

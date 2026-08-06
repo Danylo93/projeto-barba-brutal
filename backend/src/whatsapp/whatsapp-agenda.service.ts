@@ -1,9 +1,20 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../db/prisma.service';
 import { AgendamentoRepository } from '../agendamento/agendamento.repository';
 import { WhatsappService } from './whatsapp.service';
+import {
+  ConfiguracaoDoBotInvalida,
+  TokenDoBotInvalido,
+  tenantDoToken,
+} from './token-do-bot';
 
 @Injectable()
 export class WhatsappAgendaService {
@@ -17,20 +28,32 @@ export class WhatsappAgendaService {
     return String(valor ?? '').trim().toLowerCase();
   }
 
+  /**
+   * Quem é a barbearia desta requisição.
+   *
+   * O tenant sai do TOKEN, não da query string — a regra do projeto. Antes o
+   * `WHATSAPP_BOT_TOKEN` global era aceito com qualquer `?tenantId=`: quem
+   * tivesse esse token trocava o número na URL e lia a agenda, os telefones
+   * dos clientes, criava e cancelava agendamento de qualquer barbearia.
+   */
   private autenticar(token: string, tenantTexto: string): number {
-    const tenantId = Number(tenantTexto);
-    if (!Number.isInteger(tenantId) || tenantId < 1) throw new BadRequestException('tenantId inválido.');
-    const tokenGlobal = String(process.env.WHATSAPP_BOT_TOKEN || '').trim();
-    let tokens: Record<string, string> = {};
     try {
-      tokens = JSON.parse(process.env.WHATSAPP_BOT_TOKENS || '{}');
-    } catch {
-      throw new UnauthorizedException('WHATSAPP_BOT_TOKENS inválido no backend.');
+      return tenantDoToken(token, tenantTexto, {
+        tokenGlobal: process.env.WHATSAPP_BOT_TOKEN,
+        tenantDoTokenGlobal: process.env.WHATSAPP_BOT_TENANT_ID,
+        tokensPorTenant: process.env.WHATSAPP_BOT_TOKENS,
+      });
+    } catch (erro) {
+      // Configuração errada do servidor não é credencial errada do cliente:
+      // 503 com o que falta, para não mandar o dono caçar senha à toa.
+      if (erro instanceof ConfiguracaoDoBotInvalida) {
+        throw new ServiceUnavailableException(erro.message);
+      }
+      if (erro instanceof TokenDoBotInvalido) {
+        throw new UnauthorizedException(erro.message);
+      }
+      throw erro;
     }
-    if (tokenGlobal && token === tokenGlobal) return tenantId;
-    const esperado = tokens[String(tenantId)];
-    if (!esperado || token !== esperado) throw new UnauthorizedException('Token do WhatsApp inválido.');
-    return tenantId;
   }
 
   async resolverPorInstance(instance: string) {
@@ -72,7 +95,21 @@ export class WhatsappAgendaService {
 
   private async cliente(tenantId: number, telefone: string, nome?: string, criar = false) {
     const numero = this.digitos(telefone);
-    const usuarios = await this.prisma.usuario.findMany({ where: { tenantId, ativo: true } });
+    // Só os candidatos, não a base inteira. Isto carregava TODOS os clientes
+    // da barbearia na memória a cada mensagem de WhatsApp para comparar
+    // telefone em JavaScript — com mil clientes, mil linhas por "oi".
+    const semDdi = numero.slice(2);
+    const usuarios = await this.prisma.usuario.findMany({
+      where: {
+        tenantId,
+        ativo: true,
+        OR: [
+          { telefone: { contains: semDdi } },
+          { telefone: { contains: numero } },
+        ],
+      },
+      take: 25,
+    });
     let usuario = usuarios.find((u) => this.telefoneCanonico(u.telefone) === numero);
     if (!usuario && criar) {
       const senha = await bcrypt.hash(randomBytes(24).toString('hex'), 10);
