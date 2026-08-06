@@ -33,6 +33,10 @@ services:
         sync: false # opcional; padrão: EVOLUTION_URL + /manager
       - key: EVOLUTION_INSTANCE
         sync: false # nome da instância conectada ao número
+      - key: WHATSAPP_WEBHOOK_URL
+        value: https://n8n.vps10196.panel.icontainer.net/webhook/webhook-whatsapp
+      - key: WHATSAPP_WEBHOOK_TOKEN
+        sync: false # opcional; se vazio, usa WHATSAPP_BOT_TOKEN
       # Bot de WhatsApp. A barbearia sai da instance da Evolution (única por
       # barbearia, configurada pelo dono no painel), nunca do `?tenantId=` da
       # URL. Cliente novo não pede variável nova nem deploy.

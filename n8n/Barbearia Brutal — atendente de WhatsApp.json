@@ -472,8 +472,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "K9YAkrGt9ke6O8mF",
-          "name": "Header Auth account"
+          "id": "EVOLUTION_APIKEY_CREDENTIAL",
+          "name": "Evolution apikey"
         }
       },
       "notes": "A apikey vem de credencial. A versão anterior mandava aqui o token do bot do backend, que a Evolution não conhece — nenhuma resposta chegava ao cliente."

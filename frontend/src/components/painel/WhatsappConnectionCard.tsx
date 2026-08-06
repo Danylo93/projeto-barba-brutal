@@ -10,6 +10,7 @@ import {
     QrCode,
     RefreshCw,
     Smartphone,
+    Webhook,
     WifiOff,
 } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
@@ -32,6 +33,12 @@ interface ConexaoWhatsapp {
     qrCode?: string | null
     pairingCode?: string | null
     mensagem?: string
+}
+
+interface WebhookAtendente {
+    status: 'configurado' | 'nao_configurado' | 'indisponivel'
+    instance: string | null
+    mensagem: string
 }
 
 interface WhatsappConnectionCardProps {
@@ -60,7 +67,29 @@ export default function WhatsappConnectionCard({
     const [conexao, setConexao] = useState<ConexaoWhatsapp | null>(null)
     const [loading, setLoading] = useState(true)
     const [loadingQr, setLoadingQr] = useState(false)
+    const [loadingWebhook, setLoadingWebhook] = useState(false)
+    const [webhook, setWebhook] = useState<WebhookAtendente | null>(null)
     const [erro, setErro] = useState('')
+
+    async function configurarWebhook(mostrarToast = true) {
+        try {
+            setLoadingWebhook(true)
+            const data: WebhookAtendente = await httpPost('tenants/me/whatsapp/webhook', {})
+            setWebhook(data)
+            if (mostrarToast && data.status === 'configurado') {
+                toastSuccess('Atendente ativado', 'A Evolution já está enviando novas mensagens ao n8n.')
+            }
+            if (mostrarToast && data.status !== 'configurado') {
+                toastError('Webhook pendente', data.mensagem)
+            }
+        } catch (error) {
+            const mensagem = error instanceof Error ? error.message : 'Não foi possível ativar o webhook.'
+            setWebhook({ status: 'indisponivel', instance: conexao?.instance ?? null, mensagem })
+            if (mostrarToast) toastError('Webhook pendente', mensagem)
+        } finally {
+            setLoadingWebhook(false)
+        }
+    }
 
     async function gerarQrCode() {
         try {
@@ -68,6 +97,7 @@ export default function WhatsappConnectionCard({
             setErro('')
             const data = await httpPost('tenants/me/whatsapp/qrcode', {})
             setConexao(data)
+            if (data?.status === 'conectada') await configurarWebhook(false)
             if (!data?.qrCode && data?.mensagem) setErro(data.mensagem)
         } catch (error) {
             const mensagem = error instanceof Error ? error.message : 'Não foi possível gerar o QR Code.'
@@ -87,6 +117,7 @@ export default function WhatsappConnectionCard({
                 ...data,
                 qrCode: data.status === 'conectada' ? null : anterior?.qrCode,
             }))
+            if (data.status === 'conectada') await configurarWebhook(false)
             if (gerarQr && (data.status === 'desconectada' || data.status === 'conectando')) {
                 await gerarQrCode()
             }
@@ -115,6 +146,8 @@ export default function WhatsappConnectionCard({
                     qrCode: data.status === 'conectada' ? null : anterior?.qrCode,
                 }))
                 if (data.status === 'conectada') {
+                    const webhookData: WebhookAtendente = await httpPost('tenants/me/whatsapp/webhook', {})
+                    setWebhook(webhookData)
                     toastSuccess('WhatsApp conectado', 'A barbearia já pode receber mensagens pelo atendente.')
                 }
             } catch {
@@ -123,7 +156,7 @@ export default function WhatsappConnectionCard({
         }, 6_000)
 
         return () => window.clearInterval(intervalo)
-    }, [conexao?.qrCode, httpGet, toastSuccess])
+    }, [conexao?.qrCode, httpGet, httpPost, toastSuccess])
 
     async function copiar(valor: string, descricao: string) {
         await navigator.clipboard.writeText(valor)
@@ -234,15 +267,44 @@ export default function WhatsappConnectionCard({
                 )}
 
                 {!loading && status === 'conectada' && (
-                    <div className="flex flex-col gap-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-6 sm:flex-row sm:items-center">
-                        <div className="w-fit rounded-full bg-emerald-400/15 p-3 text-emerald-300">
-                            <CheckCircle2 size={30} />
+                    <div className="space-y-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-6">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                            <div className="w-fit rounded-full bg-emerald-400/15 p-3 text-emerald-300">
+                                <CheckCircle2 size={30} />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-black text-emerald-100">Conexão pronta</h3>
+                                <p className="mt-1 text-sm text-zinc-400">
+                                    O número vinculado à instance <span className="font-mono text-zinc-200">{conexao?.instance}</span> está online.
+                                </p>
+                            </div>
                         </div>
-                        <div className="flex-1">
-                            <h3 className="font-black text-emerald-100">Conexão pronta</h3>
-                            <p className="mt-1 text-sm text-zinc-400">
-                                O número vinculado à instance <span className="font-mono text-zinc-200">{conexao?.instance}</span> está online.
-                            </p>
+
+                        <div className="flex flex-col gap-3 border-t border-emerald-400/15 pt-5 sm:flex-row sm:items-center">
+                            <div className={`w-fit rounded-xl p-2.5 ${webhook?.status === 'configurado' ? 'bg-emerald-400/15 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}>
+                                {loadingWebhook ? <Loader2 className="animate-spin" size={20} /> : <Webhook size={20} />}
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-black text-zinc-100">
+                                    {loadingWebhook
+                                        ? 'Ativando entrega de mensagens...'
+                                        : webhook?.status === 'configurado'
+                                            ? 'Webhook do atendente ativo'
+                                            : 'Webhook do atendente pendente'}
+                                </p>
+                                <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                                    {webhook?.mensagem ?? 'Conferindo o evento MESSAGES_UPSERT e a autenticação do n8n.'}
+                                </p>
+                            </div>
+                            {!loadingWebhook && webhook?.status !== 'configurado' && (
+                                <button
+                                    type="button"
+                                    onClick={() => void configurarWebhook(true)}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-300 px-4 py-2.5 text-sm font-black text-zinc-950 transition hover:bg-amber-200"
+                                >
+                                    <RefreshCw size={16} /> Ativar webhook
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}

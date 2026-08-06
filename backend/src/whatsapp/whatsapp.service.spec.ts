@@ -19,6 +19,9 @@ describe('WhatsappService - conexão da Evolution', () => {
       EVOLUTION_URL: 'https://evolution.exemplo.com/',
       EVOLUTION_APIKEY: 'segredo-global',
       EVOLUTION_MANAGER_URL: 'https://evolution.exemplo.com/manager/',
+      WHATSAPP_WEBHOOK_URL:
+        'https://n8n.exemplo.com/webhook/webhook-whatsapp',
+      WHATSAPP_WEBHOOK_TOKEN: 'segredo-do-webhook',
     };
     global.fetch = jest.fn();
   });
@@ -116,5 +119,67 @@ describe('WhatsappService - conexão da Evolution', () => {
       status: 'nao_configurada',
     });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('configura URL, evento e autenticação do webhook na Evolution', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce(respostaJson(201, {}));
+    const service = new WhatsappService();
+
+    await expect(
+      service.configurarWebhook('barbearia-centro'),
+    ).resolves.toMatchObject({
+      status: 'configurado',
+      instance: 'barbearia-centro',
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://evolution.exemplo.com/webhook/set/barbearia-centro',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: 'segredo-global',
+        },
+      }),
+    );
+    const opcoes = (global.fetch as jest.Mock).mock.calls[0][1];
+    expect(JSON.parse(opcoes.body)).toEqual({
+      webhook: {
+        enabled: true,
+        url: 'https://n8n.exemplo.com/webhook/webhook-whatsapp',
+        headers: { 'x-whatsapp-token': 'segredo-do-webhook' },
+        byEvents: false,
+        base64: false,
+        events: ['MESSAGES_UPSERT'],
+      },
+    });
+  });
+
+  it('não configura webhook sem URL e token definidos no backend', async () => {
+    delete process.env.WHATSAPP_WEBHOOK_URL;
+    delete process.env.WHATSAPP_WEBHOOK_TOKEN;
+    delete process.env.WHATSAPP_BOT_TOKEN;
+    const service = new WhatsappService();
+
+    await expect(
+      service.configurarWebhook('barbearia-centro'),
+    ).resolves.toMatchObject({ status: 'nao_configurado' });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('reutiliza o token do bot quando não há token exclusivo do webhook', async () => {
+    delete process.env.WHATSAPP_WEBHOOK_TOKEN;
+    process.env.WHATSAPP_BOT_TOKEN = 'token-do-bot';
+    (global.fetch as jest.Mock).mockResolvedValueOnce(respostaJson(201, {}));
+    const service = new WhatsappService();
+
+    await expect(
+      service.configurarWebhook('barbearia-centro'),
+    ).resolves.toMatchObject({ status: 'configurado' });
+
+    const opcoes = (global.fetch as jest.Mock).mock.calls[0][1];
+    expect(JSON.parse(opcoes.body).webhook.headers).toEqual({
+      'x-whatsapp-token': 'token-do-bot',
+    });
   });
 });

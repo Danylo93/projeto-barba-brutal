@@ -19,6 +19,12 @@ export interface ConexaoWhatsapp {
   mensagem?: string;
 }
 
+export interface WebhookWhatsapp {
+  status: 'configurado' | 'nao_configurado' | 'indisponivel';
+  instance: string | null;
+  mensagem: string;
+}
+
 /**
  * Envio de WhatsApp pela Evolution API, direto do backend.
  *
@@ -35,6 +41,12 @@ export class WhatsappService {
   private readonly url = process.env.EVOLUTION_URL?.replace(/\/$/, '');
   private readonly apikey = process.env.EVOLUTION_APIKEY;
   private readonly instancia = process.env.EVOLUTION_INSTANCE;
+  private readonly webhookUrl = String(
+    process.env.WHATSAPP_WEBHOOK_URL ?? '',
+  ).trim();
+  private readonly webhookToken =
+    String(process.env.WHATSAPP_WEBHOOK_TOKEN ?? '').trim() ||
+    String(process.env.WHATSAPP_BOT_TOKEN ?? '').trim();
 
   private get managerUrl(): string | null {
     const configurada = String(process.env.EVOLUTION_MANAGER_URL ?? '')
@@ -235,6 +247,102 @@ export class WhatsappService {
         conexao.instance,
         'A Evolution API não respondeu ao pedido de QR Code.',
       );
+    }
+  }
+
+  /**
+   * Liga a instance ao único webhook do atendente SaaS.
+   *
+   * É idempotente: a Evolution faz upsert, então abrir a tela novamente também
+   * corrige URL, evento ou header que tenham sido alterados manualmente.
+   */
+  async configurarWebhook(
+    instancia?: string | null,
+  ): Promise<WebhookWhatsapp> {
+    const nome = String(instancia ?? '').trim();
+    if (!nome) {
+      return {
+        status: 'nao_configurado',
+        instance: null,
+        mensagem: 'Cadastre a instance antes de ativar o webhook.',
+      };
+    }
+    if (!this.url || !this.apikey) {
+      return {
+        status: 'indisponivel',
+        instance: nome,
+        mensagem: 'A Evolution API não está configurada no backend.',
+      };
+    }
+    if (!this.webhookUrl || !this.webhookToken) {
+      return {
+        status: 'nao_configurado',
+        instance: nome,
+        mensagem:
+          'Configure WHATSAPP_WEBHOOK_URL e WHATSAPP_WEBHOOK_TOKEN no backend.',
+      };
+    }
+
+    try {
+      const destino = new URL(this.webhookUrl);
+      if (!['http:', 'https:'].includes(destino.protocol)) throw new Error();
+    } catch {
+      return {
+        status: 'nao_configurado',
+        instance: nome,
+        mensagem: 'WHATSAPP_WEBHOOK_URL não contém uma URL HTTP válida.',
+      };
+    }
+
+    try {
+      const resposta = await fetch(
+        `${this.url}/webhook/set/${encodeURIComponent(nome)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: this.apikey,
+          },
+          body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: this.webhookUrl,
+              headers: { 'x-whatsapp-token': this.webhookToken },
+              byEvents: false,
+              base64: false,
+              events: ['MESSAGES_UPSERT'],
+            },
+          }),
+          signal: AbortSignal.timeout(10_000),
+        },
+      );
+
+      if (!resposta.ok) {
+        this.registrarRespostaInesperada(
+          'a configuração do webhook',
+          resposta,
+        );
+        return {
+          status: 'indisponivel',
+          instance: nome,
+          mensagem: `A Evolution recusou o webhook (HTTP ${resposta.status}).`,
+        };
+      }
+
+      return {
+        status: 'configurado',
+        instance: nome,
+        mensagem: 'Webhook de mensagens configurado na Evolution.',
+      };
+    } catch (erro) {
+      this.logger.warn(
+        `Falha ao configurar webhook da Evolution: ${erro instanceof Error ? erro.message : erro}`,
+      );
+      return {
+        status: 'indisponivel',
+        instance: nome,
+        mensagem: 'A Evolution não respondeu à configuração do webhook.',
+      };
     }
   }
 

@@ -72,6 +72,13 @@ export class TenantController {
     return this.whatsappService.obterQrCode(instance);
   }
 
+  @Post('me/whatsapp/webhook')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  async configurarMeuWhatsappWebhook(@CurrentUser() user: any) {
+    const instance = await this.evolutionInstanceDoTenant(user.id);
+    return this.whatsappService.configurarWebhook(instance);
+  }
+
   @Put('me/configuracoes')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   updateConfiguracoes(
