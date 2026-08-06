@@ -14,6 +14,8 @@ import Cabecalho from '@/components/shared/Cabecalho'
 import { useToast } from '@/hooks/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
 import ConfirmModal from '@/components/shared/ConfirmModal'
+import UpgradeCallout from '@/components/painel/UpgradeCallout'
+import usePlanoAssinatura from '@/hooks/usePlanoAssinatura'
 
 interface PlanoClube {
     id: number
@@ -58,6 +60,7 @@ const input =
 
 export default function ClubePage() {
     const { usuario } = useUsuario()
+    const plano = usePlanoAssinatura()
     const ehDono = usuario?.tipo === 'tenant'
 
     return (
@@ -65,15 +68,26 @@ export default function ClubePage() {
             <Cabecalho
                 titulo="Clube de Assinatura"
                 descricao={
-                    ehDono
+                    ehDono && !plano.isBasico
                         ? 'Receita recorrente: crie planos e receba por Pix.'
                         : 'Assine um plano e economize nos seus atendimentos.'
                 }
             />
             <div className="container mx-auto max-w-5xl px-4 py-10 md:px-0">
-                {ehDono ? <VisaoDono /> : <VisaoCliente />}
+                {ehDono ? (plano.isBasico ? <AcessoBloqueado /> : <VisaoDono />) : <VisaoCliente />}
             </div>
         </div>
+    )
+}
+
+function AcessoBloqueado() {
+    return (
+        <UpgradeCallout
+            titulo="Clube disponível no Profissional"
+            descricao="No plano Básico o clube de assinatura fica bloqueado. Faça upgrade para o Profissional para criar planos e receber por Pix direto da sua barbearia."
+            ctaPrincipal="Ver planos"
+            ctaSecundario="Abrir assinatura"
+        />
     )
 }
 

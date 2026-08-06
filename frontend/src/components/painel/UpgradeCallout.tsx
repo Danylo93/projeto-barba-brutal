@@ -13,7 +13,7 @@ interface UpgradeCalloutProps {
 }
 
 export default function UpgradeCallout({
-  titulo = 'Upgrade disponível',
+  titulo = 'Recurso bloqueado no seu plano',
   descricao,
   ctaPrincipal = 'Ver planos',
   destinoPrincipal = '/planos',
@@ -35,14 +35,14 @@ export default function UpgradeCallout({
         <div className="flex flex-col gap-2 sm:min-w-[220px]">
           <button
             onClick={() => router.push(destinoPrincipal)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-bold text-zinc-900 hover:bg-yellow-300 transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-bold text-zinc-900 transition-colors hover:bg-yellow-300"
           >
             {ctaPrincipal}
             <ArrowRight size={15} />
           </button>
           <button
             onClick={() => router.push(destinoSecundario)}
-            className="inline-flex items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-800 transition-colors"
+            className="inline-flex items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-3 text-sm font-semibold text-zinc-300 transition-colors hover:bg-zinc-800"
           >
             {ctaSecundario}
           </button>

@@ -7,6 +7,8 @@ import useSessao from '@/data/hooks/useSessao'
 import useAPI from '@/data/hooks/useAPI'
 import Cabecalho from '@/components/shared/Cabecalho'
 import { useToast } from '@/hooks/use-toast'
+import UpgradeCallout from '@/components/painel/UpgradeCallout'
+import usePlanoAssinatura from '@/hooks/usePlanoAssinatura'
 import {
     DiaHorario,
     horarioDoDia,
@@ -37,6 +39,7 @@ function horariosPadrao(): DiaHorario[] {
 export default function ConfiguracoesPage() {
     const { token } = useSessao()
     const { httpGet, httpPut } = useAPI()
+    const plano = usePlanoAssinatura()
     const { success: toastSuccess, error: toastError } = useToast()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -171,12 +174,23 @@ export default function ConfiguracoesPage() {
                     >
                         Geral
                     </button>
-                    <button
-                        onClick={() => setAbaAtual('integracoes')}
-                        className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'integracoes' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500 hover:text-zinc-300'}`}
-                    >
-                        Integrações (WhatsApp/n8n)
-                    </button>
+                    {plano.isBasico ? (
+                        <button
+                            type="button"
+                            onClick={() => setAbaAtual('geral')}
+                            className="px-4 py-3 font-semibold text-sm text-zinc-600 cursor-not-allowed"
+                            title="Disponível apenas no plano Profissional ou Premium"
+                        >
+                            Integrações (WhatsApp/n8n) 🔒
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setAbaAtual('integracoes')}
+                            className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'integracoes' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                        >
+                            Integrações (WhatsApp/n8n)
+                        </button>
+                    )}
                 </div>
 
                 {error && (
@@ -344,7 +358,7 @@ export default function ConfiguracoesPage() {
                 </div>
                 )}
 
-                {abaAtual === 'integracoes' && (
+                {abaAtual === 'integracoes' && !plano.isBasico && (
                     <div className="flex flex-col gap-8 animate-slide-up">
                         <div className="bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-6 sm:p-8">
                             <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
@@ -397,6 +411,17 @@ export default function ConfiguracoesPage() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {plano.isBasico && (
+                    <div className="mt-8">
+                        <UpgradeCallout
+                            titulo="Integrações bloqueadas no Básico"
+                            descricao="WhatsApp, n8n, webhook e instance da Evolution ficam liberados a partir do plano Profissional. No Premium você continua com tudo e ainda destrava os recursos avançados."
+                            ctaPrincipal="Ver planos"
+                            ctaSecundario="Abrir assinatura"
+                        />
                     </div>
                 )}
 
