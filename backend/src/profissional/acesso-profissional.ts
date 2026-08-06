@@ -27,3 +27,24 @@ export function mesmoEmail(a: unknown, b: unknown): boolean {
 
 export const EMAIL_JA_USADO =
   'Já existe alguém nesta barbearia com esse e-mail. Use outro endereço.';
+
+export const NOME_JA_USADO =
+  'Já existe um profissional com este nome nesta barbearia.';
+
+/**
+ * Descrição e foto: o formulário não pede, o banco exige.
+ *
+ * `Profissional.descricao` é `String` (não `String?`) no schema, mas o DTO
+ * marca como opcional. Cadastrar um barbeiro sem escrever descrição mandava
+ * `undefined` ao Prisma e virava 500 — com a conta de acesso dele já criada
+ * antes, o que ainda queimava o e-mail para a segunda tentativa.
+ */
+export function enfeitesDoProfissional(data: {
+  descricao?: string | null;
+  imagemUrl?: string | null;
+}): { descricao: string; imagemUrl: string } {
+  return {
+    descricao: data?.descricao || '',
+    imagemUrl: data?.imagemUrl || '',
+  };
+}

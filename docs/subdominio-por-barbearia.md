@@ -9,7 +9,7 @@ curinga na Vercel, uma vez, e qualquer subdomínio já cai no app.
 1. No cadastro, `registerTenant` gera o slug a partir do nome da barbearia
    (`slugDisponivel`, em `backend/src/tenant/slug.ts`) e grava em
    `tenant.dominio`. Isso já acontecia antes desta mudança.
-2. `frontend/src/middleware.ts` lê o cabeçalho `Host`, extrai o slug e
+2. `frontend/src/proxy.ts` (chamava `middleware.ts` até o Next 16) lê o cabeçalho `Host`, extrai o slug e
    **reescreve** a requisição para `/barbearia/<slug>`. Reescrita, não
    redirecionamento: a barra de endereço continua mostrando o subdomínio, que
    é o que a barbearia divulga.
@@ -23,7 +23,7 @@ Variável necessária no frontend:
 NEXT_PUBLIC_DOMINIO_RAIZ=barbeariabrutal.com
 ```
 
-Sem ela o middleware não faz nada — nenhum Host é tratado como subdomínio de
+Sem ela o proxy não faz nada — nenhum Host é tratado como subdomínio de
 barbearia. É proposital: em preview da Vercel e em `localhost` o
 comportamento antigo (`/barbearia/latita`) continua valendo.
 

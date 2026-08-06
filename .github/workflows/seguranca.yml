@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       # `--omit=dev` porque o que roda em produção é o que pode ser explorado
       # por alguém de fora. Alerta em ferramenta de build atrapalha mais do que
@@ -37,19 +37,12 @@ jobs:
         run: npm ci
         working-directory: ${{ matrix.projeto }}
 
-      # O portão está em `critical`, não em `high`, e isso é dívida assumida:
-      # sobraram duas altas que só somem com major de framework —
-      # `@nestjs/platform-express` 10→11 (traz `multer`, que este projeto nem
-      # usa: não há upload em lugar nenhum) e `next` 14→16. Cada uma é uma
-      # migração de verdade, com risco próprio, e não cabia junto da correção
-      # de login. Baixar para `high` assim que essas duas subirem.
-      - name: Falhar se houver vulnerabilidade crítica em produção
-        run: npm audit --omit=dev --audit-level=critical
-        working-directory: ${{ matrix.projeto }}
-
-      - name: Altas em produção (visível, ainda não barra)
-        if: always()
-        run: npm audit --omit=dev --audit-level=high || true
+      # O portão está em `high`. Ficou em `critical` por um tempo por causa de
+      # duas altas presas em major de framework — `@nestjs/platform-express`
+      # 10→11 (arrastava `multer`, que este projeto nem usa) e `next` 14→16.
+      # As duas subiram, os dois projetos zeraram, e o portão voltou ao lugar.
+      - name: Falhar se houver vulnerabilidade alta ou crítica em produção
+        run: npm audit --omit=dev --audit-level=high
         working-directory: ${{ matrix.projeto }}
 
       - name: Relatório completo (inclui desenvolvimento, não barra)
@@ -82,7 +75,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - run: npm ci
         working-directory: backend
       - run: npx prisma generate

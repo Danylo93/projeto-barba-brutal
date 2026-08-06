@@ -4,10 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
  * Proxy para o endpoint de verificação de e-mail do backend.
  * Público — usado pelo formulário de cadastro para checar disponibilidade em tempo real.
  */
-export async function GET(
-    request: NextRequest,
-    { params }: { params: { email: string } },
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ email: string }> }) {
+    const params = await props.params;
     const email = params.email
 
     if (!email) {

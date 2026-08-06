@@ -19,7 +19,12 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import * as bcrypt from 'bcrypt';
 import { CreateProfissionalDto } from './dto/create-profissional.dto';
 import { UpdateProfissionalDto } from './dto/update-profissional.dto';
-import { EMAIL_JA_USADO, normalizarEmail } from './acesso-profissional';
+import {
+  EMAIL_JA_USADO,
+  NOME_JA_USADO,
+  enfeitesDoProfissional,
+  normalizarEmail,
+} from './acesso-profissional';
 
 /** O preço é da barbearia: vem do próprio serviço, igual para todo mundo. */
 const INCLUDE_SERVICOS = {
@@ -85,38 +90,44 @@ export class ProfissionalController {
     // sempre — sem ela o barbeiro nunca entra na própria agenda.
     const email = normalizarEmail(data.email);
     await this.garantirEmailLivre(email, tenant.id);
+    await this.garantirNomeLivre(data.nome, tenant.id);
 
     const senhaHash = await bcrypt.hash(data.senha, 10);
-    const user = await this.prisma.usuario.create({
-      data: {
-        nome: data.nome,
-        email,
-        senha: senhaHash,
-        telefone: data.telefone || '',
-        barbeiro: true,
-        tenantId: tenant.id,
-      },
-    });
-    const usuarioId = user.id;
-
     const servicoIds = await this.validarServicoIds(data.servicoIds, tenant.id);
 
-    return this.prisma.profissional.create({
-      data: {
-        nome: data.nome,
-        descricao: data.descricao,
-        // Profissional sem foto é normal; sem isto o cadastro dava 500.
-        imagemUrl: data.imagemUrl || '',
-        tenantId: tenant.id,
-        usuarioId,
-        avaliacao: data.avaliacao || 0,
-        quantidadeAvaliacoes: data.quantidadeAvaliacoes || 0,
-        comissaoPercent: data.comissaoPercent ?? 0,
-        servicos: servicoIds.length
-          ? { connect: servicoIds.map((id) => ({ id })) }
-          : undefined,
-      },
-      include: INCLUDE_SERVICOS,
+    // Conta e profissional nascem juntos ou não nascem.
+    //
+    // Fora da transação, um erro no segundo `create` deixava para trás a conta
+    // de acesso do barbeiro — e aí o dono, tentando de novo, batia em "e-mail
+    // já usado" por causa do próprio cadastro que falhou. Ficava travado sem
+    // ter feito nada errado.
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.usuario.create({
+        data: {
+          nome: data.nome,
+          email,
+          senha: senhaHash,
+          telefone: data.telefone || '',
+          barbeiro: true,
+          tenantId: tenant.id,
+        },
+      });
+
+      return tx.profissional.create({
+        data: {
+          nome: data.nome,
+          ...enfeitesDoProfissional(data),
+          tenantId: tenant.id,
+          usuarioId: user.id,
+          avaliacao: data.avaliacao || 0,
+          quantidadeAvaliacoes: data.quantidadeAvaliacoes || 0,
+          comissaoPercent: data.comissaoPercent ?? 0,
+          servicos: servicoIds.length
+            ? { connect: servicoIds.map((id) => ({ id })) }
+            : undefined,
+        },
+        include: INCLUDE_SERVICOS,
+      });
     });
   }
 
@@ -147,6 +158,32 @@ export class ProfissionalController {
 
     if (jaExiste) {
       throw new BadRequestException(EMAIL_JA_USADO);
+    }
+  }
+
+  /**
+   * Recusa nome já usado por outro profissional da mesma barbearia.
+   *
+   * O banco tem `@@unique([nome, tenantId])`. Sem esta checagem, cadastrar um
+   * segundo "Marcão" estourava no índice e o dono via um 500 sem explicação —
+   * e a conta de acesso do primeiro já tinha sido criada.
+   */
+  private async garantirNomeLivre(
+    nome: string,
+    tenantId: number,
+    ignorarProfissionalId?: number | null,
+  ): Promise<void> {
+    const jaExiste = await this.prisma.profissional.findFirst({
+      where: {
+        tenantId,
+        nome,
+        ...(ignorarProfissionalId ? { id: { not: ignorarProfissionalId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (jaExiste) {
+      throw new BadRequestException(NOME_JA_USADO);
     }
   }
 
@@ -182,6 +219,10 @@ export class ProfissionalController {
     }
 
     let usuarioId = profissional.usuarioId;
+
+    if (data.nome && data.nome !== profissional.nome) {
+      await this.garantirNomeLivre(data.nome, tenant.id, id);
+    }
 
     if (data.email) {
       const email = normalizarEmail(data.email);

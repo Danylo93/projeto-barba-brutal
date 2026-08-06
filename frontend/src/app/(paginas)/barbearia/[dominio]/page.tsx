@@ -114,11 +114,12 @@ function duracaoTexto(qtdeSlots: number): string {
     return m === 0 ? `${h}h` : `${h}h${m}min`
 }
 
-export async function generateMetadata({
-    params,
-}: {
-    params: { dominio: string }
-}): Promise<Metadata> {
+export async function generateMetadata(
+    props: {
+        params: Promise<{ dominio: string }>
+    }
+): Promise<Metadata> {
+    const params = await props.params;
     const b = await getBarbearia(params.dominio)
     if (!b) return { title: 'Barbearia não encontrada' }
     const nome = nomeDaBarbearia(b.nome)
@@ -133,11 +134,12 @@ export async function generateMetadata({
     }
 }
 
-export default async function BarbeariaPublicaPage({
-    params,
-}: {
-    params: { dominio: string }
-}) {
+export default async function BarbeariaPublicaPage(
+    props: {
+        params: Promise<{ dominio: string }>
+    }
+) {
+    const params = await props.params;
     const b = await getBarbearia(params.dominio)
     if (!b) notFound()
 
@@ -483,5 +485,5 @@ export default async function BarbeariaPublicaPage({
                 </div>
             </footer>
         </div>
-    )
+    );
 }

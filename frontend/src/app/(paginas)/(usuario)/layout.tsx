@@ -1,8 +1,7 @@
 'use client'
 
-export default function Layout(props: any) {
+export default function Layout(props: { children: React.ReactNode }) {
     // Layout para páginas de usuário (login, registro, etc)
     // Não força autenticação - permite acesso público
     return props.children
 }
-

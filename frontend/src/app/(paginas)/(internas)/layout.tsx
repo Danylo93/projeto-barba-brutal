@@ -5,7 +5,10 @@ import PainelNav from '@/components/painel/PainelNav'
 import TrialBanner from '@/components/shared/TrialBanner'
 import Pagina from '@/components/shared/Pagina'
 
-export default function Layout(props: any) {
+// `children` tipado, e não `props: any`: com `any` o codemod do Next 16 leu
+// isto como uma prop assíncrona e envolveu tudo num `use()` — que estoura em
+// tempo de execução, porque children é elemento, não promessa.
+export default function Layout(props: { children: React.ReactNode }) {
     return (
         <ForcarUsuario>
             <ProvedorAgendamento>
