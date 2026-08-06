@@ -1,848 +1,518 @@
 {
-  "name": "Fluxo WhatsApp Barbearia Premium",
+  "name": "Barbearia Brutal — atendente de WhatsApp",
   "nodes": [
+    {
+      "parameters": {
+        "content": "## Atendente de WhatsApp (planos Profissional e Premium)\n\nO cliente escreve no WhatsApp da barbearia, a Evolution chama este fluxo, e um\nagente de IA conversa: consulta o cardápio, procura horário livre, marca,\nremarca e cancela — tudo pela API, que é quem manda nas regras.\n\n### O que trocar antes de ativar\n\n1. **Credencial `Token do bot` (Header Auth)** — Name `x-whatsapp-token`,\n   Value igual ao `WHATSAPP_BOT_TOKEN` do Render. Vincule nas seis\n   ferramentas do agente.\n2. **Credencial `Evolution apikey` (Header Auth)** — Name `apikey`, Value a\n   apikey da sua Evolution. Vincule no nó **Responder no WhatsApp**.\n3. **Credencial do modelo** — OpenAI (ou troque o nó por outro provedor).\n4. No nó **Onde ficam as coisas**, ajuste `evolutionUrl` para a sua Evolution.\n5. Na Evolution, aponte o webhook `messages.upsert` para a URL de produção\n   deste fluxo.\n\nNada de variável de ambiente: as *Variables* do n8n são recurso pago, e\ncredencial é melhor de qualquer jeito — o valor não viaja no JSON exportado\nnem vai para o repositório.\n\n### Por que foi reescrito\n\nA versão anterior era um roteador de `intent` por expressão regular, e estava\nmorta há tempo: os `\\b` do código viraram caractere de backspace ao entrar no\nJSON, então NENHUMA regra casava e toda mensagem caía no texto de ajuda.\nNinguém conseguia marcar, cancelar nem remarcar por aqui. Além disso ela\nlia o id do agendamento como \"o primeiro número da frase\" (\"remarcar para as\n15:00\" virava agendamento nº 15), tinha a data `2026-08-06` escrita à mão no\ncódigo, e dizia \"reagendado com sucesso\" sem olhar a resposta da API — quando\na API recusava, a execução morria e o cliente não recebia nada.\n\n### A recusa é metade do atendimento\n\nTodas as ferramentas estão em **continueRegularOutput**: quando a API recusa,\no texto da recusa volta PARA o agente em vez de derrubar a execução. É assim\nque \"esse horário de hoje já passou — agora são 17:00\" chega ao cliente em vez\nde silêncio.",
+        "height": 900,
+        "width": 560
+      },
+      "id": "nota",
+      "name": "Como funciona",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-720, -160]
+    },
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "webhook-whatsapp",
+        "authentication": "headerAuth",
         "options": {}
       },
-      "id": "webhook-evo",
-      "name": "Webhook EVO",
+      "id": "webhook",
+      "name": "Webhook da Evolution",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        240,
-        300
-      ]
+      "position": [-100, 200],
+      "webhookId": "barba-brutal-whatsapp",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bb-webhook-evolution",
+          "name": "Segredo do webhook"
+        }
+      },
+      "notes": "Com Header Auth ligado, só quem sabe o segredo consegue falar com este fluxo. Sem isso, qualquer um que descubra a URL se passa por qualquer cliente e cancela agendamento alheio. Configure o mesmo header na Evolution."
+    },
+    {
+      "parameters": {
+        "jsCode": "// O que interessa da mensagem que a Evolution mandou.\n//\n// Sai fora o que não é conversa de cliente: mensagem que a própria barbearia\n// enviou, grupo, e evento que não é de mensagem (a Evolution manda dezenas de\n// tipos no mesmo webhook).\nconst body = $json.body || {};\nconst dados = body.data || {};\n\nif (body.event && body.event !== 'messages.upsert') return [];\nif (dados?.key?.fromMe) return [];\n\nconst jid = dados?.key?.remoteJid || dados?.key?.remoteJidAlt || '';\nif (String(jid).includes('@g.us')) return []; // grupo não é atendimento\n\nconst telefone = String(jid).split('@')[0].replace(/\\D/g, '');\nif (!telefone) return [];\n\nconst m = dados?.message || {};\nconst texto = String(\n  m.conversation ||\n    m.extendedTextMessage?.text ||\n    m.imageMessage?.caption ||\n    m.videoMessage?.caption ||\n    m.buttonsResponseMessage?.selectedDisplayText ||\n    m.listResponseMessage?.title ||\n    '',\n).trim();\n\n// Áudio, figurinha e localização: o agente não lê, então é melhor dizer isso\n// do que ficar mudo.\nconst semTexto = !texto && (m.audioMessage || m.stickerMessage || m.documentMessage || m.locationMessage);\n\nreturn [\n  {\n    json: {\n      telefone,\n      // A instância é quem diz de qual barbearia é a conversa. Vem da própria\n      // Evolution — ninguém digita, e barbearia nova não pede configuração.\n      instance: body.instance || dados?.instance || '',\n      nome: String(dados?.pushName || '').trim(),\n      mensagem: texto,\n      semTexto: !!semTexto,\n    },\n  },\n];"
+      },
+      "id": "extrair",
+      "name": "Extrair a mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [120, 200]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
             {
-              "id": "api-token",
-              "name": "apiToken",
-              "value": "={{ $env.WHATSAPP_BOT_TOKEN }}",
-              "type": "string"
-            },
-            {
-              "id": "backend-url",
+              "id": "backend",
               "name": "backendUrl",
-              "value": "={{ $env.BACKEND_URL }}",
+              "value": "https://barba-brutal-api.onrender.com",
               "type": "string"
             },
             {
-              "id": "evolution-url",
+              "id": "evolution",
               "name": "evolutionUrl",
-              "value": "={{ $env.EVOLUTION_URL }}",
+              "value": "https://evolution.seudominio.com",
               "type": "string"
             },
             {
-              "id": "tenant-id",
-              "name": "tenantId",
-              "value": "={{ $node['Resolver Tenant'].json.tenantId }}",
+              "id": "agora",
+              "name": "agoraEmBrasilia",
+              "value": "={{ $now.setZone('America/Sao_Paulo').toFormat(\"cccc, dd/LL/yyyy 'às' HH:mm\") }}",
               "type": "string"
             },
             {
-              "id": "tenant-nome",
-              "name": "tenantNome",
-              "value": "={{ $node['Resolver Tenant'].json.tenantNome }}",
+              "id": "hoje",
+              "name": "hoje",
+              "value": "={{ $now.setZone('America/Sao_Paulo').toFormat('yyyy-LL-dd') }}",
               "type": "string"
-            },
-            {
-              "id": "telefone",
-              "name": "Telefone",
-              "value": "={{ $json.Telefone }}",
-              "type": "string"
-            },
-            {
-              "id": "mensagem",
-              "name": "Mensagem",
-              "value": "={{ $json.Mensagem }}",
-              "type": "string"
-            },
-            {
-              "id": "nome",
-              "name": "NomeWpp",
-              "value": "={{ $json.NomeWpp }}",
-              "type": "string"
-            },
-            {
-              "id": "intent",
-              "name": "intent",
-              "value": "={{ $json.intent }}",
-              "type": "string"
-            },
-            {
-              "id": "agendamento-id",
-              "name": "agendamentoId",
-              "value": "={{ $json.agendamentoId }}",
-              "type": "number"
-            },
-            {
-              "id": "data-iso",
-              "name": "dataIso",
-              "value": "={{ $json.dataIso }}",
-              "type": "string"
-            },
-            {
-              "id": "state-stage",
-              "name": "stateStage",
-              "value": "={{ $json.stateStage }}",
-              "type": "number"
-            },
-            {
-              "id": "state-payload",
-              "name": "statePayload",
-              "value": "={{ $json.statePayload }}",
-              "type": "object"
             }
           ]
         },
+        "includeOtherFields": true,
         "options": {}
       },
-      "id": "variaveis-sistema",
-      "name": "Variaveis do sistema",
+      "id": "config",
+      "name": "Onde ficam as coisas",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [
-        480,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const body = $json.body || {};\nconst msgData = body?.data;\nif (!msgData) return [];\nif (msgData?.key?.fromMe) return [];\nconst jid1 = msgData?.key?.remoteJid || '';\nconst jid2 = msgData?.key?.remoteJidAlt || '';\nlet telefone = jid1.includes('@s.whatsapp.net') ? jid1 : (jid2.includes('@s.whatsapp.net') ? jid2 : '');\ntelefone = String(telefone).replace('@s.whatsapp.net', '').replace(/\\D/g, '');\nconst mensagem = String(msgData?.message?.extendedTextMessage?.text || msgData?.message?.conversation || '').trim();\nconst nome = String(msgData?.pushName || 'Cliente').trim();\nconst lower = mensagem.toLowerCase();\nlet intent = 'ajuda';\nif (/(\bservi[cç]os?\b|\bpre[cç]o\b|\bvalores?\b)/.test(lower)) intent = 'listar_servicos';\nelse if (/(\bbarbeiros?\b|\bprofissionais?\b)/.test(lower)) intent = 'listar_profissionais';\nelse if (/(\bmeus agendamentos\b|\bminhas consultas\b|\bmeus horarios\b|\bmeus horários\b)/.test(lower)) intent = 'consultar_meus_agendamentos';\nelse if (/(\bcancelar\b)/.test(lower)) intent = 'cancelar_agendamento';\nelse if (/(\breagendar\b|\bremarcar\b)/.test(lower)) intent = 'reagendar_agendamento';\nelse if (/(\bagendar\b|\breservar\b|\bmarcar\b)/.test(lower)) intent = 'criar_agendamento';\nconst idMatch = mensagem.match(/\\b(\\d{1,9})\\b/);\nconst isoMatch = mensagem.match(/\\b(20\\d{2}-\\d{2}-\\d{2})(?:[ T](\\d{2}:\\d{2}))?\\b/);\nconst slashMatch = mensagem.match(/\\b(\\d{2})[\\/\\-](\\d{2})[\\/\\-](20\\d{2})(?:\\s+(\\d{1,2}:\\d{2}))?\\b/);\nconst timeOnlyMatch = mensagem.match(/\\b(\\d{1,2}:\\d{2})\\b/);\nlet dataIso = null;\nif (isoMatch) dataIso = `${isoMatch[1]}T${isoMatch[2] || '09:00'}:00-03:00`;\nelse if (slashMatch) dataIso = `${slashMatch[3]}-${slashMatch[2]}-${slashMatch[1]}T${(slashMatch[4] || '09:00').padStart(5, '0')}:00-03:00`;\nelse if (timeOnlyMatch) dataIso = `2026-08-06T${timeOnlyMatch[1].padStart(5, '0')}:00-03:00`;\nconst staticData = $getWorkflowStaticData('global');\nconst state = staticData[`wpp:${telefone}`] || { stage: 0 };\nreturn [{ json: { Telefone: telefone, Mensagem: mensagem, NomeWpp: nome, intent, agendamentoId: idMatch ? Number(idMatch[1]) : null, dataIso, rawBody: body, stateStage: state.stage || 0, statePayload: state } }];"
-      },
-      "id": "extrair-dados",
-      "name": "Extrair Dados",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        720,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/resolver?instance=' + encodeURIComponent($json.rawBody?.instance || $json.instance || '') }}",
-        "sendHeaders": false
-      },
-      "id": "resolver-tenant",
-      "name": "Resolver Tenant",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        720,
-        140
-      ]
-    },
-    {
-      "parameters": {
-        "propertyName": "intent",
-        "rules": [
-          {
-            "operation": "equal",
-            "value1": "={{ $json.intent }}",
-            "value2": "ajuda"
-          },
-          {
-            "operation": "equal",
-            "value1": "={{ $json.intent }}",
-            "value2": "listar_servicos"
-          },
-          {
-            "operation": "equal",
-            "value1": "={{ $json.intent }}",
-            "value2": "listar_profissionais"
-          },
-          {
-            "operation": "equal",
-            "value1": "={{ $json.intent }}",
-            "value2": "consultar_meus_agendamentos"
-          },
-          {
-            "operation": "equal",
-            "value1": "={{ $json.intent }}",
-            "value2": "criar_agendamento"
-          },
-          {
-            "operation": "equal",
-            "value1": "={{ $json.intent }}",
-            "value2": "cancelar_agendamento"
-          },
-          {
-            "operation": "equal",
-            "value1": "={{ $json.intent }}",
-            "value2": "reagendar_agendamento"
-          }
-        ]
-      },
-      "id": "roteador",
-      "name": "Roteador",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 2,
-      "position": [
-        960,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-whatsapp-token",
-              "value": "={{ $json.apiToken }}"
-            }
-          ]
-        }
-      },
-      "id": "catalogo-servicos",
-      "name": "Catalogo",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1180,
-        80
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const catalogo = $json;\nconst servicos = Array.isArray(catalogo.servicos) ? catalogo.servicos : [];\nconst texto = servicos.length ? ['Serviços disponíveis:', '', ...servicos.map((s) => `- ${s.id}: ${s.nome}${s.preco != null ? ' - R$ ' + s.preco : ''}`)].join('\\n') : 'Não encontrei serviços cadastrados no momento.';\nreturn [{ json: { ...$node['Variaveis do sistema'].json, mensagemEnvio: texto } }];"
-      },
-      "id": "formatar-servicos",
-      "name": "Formatar Serviços",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1410,
-        80
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-whatsapp-token",
-              "value": "={{ $json.apiToken }}"
-            }
-          ]
-        }
-      },
-      "id": "catalogo-profissionais",
-      "name": "Catalogo Profissionais",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1180,
-        220
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-whatsapp-token",
-              "value": "={{ $json.apiToken }}"
-            }
-          ]
-        }
-      },
-      "id": "catalogo-saudacao",
-      "name": "Catalogo Saudacao",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1180,
-        20
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const catalogo = $json;\nconst tenant = catalogo.tenant?.nome || 'a barbearia';\nconst texto = [\n  `Olá! Eu sou o assistente da ${tenant}.`,\n  '',\n  'Posso te ajudar com:',\n  '- agendar',\n  '- reagendar',\n  '- cancelar',\n  '- ver serviços',\n  '- ver barbeiros',\n  '',\n  'Se quiser começar, me diga: quero agendar.'\n].join('\\n');\nreturn [{ json: { ...$node['Variaveis do sistema'].json, mensagemEnvio: texto } }];"
-      },
-      "id": "formatar-saudacao",
-      "name": "Formatar Saudacao",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1410,
-        20
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const catalogo = $json;\nconst profissionais = Array.isArray(catalogo.profissionais) ? catalogo.profissionais : [];\nconst texto = profissionais.length ? ['Profissionais disponíveis:', '', ...profissionais.map((p) => `- ${p.id}: ${p.nome}`)].join('\\n') : 'Não encontrei profissionais cadastrados no momento.';\nreturn [{ json: { ...$node['Variaveis do sistema'].json, mensagemEnvio: texto } }];"
-      },
-      "id": "formatar-profissionais",
-      "name": "Formatar Profissionais",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1410,
-        220
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId + '&telefone=' + encodeURIComponent($json.Telefone) }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-whatsapp-token",
-              "value": "={{ $json.apiToken }}"
-            }
-          ]
-        }
-      },
-      "id": "meus-agendamentos",
-      "name": "Meus Agendamentos",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1180,
-        360
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const lista = Array.isArray($json) ? $json : ($json.data || []);\nconst texto = lista.length ? ['Seus agendamentos:', '', ...lista.map((a) => `- #${a.id} | ${a.data || a.dataHora || a.inicio || 'sem data'} | ${a.status || 'ativo'}`)].join('\\n') : 'Nenhum agendamento encontrado para o seu telefone.';\nreturn [{ json: { ...$node['Variaveis do sistema'].json, mensagemEnvio: texto } }];"
-      },
-      "id": "formatar-agendamentos",
-      "name": "Formatar Agendamentos",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1410,
-        360
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/catalogo?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "x-whatsapp-token",
-              "value": "={{ $json.apiToken }}"
-            }
-          ]
-        }
-      },
-      "id": "catalogo-agendamento",
-      "name": "Catalogo Agendamento",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1180,
-        500
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const base = $node['Variaveis do sistema'].json;\nconst current = $json;\nconst telefone = String(base.Telefone || '').replace(/\\D/g, '');\nconst message = String(base.Mensagem || '');\nconst lower = message.toLowerCase();\nconst state = base.statePayload || { stage: 0 };\nconst stage = Number(base.stateStage || state.stage || 0);\nconst servicos = Array.isArray(current.servicos) ? current.servicos : [];\nconst profissionais = Array.isArray(current.profissionais) ? current.profissionais : [];\nconst store = $getWorkflowStaticData('global');\nconst parseId = (text) => { const m = String(text || '').match(/\\b(\\d{1,9})\\b/); return m ? Number(m[1]) : null; };\nconst normalize = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\nconst findByName = (items) => items.find((i) => normalize(message).includes(normalize(i.nome)));\nconst parseDate = (text) => {\n  const iso = String(text || '').match(/\\b(20\\d{2}-\\d{2}-\\d{2})(?:[ T](\\d{2}:\\d{2}))?\\b/);\n  if (iso) return `${iso[1]}T${iso[2] || '09:00'}:00-03:00`;\n  const slash = String(text || '').match(/\\b(\\d{2})[\\/\\-](\\d{2})[\\/\\-](20\\d{2})(?:\\s+(\\d{1,2}:\\d{2}))?\\b/);\n  if (slash) return `${slash[3]}-${slash[2]}-${slash[1]}T${(slash[4] || '09:00').padStart(5, '0')}:00-03:00`;\n  return null;\n};\nconst clearState = () => { delete store[`wpp:${telefone}`]; };\nconst listServicos = servicos.slice(0, 8).map((s) => `${s.id}-${s.nome}`).join(', ');\nconst listProfissionais = profissionais.slice(0, 8).map((p) => `${p.id}-${p.nome}`).join(', ');\nif (/\\b(cancelar|parar|sair|desistir|cancelando)\\b/.test(lower)) {\n  clearState();\n  return [{ json: { ...base, mensagemEnvio: 'Beleza, cancelei o fluxo de agendamento. Se quiser, me chame de novo.' } }];\n}\nif (stage === 0) {\n  store[`wpp:${telefone}`] = { stage: 1 };\n  return [{ json: { ...base, mensagemEnvio: ['Vamos agendar passo a passo.', '', 'Me diga primeiro qual serviço você quer.', 'Serviços disponíveis: ' + listServicos].join('\\n') } }];\n}\nif (stage === 1) {\n  const servico = servicos.find((s) => s.id === parseId(message)) || findByName(servicos);\n  if (!servico) return [{ json: { ...base, mensagemEnvio: `Me diga qual serviço você quer agendar. Pode mandar o número ou o nome.\\nServiços disponíveis: ${listServicos}` } }];\n  store[`wpp:${telefone}`] = { stage: 2, servicoId: servico.id, servicoNome: servico.nome };\n  return [{ json: { ...base, mensagemEnvio: `Perfeito. Agora me diga o profissional desejado. Você pode mandar o número ou o nome.\\nProfissionais disponíveis: ${listProfissionais}` } }];\n}\nif (stage === 2) {\n  const profissional = profissionais.find((p) => p.id === parseId(message)) || findByName(profissionais);\n  if (!profissional) return [{ json: { ...base, mensagemEnvio: `Agora me diga qual profissional você prefere. Pode mandar o número ou o nome.\\nProfissionais disponíveis: ${listProfissionais}` } }];\n  store[`wpp:${telefone}`] = { stage: 3, servicoId: state.servicoId, servicoNome: state.servicoNome, profissionalId: profissional.id, profissionalNome: profissional.nome };\n  return [{ json: { ...base, mensagemEnvio: 'Ótimo. Agora me passe a data e hora. Aceito 2026-08-10 14:30 ou 10/08/2026 14:30.' } }];\n}\nif (stage === 3) {\n  const dataIso = base.dataIso || parseDate(message);\n  if (!dataIso) return [{ json: { ...base, mensagemEnvio: 'Só falta a data e hora. Envie no formato 2026-08-10 14:30 ou 10/08/2026 14:30.' } }];\n  const dt = new Date(dataIso);\n  if (Number.isNaN(dt.getTime()) || dt.getTime() < Date.now()) {\n    return [{ json: { ...base, mensagemEnvio: 'Essa data parece inválida ou já passou. Envie uma data futura, por exemplo 2026-08-10 14:30.' } }];\n  }\n  store[`wpp:${telefone}`] = { stage: 4, servicoId: state.servicoId, servicoNome: state.servicoNome, profissionalId: state.profissionalId, profissionalNome: state.profissionalNome, dataIso };\n  return [{ json: { ...base, servicoId: state.servicoId, profissionalId: state.profissionalId, dataIso, podeCriar: true } }];\n}\nif (stage >= 4) return [{ json: { ...base, servicoId: state.servicoId, profissionalId: state.profissionalId, dataIso: state.dataIso, podeCriar: true } }];\nreturn [{ json: { ...base, mensagemEnvio: 'Me envie a solicitação de agendamento novamente.' } }];"
-      },
-      "id": "formatar-criar",
-      "name": "Formatar Criar",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1410,
-        500
-      ]
+      "typeVersion": 3.4,
+      "position": [340, 200],
+      "notes": "A data de hoje é calculada aqui e entra no prompt. A versão anterior tinha 2026-08-06 escrita à mão no código: todo mundo que dissesse só a hora era mandado para aquele dia, para sempre."
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
             {
-              "value1": "={{ $json.podeCriar }}",
-              "value2": true
+              "id": "tem-texto",
+              "leftValue": "={{ $json.mensagem }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
             }
-          ]
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "tem-texto",
+      "name": "Veio texto?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [560, 200]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.mensagem }}",
+        "options": {
+          "systemMessage": "=Você é a pessoa que atende o WhatsApp de uma barbearia no Brasil. Não é um robô e não fala como um: fala como um atendente simpático, direto e sem frescura.\n\nCOMO FALAR\n- Português do Brasil, informal e educado. Frases curtas. Uma ideia por mensagem.\n- Nada de \"prezado cliente\", \"protocolo\", \"solicitação\" ou lista numerada de menu.\n- Nunca diga que é uma IA, um assistente virtual ou um bot. Se perguntarem, diga que é do atendimento da barbearia.\n- Nada de emoji em excesso: no máximo um, e só quando couber.\n- Se souber o nome da pessoa, use uma vez no começo, não em toda mensagem.\n- Nunca invente preço, horário, nome de barbeiro ou serviço. Tudo isso vem das ferramentas.\n\nO QUE VOCÊ SABE\n- Agora em Brasília: {{ $json.agoraEmBrasilia }}. Hoje é {{ $json.hoje }}.\n- Telefone de quem está falando: {{ $json.telefone }}\n- Nome no WhatsApp: {{ $json.nome }}\n- Instância desta barbearia (use em TODA ferramenta): {{ $json.instance }}\n\nCOMO USAR AS FERRAMENTAS\n- Toda ferramenta precisa do parâmetro `instance` com o valor acima.\n- Datas sempre no formato `AAAA-MM-DD HH:MM`, no horário de Brasília. Converta você mesmo \"amanhã\", \"sexta\", \"depois de amanhã\" a partir da data de hoje.\n- Antes de oferecer horário, consulte `horarios_livres`. Nunca chute. Se a pessoa pedir um horário específico, pode tentar direto — se a API recusar, ela te diz o porquê.\n- Antes de marcar, você precisa de: serviço, profissional e horário. Pergunte o que faltar, uma coisa por vez.\n- Para remarcar ou cancelar você precisa do id do agendamento. Se a pessoa não disser, chame `meus_agendamentos` e ofereça o que ela tem marcado.\n\nQUANDO A API RECUSA\n- A recusa vem em português, já pronta para o cliente ler. Repasse o sentido dela com suas palavras, sem inventar motivo diferente e sem esconder o problema.\n- Depois da recusa, ofereça o próximo passo: consulte `horarios_livres` e diga o que tem de verdade.\n- Se a recusa falar em plano, assinatura ou token, NÃO repasse: diga que teve um problema no sistema e que alguém da barbearia vai retornar.\n\nREGRAS QUE NÃO SE QUEBRAM\n- Nunca confirme um agendamento sem a ferramenta ter respondido com sucesso.\n- Nunca fale de agendamento de outra pessoa.\n- Se pedirem algo fora de agendamento (reclamação, negociação de preço, assunto pessoal), diga que vai passar para a barbearia e encerre com educação.\n\nResponda SEMPRE só com o texto da mensagem de WhatsApp — sem aspas em volta, sem markdown, sem assinatura."
         }
       },
-      "id": "pode-criar",
-      "name": "Pode Criar?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1640,
-        500
-      ]
+      "id": "agente",
+      "name": "Atendente",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [820, 180],
+      "onError": "continueRegularOutput",
+      "notes": "Em continueRegularOutput: se o modelo cair, o fluxo segue e o nó seguinte manda a mensagem de desculpa. Cliente sem resposta nenhuma é o pior desfecho."
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
+        "model": { "__rl": true, "mode": "list", "value": "gpt-4.1-mini" },
+        "options": { "temperature": 0.4 }
+      },
+      "id": "modelo",
+      "name": "Modelo",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [700, 420],
+      "credentials": {
+        "openAiApi": { "id": "bb-openai", "name": "OpenAI" }
+      },
+      "notes": "Temperatura baixa: atendimento precisa ser previsível. Quem manda no conteúdo são as ferramentas."
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Onde ficam as coisas').item.json.instance }}:{{ $('Onde ficam as coisas').item.json.telefone }}",
+        "contextWindowLength": 20
+      },
+      "id": "memoria",
+      "name": "Memória da conversa",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [850, 420],
+      "notes": "A chave junta instância e telefone: o mesmo número pode ser cliente de duas barbearias, e as conversas não podem se misturar. Sem memória, cada mensagem recomeça do zero e o atendimento repete as mesmas perguntas."
+    },
+    {
+      "parameters": {
+        "toolDescription": "Lista os serviços (com preço e duração) e os profissionais da barbearia. Use antes de falar de preço ou de sugerir um barbeiro.",
+        "url": "=https://barba-brutal-api.onrender.com/whatsapp/agenda/catalogo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
             {
-              "name": "x-whatsapp-token",
-              "value": "={{ $json.apiToken }}"
+              "name": "instance",
+              "valueProvider": "modelRequired",
+              "description": "Instância desta barbearia, exatamente como está no prompt"
+            }
+          ]
+        },
+        "optimizeResponse": false
+      },
+      "id": "t-cardapio",
+      "name": "cardapio",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1020, 420],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Horários livres de um profissional num dia, já descontando atendimentos, folgas e o expediente da barbearia. Use SEMPRE antes de oferecer horário.",
+        "url": "=https://barba-brutal-api.onrender.com/whatsapp/agenda/horarios",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "instance",
+              "valueProvider": "modelRequired",
+              "description": "Instância desta barbearia"
             },
             {
-              "name": "Content-Type",
-              "value": "application/json"
+              "name": "data",
+              "valueProvider": "modelRequired",
+              "description": "Dia procurado, no formato AAAA-MM-DD"
+            },
+            {
+              "name": "profissionalId",
+              "valueProvider": "modelRequired",
+              "description": "Id do profissional, vindo do cardapio"
+            },
+            {
+              "name": "servicos",
+              "valueProvider": "modelOptional",
+              "description": "Ids dos serviços separados por vírgula — importa porque atendimento longo não cabe em qualquer fresta"
+            }
+          ]
+        },
+        "optimizeResponse": false
+      },
+      "id": "t-horarios",
+      "name": "horarios_livres",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1160, 420],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Os agendamentos futuros de quem está falando. Use para descobrir o id antes de remarcar ou cancelar.",
+        "url": "=https://barba-brutal-api.onrender.com/whatsapp/agenda/agendamentos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "instance",
+              "valueProvider": "modelRequired",
+              "description": "Instância desta barbearia"
+            },
+            {
+              "name": "telefone",
+              "valueProvider": "modelRequired",
+              "description": "Telefone de quem está falando, como está no prompt"
+            }
+          ]
+        },
+        "optimizeResponse": false
+      },
+      "id": "t-meus",
+      "name": "meus_agendamentos",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1300, 420],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Marca um horário novo. Só chame quando souber serviço, profissional e horário. Se a barbearia recusar, o motivo vem em português — repasse.",
+        "method": "POST",
+        "url": "=https://barba-brutal-api.onrender.com/whatsapp/agenda/agendamentos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "instance",
+              "valueProvider": "modelRequired",
+              "description": "Instância desta barbearia"
             }
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { telefone: $json.Telefone, nome: $json.NomeWpp, profissionalId: $json.profissionalId, servicoId: $json.servicoId, data: $json.dataIso } }}"
-      },
-      "id": "criar-agendamento-final",
-      "name": "Criar Agendamento Final",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1880,
-        500
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const ag = $json;\nconst id = ag.id || ag.agendamento?.id || 'novo';\nconst texto = `Agendamento confirmado com sucesso. ID: ${id}.`;\nconst store = $getWorkflowStaticData('global');\nconst telefone = String($node['Variaveis do sistema'].json.Telefone || '').replace(/\\D/g, '');\ndelete store[`wpp:${telefone}`];\nreturn [{ json: { ...$node['Variaveis do sistema'].json, mensagemEnvio: texto } }];"
-      },
-      "id": "formatar-criar-final",
-      "name": "Formatar Criar Final",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2110,
-        500
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos/' + $json.agendamentoId + '/cancelar?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
+        "parametersBody": {
+          "values": [
             {
-              "name": "x-whatsapp-token",
-              "value": "={{ $json.apiToken }}"
+              "name": "telefone",
+              "valueProvider": "modelRequired",
+              "description": "Telefone de quem está falando"
             },
             {
-              "name": "Content-Type",
-              "value": "application/json"
+              "name": "nome",
+              "valueProvider": "modelOptional",
+              "description": "Nome do cliente, para abrir o cadastro na primeira vez"
+            },
+            {
+              "name": "profissionalId",
+              "valueProvider": "modelRequired",
+              "description": "Id do profissional"
+            },
+            {
+              "name": "servicos",
+              "valueProvider": "modelRequired",
+              "description": "Lista de ids de serviço, ex.: [3]"
+            },
+            {
+              "name": "data",
+              "valueProvider": "modelRequired",
+              "description": "Data e hora no formato AAAA-MM-DD HH:MM, horário de Brasília"
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { telefone: $json.Telefone } }}"
+        "optimizeResponse": false
       },
-      "id": "cancelar-agendamento",
-      "name": "Cancelar Agendamento",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1180,
-        640
-      ]
+      "id": "t-marcar",
+      "name": "marcar",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1440, 420],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
+      }
     },
     {
       "parameters": {
-        "jsCode": "const r = $json;\nconst texto = `Agendamento ${r.id || $node['Variaveis do sistema'].json.agendamentoId || ''} cancelado com sucesso.`;\nconst store = $getWorkflowStaticData('global');\nconst telefone = String($node['Variaveis do sistema'].json.Telefone || '').replace(/\\D/g, '');\ndelete store[`wpp:${telefone}`];\nreturn [{ json: { ...$node['Variaveis do sistema'].json, mensagemEnvio: texto } }];"
-      },
-      "id": "formatar-cancelar",
-      "name": "Formatar Cancelar",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1410,
-        640
-      ]
-    },
-    {
-      "parameters": {
+        "toolDescription": "Muda um agendamento de horário. Quando não dá, a resposta explica o motivo em português — horário que já passou, dia fechado, horário ocupado, folga do barbeiro. Repasse o motivo e ofereça outro horário.",
         "method": "PATCH",
-        "url": "={{ $json.backendUrl + '/whatsapp/agenda/agendamentos/' + $json.agendamentoId + '/reagendar?instance=' + encodeURIComponent($json.instance) + '&tenantId=' + $json.tenantId }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
+        "url": "=https://barba-brutal-api.onrender.com/whatsapp/agenda/agendamentos/{agendamentoId}/reagendar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
             {
-              "name": "x-whatsapp-token",
-              "value": "={{ $json.apiToken }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
+              "name": "instance",
+              "valueProvider": "modelRequired",
+              "description": "Instância desta barbearia"
             }
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { telefone: $json.Telefone, data: $json.dataIso } }}"
+        "parametersBody": {
+          "values": [
+            {
+              "name": "telefone",
+              "valueProvider": "modelRequired",
+              "description": "Telefone de quem está falando"
+            },
+            {
+              "name": "data",
+              "valueProvider": "modelRequired",
+              "description": "Novo horário no formato AAAA-MM-DD HH:MM, horário de Brasília"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "agendamentoId",
+              "description": "Id do agendamento a remarcar, vindo de meus_agendamentos",
+              "type": "number"
+            }
+          ]
+        },
+        "optimizeResponse": false
       },
-      "id": "reagendar-agendamento",
-      "name": "Reagendar Agendamento",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1180,
-        780
-      ]
+      "id": "t-remarcar",
+      "name": "remarcar",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1580, 420],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
+      },
+      "notes": "O id vem de meus_agendamentos, nunca do primeiro número da frase. A versão anterior lia \"remarcar para as 15:00\" como agendamento nº 15."
     },
     {
       "parameters": {
-        "jsCode": "const r = $json;\nconst texto = `Agendamento ${r.id || $node['Variaveis do sistema'].json.agendamentoId || ''} reagendado com sucesso para ${$node['Variaveis do sistema'].json.dataIso || 'a nova data informada'}.`;\nconst store = $getWorkflowStaticData('global');\nconst telefone = String($node['Variaveis do sistema'].json.Telefone || '').replace(/\\D/g, '');\ndelete store[`wpp:${telefone}`];\nreturn [{ json: { ...$node['Variaveis do sistema'].json, mensagemEnvio: texto } }];"
+        "toolDescription": "Cancela um agendamento. Confirme com a pessoa antes de chamar — cancelamento não tem volta.",
+        "method": "POST",
+        "url": "=https://barba-brutal-api.onrender.com/whatsapp/agenda/agendamentos/{agendamentoId}/cancelar",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "instance",
+              "valueProvider": "modelRequired",
+              "description": "Instância desta barbearia"
+            }
+          ]
+        },
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "telefone",
+              "valueProvider": "modelRequired",
+              "description": "Telefone de quem está falando"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "agendamentoId",
+              "description": "Id do agendamento a cancelar, vindo de meus_agendamentos",
+              "type": "number"
+            }
+          ]
+        },
+        "optimizeResponse": false
       },
-      "id": "formatar-reagendar",
-      "name": "Formatar Reagendar",
+      "id": "t-cancelar",
+      "name": "cancelar",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1720, 420],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// A mensagem que vai sair, e a garantia de que ALGUMA coisa sai.\n//\n// Cliente que escreve e não recebe nada acha que a barbearia sumiu. Se o\n// agente falhou, ele responde a desculpa — e a execução fica vermelha na\n// lista, para alguém olhar.\nconst config = $('Onde ficam as coisas').item.json;\nconst doAgente = String($json.output ?? $json.text ?? '').trim();\n\nconst desculpa =\n  'Opa! Tive um problema aqui no sistema agora. Já avisei o pessoal da barbearia — me manda de novo em alguns minutos, por favor.';\n\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      evolutionUrl: config.evolutionUrl,\n      instance: config.instance,\n      numero,\n      texto: doAgente || desculpa,\n      deuCerto: !!doAgente,\n    },\n  },\n];"
+      },
+      "id": "montar",
+      "name": "Montar a resposta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1410,
-        780
-      ]
+      "position": [1120, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Áudio, figurinha, documento: o atendente não lê. Dizer isso é melhor do\n// que ficar mudo e deixar a pessoa esperando.\nconst config = $('Onde ficam as coisas').item.json;\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      evolutionUrl: config.evolutionUrl,\n      instance: config.instance,\n      numero,\n      texto: config.semTexto\n        ? 'Consigo te atender por texto, por aqui mesmo. Me escreve o que você precisa?'\n        : 'Oi! Me diz como posso te ajudar — marcar, remarcar ou cancelar um horário?',\n      deuCerto: true,\n    },\n  },\n];"
+      },
+      "id": "sem-texto",
+      "name": "Pedir por escrito",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 340]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.evolutionUrl + '/message/sendText/' + $json.instance }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $json.apiToken }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
+        "url": "={{ $json.evolutionUrl }}/message/sendText/{{ $json.instance }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { number: $json.Telefone.startsWith('55') ? $json.Telefone : '55' + $json.Telefone, text: $json.mensagemEnvio || $json.Mensagem } }}"
+        "jsonBody": "={{ JSON.stringify({ number: $json.numero, text: $json.texto }) }}",
+        "options": {}
       },
-      "id": "enviar-whatsapp",
-      "name": "Enviar WhatsApp",
+      "id": "enviar",
+      "name": "Responder no WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1660,
-        360
-      ]
+      "position": [1360, 240],
+      "credentials": {
+        "httpHeaderAuth": { "id": "bb-evolution-apikey", "name": "Evolution apikey" }
+      },
+      "notes": "A apikey vem de credencial. A versão anterior mandava aqui o token do bot do backend, que a Evolution não conhece — nenhuma resposta chegava ao cliente."
     }
   ],
   "connections": {
-    "Webhook EVO": {
+    "Webhook da Evolution": {
+      "main": [[{ "node": "Extrair a mensagem", "type": "main", "index": 0 }]]
+    },
+    "Extrair a mensagem": {
+      "main": [[{ "node": "Onde ficam as coisas", "type": "main", "index": 0 }]]
+    },
+    "Onde ficam as coisas": {
+      "main": [[{ "node": "Veio texto?", "type": "main", "index": 0 }]]
+    },
+    "Veio texto?": {
       "main": [
-        [
-          {
-            "node": "Variaveis do sistema",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Atendente", "type": "main", "index": 0 }],
+        [{ "node": "Pedir por escrito", "type": "main", "index": 0 }]
       ]
     },
-    "Variaveis do sistema": {
-      "main": [
-        [
-          {
-            "node": "Extrair Dados",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Atendente": {
+      "main": [[{ "node": "Montar a resposta", "type": "main", "index": 0 }]]
     },
-    "Extrair Dados": {
-      "main": [
-        [
-          {
-            "node": "Resolver Tenant",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Modelo": {
+      "ai_languageModel": [[{ "node": "Atendente", "type": "ai_languageModel", "index": 0 }]]
     },
-    "Resolver Tenant": {
-      "main": [
-        [
-          {
-            "node": "Roteador",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Memória da conversa": {
+      "ai_memory": [[{ "node": "Atendente", "type": "ai_memory", "index": 0 }]]
     },
-    "Roteador": {
-      "main": [
-        [
-          {
-            "node": "Catalogo Saudacao",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Catalogo",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Catalogo Profissionais",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Meus Agendamentos",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Catalogo Agendamento",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Cancelar Agendamento",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Reagendar Agendamento",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "cardapio": {
+      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
     },
-    "Catalogo": {
-      "main": [
-        [
-          {
-            "node": "Formatar Serviços",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "horarios_livres": {
+      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
     },
-    "Catalogo Saudacao": {
-      "main": [
-        [
-          {
-            "node": "Formatar Saudacao",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "meus_agendamentos": {
+      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
     },
-    "Formatar Saudacao": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "marcar": {
+      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
     },
-    "Formatar Serviços": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "remarcar": {
+      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
     },
-    "Catalogo Profissionais": {
-      "main": [
-        [
-          {
-            "node": "Formatar Profissionais",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "cancelar": {
+      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
     },
-    "Formatar Profissionais": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Montar a resposta": {
+      "main": [[{ "node": "Responder no WhatsApp", "type": "main", "index": 0 }]]
     },
-    "Meus Agendamentos": {
-      "main": [
-        [
-          {
-            "node": "Formatar Agendamentos",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Formatar Agendamentos": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Catalogo Agendamento": {
-      "main": [
-        [
-          {
-            "node": "Formatar Criar",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Formatar Criar": {
-      "main": [
-        [
-          {
-            "node": "Pode Criar?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Pode Criar?": {
-      "main": [
-        [
-          {
-            "node": "Criar Agendamento Final",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Criar Agendamento Final": {
-      "main": [
-        [
-          {
-            "node": "Formatar Criar Final",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Formatar Criar Final": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Cancelar Agendamento": {
-      "main": [
-        [
-          {
-            "node": "Formatar Cancelar",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Formatar Cancelar": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Reagendar Agendamento": {
-      "main": [
-        [
-          {
-            "node": "Formatar Reagendar",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Formatar Reagendar": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Pedir por escrito": {
+      "main": [[{ "node": "Responder no WhatsApp", "type": "main", "index": 0 }]]
     }
   },
   "active": false,
-  "settings": {},
-  "versionId": "1"
+  "settings": { "executionOrder": "v1" },
+  "versionId": "2"
 }

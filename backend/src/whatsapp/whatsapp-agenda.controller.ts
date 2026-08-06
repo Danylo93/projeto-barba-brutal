@@ -16,6 +16,29 @@ export class WhatsappAgendaController {
     return this.service.catalogo(token, tenantId, instance);
   }
 
+  /**
+   * Horários livres de um dia. `?data=2026-08-07&profissionalId=3&servicos=1,2`
+   *
+   * O robô precisa saber o que está livre para conversar como gente: sem isto
+   * ele chuta um horário, toma recusa, e o cliente só ouve "não dá".
+   */
+  @Get('horarios')
+  horarios(
+    @Headers('x-whatsapp-token') token: string,
+    @Query('tenantId') tenantId: string,
+    @Query('data') data: string,
+    @Query('profissionalId') profissionalId: string,
+    @Query('servicos') servicos: string,
+    @Query('instance') instance: string,
+  ) {
+    return this.service.horarios(
+      token,
+      tenantId,
+      { data, profissionalId, servicos },
+      instance,
+    );
+  }
+
   @Get('agendamentos')
   listar(
     @Headers('x-whatsapp-token') token: string,
