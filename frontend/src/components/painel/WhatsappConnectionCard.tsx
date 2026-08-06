@@ -1,0 +1,316 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import {
+    CheckCircle2,
+    CircleAlert,
+    Copy,
+    ExternalLink,
+    Loader2,
+    QrCode,
+    RefreshCw,
+    Smartphone,
+    WifiOff,
+} from 'lucide-react'
+import useAPI from '@/data/hooks/useAPI'
+import { useToast } from '@/hooks/use-toast'
+
+type StatusConexao =
+    | 'sem_instance'
+    | 'nao_configurada'
+    | 'nao_encontrada'
+    | 'conectada'
+    | 'desconectada'
+    | 'conectando'
+    | 'indisponivel'
+
+interface ConexaoWhatsapp {
+    status: StatusConexao
+    instance: string | null
+    evolutionState: string | null
+    managerUrl: string | null
+    qrCode?: string | null
+    pairingCode?: string | null
+    mensagem?: string
+}
+
+interface WhatsappConnectionCardProps {
+    instance: string
+    onInstanceChange: (value: string) => void
+    refreshKey: number
+}
+
+const visualDoStatus: Record<StatusConexao, { texto: string; classe: string }> = {
+    sem_instance: { texto: 'Não configurada', classe: 'border-amber-400/30 bg-amber-400/10 text-amber-300' },
+    nao_configurada: { texto: 'Servidor pendente', classe: 'border-red-400/30 bg-red-400/10 text-red-300' },
+    nao_encontrada: { texto: 'Instance não encontrada', classe: 'border-red-400/30 bg-red-400/10 text-red-300' },
+    conectada: { texto: 'WhatsApp conectado', classe: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' },
+    desconectada: { texto: 'Aguardando conexão', classe: 'border-amber-400/30 bg-amber-400/10 text-amber-300' },
+    conectando: { texto: 'Leia o QR Code', classe: 'border-sky-400/30 bg-sky-400/10 text-sky-300' },
+    indisponivel: { texto: 'Evolution indisponível', classe: 'border-red-400/30 bg-red-400/10 text-red-300' },
+}
+
+export default function WhatsappConnectionCard({
+    instance,
+    onInstanceChange,
+    refreshKey,
+}: WhatsappConnectionCardProps) {
+    const { httpGet, httpPost } = useAPI()
+    const { success: toastSuccess, error: toastError } = useToast()
+    const [conexao, setConexao] = useState<ConexaoWhatsapp | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [loadingQr, setLoadingQr] = useState(false)
+    const [erro, setErro] = useState('')
+
+    async function gerarQrCode() {
+        try {
+            setLoadingQr(true)
+            setErro('')
+            const data = await httpPost('tenants/me/whatsapp/qrcode', {})
+            setConexao(data)
+            if (!data?.qrCode && data?.mensagem) setErro(data.mensagem)
+        } catch (error) {
+            const mensagem = error instanceof Error ? error.message : 'Não foi possível gerar o QR Code.'
+            setErro(mensagem)
+            toastError('QR Code indisponível', mensagem)
+        } finally {
+            setLoadingQr(false)
+        }
+    }
+
+    async function carregarConexao(gerarQr = false) {
+        try {
+            setLoading(true)
+            setErro('')
+            const data: ConexaoWhatsapp = await httpGet('tenants/me/whatsapp')
+            setConexao((anterior) => ({
+                ...data,
+                qrCode: data.status === 'conectada' ? null : anterior?.qrCode,
+            }))
+            if (gerarQr && (data.status === 'desconectada' || data.status === 'conectando')) {
+                await gerarQrCode()
+            }
+        } catch (error) {
+            const mensagem = error instanceof Error ? error.message : 'Não foi possível consultar o WhatsApp.'
+            setErro(mensagem)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        void carregarConexao(true)
+        // O componente só monta na aba de integrações; refreshKey muda após salvar.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refreshKey])
+
+    useEffect(() => {
+        if (!conexao?.qrCode) return
+
+        const intervalo = window.setInterval(async () => {
+            try {
+                const data: ConexaoWhatsapp = await httpGet('tenants/me/whatsapp')
+                setConexao((anterior) => ({
+                    ...data,
+                    qrCode: data.status === 'conectada' ? null : anterior?.qrCode,
+                }))
+                if (data.status === 'conectada') {
+                    toastSuccess('WhatsApp conectado', 'A barbearia já pode receber mensagens pelo atendente.')
+                }
+            } catch {
+                // Uma oscilação no polling não deve apagar um QR que ainda pode ser lido.
+            }
+        }, 6_000)
+
+        return () => window.clearInterval(intervalo)
+    }, [conexao?.qrCode, httpGet, toastSuccess])
+
+    async function copiar(valor: string, descricao: string) {
+        await navigator.clipboard.writeText(valor)
+        toastSuccess('Copiado', descricao)
+    }
+
+    const status = conexao?.status ?? 'sem_instance'
+    const visual = visualDoStatus[status]
+    const nomeAlterado = instance.trim() !== (conexao?.instance ?? '')
+    const precisaCriar = status === 'sem_instance' || status === 'nao_encontrada'
+
+    return (
+        <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/70 shadow-2xl shadow-black/20">
+            <div className="relative border-b border-zinc-800 px-6 py-6 sm:px-8">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.12),transparent_45%)]" />
+                <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-4">
+                        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-emerald-300">
+                            <Smartphone size={25} />
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300/80">Canal de atendimento</p>
+                            <h2 className="mt-1 text-xl font-black text-white">WhatsApp da barbearia</h2>
+                            <p className="mt-1 max-w-xl text-sm leading-relaxed text-zinc-400">
+                                Cada barbearia usa uma instance própria. A chave da Evolution permanece protegida no servidor do SaaS.
+                            </p>
+                        </div>
+                    </div>
+                    <span className={`w-fit rounded-full border px-3 py-1.5 text-xs font-bold ${visual.classe}`}>
+                        {loading ? 'Consultando...' : visual.texto}
+                    </span>
+                </div>
+            </div>
+
+            <div className="space-y-6 p-6 sm:p-8">
+                <div>
+                    <label className="mb-2 block text-sm font-semibold text-zinc-200" htmlFor="evolution-instance">
+                        Nome da instance na Evolution
+                    </label>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <input
+                            id="evolution-instance"
+                            type="text"
+                            placeholder="ex.: barbearia-centro-01"
+                            value={instance}
+                            onChange={(event) => onInstanceChange(event.target.value)}
+                            className="min-w-0 flex-1 rounded-xl border border-zinc-800 bg-black/40 px-4 py-3 font-mono text-sm text-white outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-400"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => void carregarConexao(false)}
+                            disabled={loading}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-bold text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800 disabled:opacity-50"
+                        >
+                            <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
+                            Atualizar status
+                        </button>
+                    </div>
+                    {nomeAlterado && (
+                        <p className="mt-2 text-xs font-medium text-amber-300">Salve as configurações para consultar esta instance.</p>
+                    )}
+                </div>
+
+                {loading && !conexao && (
+                    <div className="flex min-h-44 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/40">
+                        <Loader2 className="animate-spin text-emerald-300" size={28} />
+                    </div>
+                )}
+
+                {!loading && precisaCriar && (
+                    <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+                        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-5">
+                            <div className="flex items-center gap-3 text-amber-200">
+                                <CircleAlert size={21} />
+                                <h3 className="font-black">
+                                    {status === 'nao_encontrada' ? 'Esta instance não existe na Evolution' : 'Crie uma instance para esta barbearia'}
+                                </h3>
+                            </div>
+                            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                                A instance é o identificador que impede mensagens e agendas de barbearias diferentes de se misturarem.
+                            </p>
+                            {conexao?.mensagem && <p className="mt-3 text-sm text-amber-100/80">{conexao.mensagem}</p>}
+                        </div>
+
+                        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+                            <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Como configurar</p>
+                            <ol className="mt-4 space-y-3 text-sm text-zinc-300">
+                                <li className="flex gap-3"><span className="font-black text-emerald-300">01</span><span>Entre no Evolution Manager administrado pelo SaaS.</span></li>
+                                <li className="flex gap-3"><span className="font-black text-emerald-300">02</span><span>Crie uma nova instance com um nome exclusivo para esta barbearia.</span></li>
+                                <li className="flex gap-3"><span className="font-black text-emerald-300">03</span><span>Cole exatamente o mesmo nome no campo acima e salve.</span></li>
+                                <li className="flex gap-3"><span className="font-black text-emerald-300">04</span><span>Volte a esta aba: o QR Code aparecerá aqui automaticamente.</span></li>
+                            </ol>
+                            {conexao?.managerUrl && (
+                                <a
+                                    href={conexao.managerUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-emerald-300 transition hover:text-emerald-200"
+                                >
+                                    Abrir Evolution Manager <ExternalLink size={15} />
+                                </a>
+                            )}
+                            <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+                                Se a barbearia não administra a Evolution, envie o nome escolhido ao suporte do SaaS. Nunca compartilhe a chave global.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {!loading && status === 'conectada' && (
+                    <div className="flex flex-col gap-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-6 sm:flex-row sm:items-center">
+                        <div className="w-fit rounded-full bg-emerald-400/15 p-3 text-emerald-300">
+                            <CheckCircle2 size={30} />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-black text-emerald-100">Conexão pronta</h3>
+                            <p className="mt-1 text-sm text-zinc-400">
+                                O número vinculado à instance <span className="font-mono text-zinc-200">{conexao?.instance}</span> está online.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {!loading && (status === 'desconectada' || status === 'conectando') && !nomeAlterado && (
+                    <div className="grid gap-6 lg:grid-cols-[280px_1fr] lg:items-center">
+                        <div className="flex min-h-[280px] items-center justify-center rounded-3xl border border-zinc-700 bg-white p-4 shadow-[0_0_40px_rgba(34,197,94,0.12)]">
+                            {loadingQr ? (
+                                <Loader2 className="animate-spin text-zinc-900" size={34} />
+                            ) : conexao?.qrCode ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={conexao.qrCode} alt="QR Code para conectar o WhatsApp" className="h-full w-full object-contain" />
+                            ) : (
+                                <div className="text-center text-zinc-800">
+                                    <QrCode className="mx-auto" size={58} />
+                                    <p className="mt-3 text-sm font-bold">QR ainda não disponível</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">Conectar aparelho</p>
+                            <h3 className="mt-2 text-2xl font-black text-white">Leia o QR pelo WhatsApp</h3>
+                            <ol className="mt-5 space-y-3 text-sm leading-relaxed text-zinc-400">
+                                <li><span className="font-bold text-zinc-200">1.</span> Abra o WhatsApp no celular da barbearia.</li>
+                                <li><span className="font-bold text-zinc-200">2.</span> Entre em Aparelhos conectados e escolha Conectar um aparelho.</li>
+                                <li><span className="font-bold text-zinc-200">3.</span> Aponte a câmera para este código. O painel reconhecerá a conexão automaticamente.</li>
+                            </ol>
+                            <div className="mt-5 flex flex-wrap gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => void gerarQrCode()}
+                                    disabled={loadingQr}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-black text-zinc-950 transition hover:bg-emerald-300 disabled:opacity-50"
+                                >
+                                    {loadingQr ? <Loader2 className="animate-spin" size={17} /> : <QrCode size={17} />}
+                                    Gerar novo QR
+                                </button>
+                                {conexao?.pairingCode && (
+                                    <button
+                                        type="button"
+                                        onClick={() => void copiar(conexao.pairingCode!, 'Código de pareamento copiado.')}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-bold text-zinc-200 hover:border-zinc-500"
+                                    >
+                                        <Copy size={16} /> Copiar código
+                                    </button>
+                                )}
+                            </div>
+                            {erro && <p className="mt-3 text-sm text-red-300">{erro}</p>}
+                        </div>
+                    </div>
+                )}
+
+                {!loading && (status === 'nao_configurada' || status === 'indisponivel') && (
+                    <div className="flex gap-4 rounded-2xl border border-red-400/20 bg-red-400/[0.06] p-5">
+                        <WifiOff className="shrink-0 text-red-300" size={24} />
+                        <div>
+                            <h3 className="font-black text-red-100">A Evolution precisa de atenção</h3>
+                            <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                                {conexao?.mensagem ?? erro ?? 'Não foi possível consultar o servidor da Evolution.'}
+                            </p>
+                            {status === 'nao_configurada' && (
+                                <p className="mt-2 text-xs text-zinc-500">Configure EVOLUTION_URL e EVOLUTION_APIKEY no backend do SaaS.</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </section>
+    )
+}

@@ -5,6 +5,7 @@ import { TenantAuthGuard } from '../auth/tenant-auth.guard';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ForbiddenException } from '@nestjs/common';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 /** O dono só mexe na própria barbearia; o admin do SaaS mexe em qualquer uma. */
 function exigirProprioTenantOuAdmin(user: any, tenantId: number) {
@@ -15,7 +16,16 @@ function exigirProprioTenantOuAdmin(user: any, tenantId: number) {
 
 @Controller('tenants')
 export class TenantController {
-  constructor(private readonly tenantService: TenantService) {}
+  constructor(
+    private readonly tenantService: TenantService,
+    private readonly whatsappService: WhatsappService,
+  ) {}
+
+  private async evolutionInstanceDoTenant(tenantId: number): Promise<string> {
+    const tenant = await this.tenantService.findById(tenantId);
+    const configuracoes = (tenant?.configuracoes as any) ?? {};
+    return String(configuracoes.evolutionInstance ?? '').trim();
+  }
 
   // Barbearia nova entra por /auth/tenant/register, que exige CPF/CNPJ válido
   // e único. Este endpoint é ferramenta de administração e não pode ficar
@@ -46,6 +56,20 @@ export class TenantController {
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   getMyStats(@CurrentUser() user: any) {
     return this.tenantService.getStats(user.id);
+  }
+
+  @Get('me/whatsapp')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  async getMeuWhatsapp(@CurrentUser() user: any) {
+    const instance = await this.evolutionInstanceDoTenant(user.id);
+    return this.whatsappService.obterConexao(instance);
+  }
+
+  @Post('me/whatsapp/qrcode')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  async getMeuWhatsappQrCode(@CurrentUser() user: any) {
+    const instance = await this.evolutionInstanceDoTenant(user.id);
+    return this.whatsappService.obterQrCode(instance);
   }
 
   @Put('me/configuracoes')

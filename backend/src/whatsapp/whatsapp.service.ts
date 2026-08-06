@@ -1,5 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+export type StatusConexaoWhatsapp =
+  | 'sem_instance'
+  | 'nao_configurada'
+  | 'nao_encontrada'
+  | 'conectada'
+  | 'desconectada'
+  | 'conectando'
+  | 'indisponivel';
+
+export interface ConexaoWhatsapp {
+  status: StatusConexaoWhatsapp;
+  instance: string | null;
+  evolutionState: string | null;
+  managerUrl: string | null;
+  qrCode?: string | null;
+  pairingCode?: string | null;
+  mensagem?: string;
+}
+
 /**
  * Envio de WhatsApp pela Evolution API, direto do backend.
  *
@@ -16,6 +35,208 @@ export class WhatsappService {
   private readonly url = process.env.EVOLUTION_URL?.replace(/\/$/, '');
   private readonly apikey = process.env.EVOLUTION_APIKEY;
   private readonly instancia = process.env.EVOLUTION_INSTANCE;
+
+  private get managerUrl(): string | null {
+    const configurada = String(process.env.EVOLUTION_MANAGER_URL ?? '')
+      .trim()
+      .replace(/\/$/, '');
+    if (configurada) return configurada;
+    return this.url ? `${this.url}/manager` : null;
+  }
+
+  private respostaBase(
+    status: StatusConexaoWhatsapp,
+    instance: string | null,
+    mensagem?: string,
+  ): ConexaoWhatsapp {
+    return {
+      status,
+      instance,
+      evolutionState: null,
+      managerUrl: this.managerUrl,
+      ...(mensagem ? { mensagem } : {}),
+    };
+  }
+
+  private async lerJson(resposta: Response): Promise<any> {
+    try {
+      return await resposta.json();
+    } catch {
+      return {};
+    }
+  }
+
+  private async chamarEvolution(caminho: string): Promise<Response> {
+    return fetch(`${this.url}${caminho}`, {
+      headers: { apikey: this.apikey! },
+      signal: AbortSignal.timeout(10_000),
+    });
+  }
+
+  private registrarRespostaInesperada(operacao: string, resposta: Response) {
+    this.logger.warn(
+      `Evolution recusou ${operacao} com HTTP ${resposta.status}.`,
+    );
+  }
+
+  private normalizarQrCode(bruto: unknown): string | null {
+    if (typeof bruto !== 'string') return null;
+    const valor = bruto.trim();
+    if (!valor) return null;
+
+    const dataUrl = valor.match(
+      /^data:image\/(png|jpe?g|webp);base64,([a-z0-9+/=\s]+)$/i,
+    );
+    const conteudo = (dataUrl?.[2] ?? valor).replace(/\s/g, '');
+    if (!/^[a-z0-9+/]+={0,2}$/i.test(conteudo)) return null;
+    return `data:image/${dataUrl?.[1]?.toLowerCase() ?? 'png'};base64,${conteudo}`;
+  }
+
+  /** Estado seguro para a tela do tenant; a apikey nunca sai do backend. */
+  async obterConexao(instancia?: string | null): Promise<ConexaoWhatsapp> {
+    const nome = String(instancia ?? '').trim();
+    if (!nome) {
+      return this.respostaBase(
+        'sem_instance',
+        null,
+        'Esta barbearia ainda não possui uma instance da Evolution cadastrada.',
+      );
+    }
+    if (!this.url || !this.apikey) {
+      return this.respostaBase(
+        'nao_configurada',
+        nome,
+        'A Evolution API ainda não foi configurada no servidor do SaaS.',
+      );
+    }
+
+    try {
+      const resposta = await this.chamarEvolution(
+        `/instance/connectionState/${encodeURIComponent(nome)}`,
+      );
+      if (resposta.status === 404) {
+        return this.respostaBase(
+          'nao_encontrada',
+          nome,
+          'A instance salva não foi encontrada na Evolution API.',
+        );
+      }
+      if (!resposta.ok) {
+        this.registrarRespostaInesperada('a consulta da conexão', resposta);
+        return this.respostaBase(
+          'indisponivel',
+          nome,
+          'Não foi possível consultar a Evolution API agora.',
+        );
+      }
+
+      const dados = await this.lerJson(resposta);
+      const estado = String(
+        dados?.instance?.state ?? dados?.state ?? dados?.instance?.status ?? '',
+      )
+        .trim()
+        .toLowerCase();
+      const status: StatusConexaoWhatsapp =
+        estado === 'open' || estado === 'connected'
+          ? 'conectada'
+          : estado === 'connecting'
+            ? 'conectando'
+            : 'desconectada';
+
+      return {
+        status,
+        instance: nome,
+        evolutionState: estado || null,
+        managerUrl: this.managerUrl,
+      };
+    } catch (erro) {
+      this.logger.warn(
+        `Falha ao consultar conexão da Evolution: ${erro instanceof Error ? erro.message : erro}`,
+      );
+      return this.respostaBase(
+        'indisponivel',
+        nome,
+        'A Evolution API não respondeu. Tente atualizar em alguns instantes.',
+      );
+    }
+  }
+
+  /** Solicita um QR temporário apenas para a instance do tenant autenticado. */
+  async obterQrCode(instancia?: string | null): Promise<ConexaoWhatsapp> {
+    const conexao = await this.obterConexao(instancia);
+    if (
+      conexao.status === 'sem_instance' ||
+      conexao.status === 'nao_configurada' ||
+      conexao.status === 'nao_encontrada' ||
+      conexao.status === 'indisponivel' ||
+      conexao.status === 'conectada'
+    ) {
+      return conexao;
+    }
+
+    try {
+      const resposta = await this.chamarEvolution(
+        `/instance/connect/${encodeURIComponent(conexao.instance!)}`,
+      );
+      if (resposta.status === 404) {
+        return this.respostaBase(
+          'nao_encontrada',
+          conexao.instance,
+          'A instance salva não foi encontrada na Evolution API.',
+        );
+      }
+      if (!resposta.ok) {
+        this.registrarRespostaInesperada('a geração do QR Code', resposta);
+        return this.respostaBase(
+          'indisponivel',
+          conexao.instance,
+          'A Evolution API não conseguiu gerar o QR Code agora.',
+        );
+      }
+
+      const dados = await this.lerJson(resposta);
+      const bruto =
+        dados?.base64 ??
+        dados?.qrcode?.base64 ??
+        dados?.qrcode ??
+        dados?.qr?.base64 ??
+        null;
+      const imagem = this.normalizarQrCode(bruto);
+
+      // Um QR normal é pequeno; recusar payload enorme evita repassar lixo ao browser.
+      if (imagem && imagem.length > 3_000_000) {
+        this.logger.warn('Evolution devolveu um QR Code maior que o limite seguro.');
+        return this.respostaBase(
+          'indisponivel',
+          conexao.instance,
+          'A Evolution API devolveu um QR Code inválido.',
+        );
+      }
+
+      return {
+        status: imagem ? 'conectando' : conexao.status,
+        instance: conexao.instance,
+        evolutionState: conexao.evolutionState,
+        managerUrl: this.managerUrl,
+        qrCode: imagem,
+        pairingCode: dados?.pairingCode
+          ? String(dados.pairingCode)
+          : null,
+        ...(!imagem
+          ? { mensagem: 'A Evolution ainda não disponibilizou um QR Code. Tente novamente.' }
+          : {}),
+      };
+    } catch (erro) {
+      this.logger.warn(
+        `Falha ao gerar QR Code da Evolution: ${erro instanceof Error ? erro.message : erro}`,
+      );
+      return this.respostaBase(
+        'indisponivel',
+        conexao.instance,
+        'A Evolution API não respondeu ao pedido de QR Code.',
+      );
+    }
+  }
 
   /**
    * Dá para enviar? A instância pode vir da barbearia; a do ambiente é o

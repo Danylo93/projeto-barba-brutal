@@ -29,6 +29,8 @@ services:
         sync: false # ex.: https://evolution.seudominio.com
       - key: EVOLUTION_APIKEY
         sync: false
+      - key: EVOLUTION_MANAGER_URL
+        sync: false # opcional; padrão: EVOLUTION_URL + /manager
       - key: EVOLUTION_INSTANCE
         sync: false # nome da instância conectada ao número
       # Bot de WhatsApp. A barbearia sai da instance da Evolution (única por
