@@ -28,7 +28,7 @@ precisar de `designer` e `revisor-codigo`.
 ## Comandos
 
 ```bash
-cd backend  && npx jest              # testes (281 hoje)
+cd backend  && npx jest              # testes (396 hoje)
 cd backend  && npx tsc --noEmit
 cd frontend && npx tsc --noEmit
 cd frontend && npm run build

@@ -5,10 +5,8 @@ import { NextRequest, NextResponse } from 'next/server'
  * Público — usado pelo formulário de cadastro para checar disponibilidade
  * de subdomínio em tempo real.
  */
-export async function GET(
-    request: NextRequest,
-    { params }: { params: { slug: string } },
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
+    const params = await props.params;
     const slug = params.slug
 
     if (!slug || slug.length < 2) {

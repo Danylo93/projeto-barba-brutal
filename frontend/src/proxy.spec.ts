@@ -8,7 +8,7 @@ process.env.NEXT_PUBLIC_DOMINIO_RAIZ = 'barbeariabrutal.com'
 // `require` depois de definir a env: o módulo lê `NEXT_PUBLIC_DOMINIO_RAIZ`
 // no topo, então um `import` estático rodaria antes da linha acima.
 /* eslint-disable */
-const { slugDoHost } = require('./middleware')
+const { slugDoHost } = require('./proxy')
 /* eslint-enable */
 
 describe('slug do host', () => {

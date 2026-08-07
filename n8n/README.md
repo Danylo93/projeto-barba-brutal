@@ -1,11 +1,15 @@
-# Avisos de WhatsApp (n8n + Evolution API)
+# WhatsApp (n8n + Evolution API)
 
-Dois fluxos, um trabalho cada:
+Três fluxos, um trabalho cada:
 
-| Arquivo | O que faz | Frequência |
+| Arquivo | O que faz | Quando roda |
 |---|---|---|
-| `barbabrutal-1-confirmacao-agendamento.json` | Ao **criar** um agendamento, avisa cliente e barbeiro | a cada 1 min |
-| `barbabrutal-2-lembrete-1h.json` | **1 hora antes** do horário, lembra cliente e barbeiro | a cada 5 min |
+| `barbabrutal1confirmacaoagendamento.json` | Ao **criar** um agendamento, avisa cliente e barbeiro | a cada 1 min |
+| `barbabrutal2lembrete1h.json` | **1 hora antes** do horário, lembra cliente e barbeiro | a cada 5 min |
+| `Barbearia Brutal — atendente de WhatsApp.json` | **Atende** o cliente: marca, remarca e cancela pela conversa | a cada mensagem |
+
+Os dois primeiros falam; o terceiro conversa. Este README cobre os três, e o
+atendente tem uma seção própria mais abaixo.
 
 Os dois têm dois nós de trabalho: um relógio e uma chamada HTTP. **Quem busca,
 monta a mensagem, envia pela Evolution e marca o que saiu é o backend.**
@@ -59,7 +63,7 @@ apikey da Evolution. As duas ficam só no backend.
 > mensagem do que falta** — de propósito: marcar como enviado sem ter enviado
 > tiraria o agendamento da fila sem ninguém ser avisado.
 
-### Bot de WhatsApp (o agente de IA)
+### Atendente de WhatsApp (o agente de IA)
 
 A barbearia sai da **instance da Evolution**, nunca do `?tenantId=` da URL. A
 instance já é única por barbearia, o dono configura no painel dele, e ela chega
@@ -72,6 +76,11 @@ configurar a instance dele.
 |---|---|
 | `WHATSAPP_BOT_TOKEN` | um token para o n8n do SaaS; a instance diz de quem é a conversa |
 | `WHATSAPP_BOT_TOKENS` | um token por barbearia (`{"1":"tok-um"}`), quando se quer isolar de verdade |
+
+**O atendente só funciona nos planos Profissional e Premium.** Quem estiver
+fora deles — ou com a assinatura vencida — recebe `403` em toda rota do bot.
+Antes não havia checagem nenhuma: bastava configurar a instance para o robô
+atender em qualquer plano.
 
 ### De qual número sai a mensagem
 
@@ -161,6 +170,123 @@ só; sem ele, vale para todas.
 Os quatro últimos existem para quem precisa enviar por fora do backend. Quem
 enviar assim **é obrigado a marcar** — sem a marca, o mesmo agendamento volta
 na rodada seguinte e o cliente recebe de novo.
+
+### As ferramentas do atendente
+
+Todas exigem o header `x-whatsapp-token` e `?instance=` — é a instance que diz
+de qual barbearia é a conversa.
+
+| Rota | O que faz |
+|---|---|
+| `GET /whatsapp/agenda/catalogo` | serviços (com preço e duração) e profissionais |
+| `GET /whatsapp/agenda/horarios` | **horários livres** de um dia: `?data=&profissionalId=&servicos=` |
+| `GET /whatsapp/agenda/agendamentos` | o que aquele telefone tem marcado |
+| `POST /whatsapp/agenda/agendamentos` | marca |
+| `PATCH /whatsapp/agenda/agendamentos/:id/reagendar` | remarca |
+| `POST /whatsapp/agenda/agendamentos/:id/cancelar` | cancela |
+
+`horarios` é o que separa um atendente de um chute. Sem ele o agente propunha
+horário no escuro, tomava recusa, e o cliente ouvia uma negativa atrás da outra
+sem nunca receber uma opção.
+
+---
+
+## O atendente
+
+### Como ele conversa
+
+Um agente de IA com seis ferramentas — o cardápio, os horários livres, e as
+quatro ações da agenda. Ele não decide regra nenhuma: **quem aceita ou recusa é
+a API**, e o agente traduz. O prompt segura o tom (português informal, frase
+curta, nunca diz que é um robô) e proíbe inventar preço, horário ou nome de
+barbeiro.
+
+### A recusa é metade do atendimento
+
+Quando não dá para remarcar, o cliente precisa saber **por quê** e **o que
+fazer agora**. O backend devolve a frase pronta, cada caso com a sua:
+
+| Situação | O que o cliente lê |
+|---|---|
+| horário de hoje que já passou | "Esse horário de hoje já passou — agora são 17:00. Me diz um horário mais tarde de hoje ou outro dia…" |
+| dia que já passou | "Esse dia já passou. Me diz uma data de hoje em diante…" |
+| menos de 15 min de antecedência | "…só consigo marcar com pelo menos 15 minutos de antecedência. Escolhe um horário a partir das 17:15" |
+| dia em que a barbearia não abre | "A barbearia não abre domingo. Escolha outro dia." |
+| fora do expediente | "Nesse dia a barbearia atende das 09h às 18h." |
+| horário já ocupado | "Este profissional já tem um atendimento às 11:00." |
+| folga do barbeiro | "O profissional não está disponível neste horário (almoço)." |
+| mesmo horário que já era o dele | "Esse já é o horário do seu agendamento (13/08 às 16:30)." |
+| agendamento cancelado | "Esse agendamento foi cancelado… Quer que eu marque um horário novo?" |
+| agendamento concluído | "Esse atendimento já foi realizado." |
+| serviço saiu do cardápio | "Um dos serviços desse agendamento saiu do nosso cardápio." |
+| barbeiro desligado | "Esse profissional não está mais atendendo aqui. Quer marcar com outro?" |
+| agendamento de outra pessoa | "Não encontrei esse agendamento no seu nome." |
+
+Todas as ferramentas do agente estão em `continueRegularOutput`: a recusa volta
+**para o agente** em vez de derrubar a execução. Sem isso a execução morre
+vermelha e o cliente não recebe nada — que era exatamente o que acontecia.
+
+### Fuso
+
+O cliente diz "15h" pensando em Brasília. O servidor no Render está em UTC.
+Data sem fuso agora é lida como horário de Brasília: antes as 15h viravam
+meio-dia, com a API respondendo `200` e o cliente recebendo a confirmação de um
+horário que ele nunca pediu.
+
+### O que trocar antes de ativar
+
+1. Credencial **Token do bot** (Header Auth) — Name `x-whatsapp-token`, Value
+   igual ao `WHATSAPP_BOT_TOKEN` do Render. Vincule nas seis ferramentas.
+2. Credencial **Evolution apikey** (Header Auth) — Name `apikey`, Value a
+   apikey da sua Evolution. Vincule no nó **Responder no WhatsApp**.
+3. Credencial **Segredo do webhook** (Header Auth) — qualquer valor longo e
+   aleatório. Configure o mesmo header na Evolution. Sem isso, quem descobrir a
+   URL do webhook se passa por qualquer cliente e cancela agendamento alheio.
+4. Credencial do **modelo** — Anthropic. A chave sai de
+   [console.anthropic.com](https://console.anthropic.com) e vai na credencial
+   `Anthropic` do n8n, vinculada ao nó **Modelo**.
+
+   O fluxo vem com `claude-opus-5`. Se ele não aparecer na lista do nó, troque
+   o campo para **By ID** e digite o nome: o n8n lê o catálogo da Anthropic, e
+   um nó desatualizado pode ter a lista velha.
+
+   Trocar de modelo é mexer num campo só. O que muda:
+
+   | Modelo | Quando |
+   |---|---|
+   | `claude-opus-5` | o que está no arquivo — o mais capaz; é o que segura conversa torta sem perder o fio |
+   | `claude-sonnet-5` | mais barato, quase tão bom em conversa de agendamento; é a troca a fazer se o volume pesar |
+   | `claude-haiku-4-5` | o mais barato e rápido; serve para atendimento simples, erra mais em pedido confuso |
+
+   O atendimento é conversa curta com ferramenta fazendo o trabalho pesado — o
+   modelo decide o que chamar e escreve a resposta, não inventa regra. Comece
+   no Opus e desça se a conta incomodar; a diferença aparece justamente no
+   cliente que escreve "não vai dar pra sexta, tem alguma coisa antes?".
+5. No nó **Onde ficam as coisas**, ajuste `evolutionUrl`.
+6. Na Evolution, aponte o webhook `messages.upsert` para a URL de produção do
+   fluxo.
+
+### Por que a versão anterior foi jogada fora
+
+Ela não era um agente: era um roteador de intenção por expressão regular. E
+estava morta havia tempo — os `\b` do código viraram **caractere de backspace**
+ao entrar no JSON, então nenhuma regra casava e **toda** mensagem caía no texto
+de ajuda. Ninguém conseguia marcar, cancelar nem remarcar pelo WhatsApp, e não
+sobrava erro em lugar nenhum. Junto com isso:
+
+- o id do agendamento era "o primeiro número da frase" — *"remarcar para as
+  15:00"* virava agendamento nº 15;
+- a data `2026-08-06` estava escrita à mão no código, então quem dissesse só a
+  hora era mandado para aquele dia, para sempre;
+- o nó de resposta dizia "reagendado com sucesso" sem olhar o que a API
+  respondeu;
+- o envio pela Evolution ia com o token do backend no lugar da apikey, então
+  nenhuma resposta chegava ao cliente;
+- e os três `$env.*` não funcionam sem as *Variables* pagas do n8n.
+
+O teste `backend/src/whatsapp/fluxos-n8n.spec.ts` roda junto com o resto e
+recusa esses cinco padrões — caractere de controle escondido, data fixa,
+credencial faltando, `$env.`, ferramenta que morre na recusa.
 
 ---
 

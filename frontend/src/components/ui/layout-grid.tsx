@@ -5,7 +5,9 @@ import { cn } from '@/lib/utils'
 
 type Card = {
     id: number
-    content: JSX.Element | React.ReactNode | string
+    // `React.JSX` e não `JSX` solto: os tipos do React 19 tiraram o namespace
+    // global, e com ele o `tsc` parava no primeiro arquivo.
+    content: React.JSX.Element | React.ReactNode | string
     className: string
     thumbnail: string
 }

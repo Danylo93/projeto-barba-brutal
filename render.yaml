@@ -12,6 +12,11 @@ services:
     startCommand: npx prisma migrate deploy && node dist/src/main
     healthCheckPath: /health
     envVars:
+      # O NestJS 11 exige Node 20 ou mais novo. Serviço antigo no Render fica
+      # na versão em que foi criado até alguém dizer o contrário — sem esta
+      # linha, o deploy quebraria no `require` de um módulo que só existe no 20.
+      - key: NODE_VERSION
+        value: "22"
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL

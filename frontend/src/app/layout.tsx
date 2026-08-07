@@ -18,7 +18,20 @@ const outfit = Outfit({
     weight: ['300', '400', '500', '600', '700', '800', '900'],
 })
 
+/**
+ * Endereço absoluto das imagens de compartilhamento.
+ *
+ * Sem ele o Next monta as URLs de Open Graph com `http://localhost:3000`, e o
+ * link colado no WhatsApp ou no Instagram aparece sem a imagem de capa.
+ */
+const enderecoDoSite =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.NEXT_PUBLIC_DOMINIO_RAIZ
+        ? `https://${process.env.NEXT_PUBLIC_DOMINIO_RAIZ}`
+        : 'https://barbeariabrutal.com')
+
 export const metadata: Metadata = {
+    metadataBase: new URL(enderecoDoSite),
     title: 'Barbearia Brutal SaaS - Sistema de Gestão para Barbearias',
     description: 'Transforme sua barbearia com nosso sistema completo de agendamentos, gestão de clientes e muito mais.',
     keywords: ['barbearia', 'agendamento', 'gestão', 'saas', 'sistema'],

@@ -1,4 +1,8 @@
-import { mesmoEmail, normalizarEmail } from './acesso-profissional';
+import {
+  enfeitesDoProfissional,
+  mesmoEmail,
+  normalizarEmail,
+} from './acesso-profissional';
 
 describe('normalizarEmail', () => {
   it('tira espaço das pontas, que quebra o login sem ninguém ver', () => {
@@ -38,5 +42,24 @@ describe('mesmoEmail', () => {
     expect(mesmoEmail('', '')).toBe(false);
     expect(mesmoEmail(undefined, undefined)).toBe(false);
     expect(mesmoEmail('  ', 'marcao@x.app')).toBe(false);
+  });
+});
+
+describe('enfeitesDoProfissional', () => {
+  // O `descricao` do schema é `String`, não `String?`. Mandar `undefined`
+  // estourava o Prisma e o dono via "Erro interno" ao cadastrar um barbeiro
+  // sem escrever descrição — que é o caso normal.
+  it('barbeiro sem descrição e sem foto vira texto vazio, não undefined', () => {
+    expect(enfeitesDoProfissional({})).toEqual({ descricao: '', imagemUrl: '' });
+    expect(enfeitesDoProfissional({ descricao: null, imagemUrl: null })).toEqual({
+      descricao: '',
+      imagemUrl: '',
+    });
+  });
+
+  it('o que o dono escreveu continua valendo', () => {
+    expect(
+      enfeitesDoProfissional({ descricao: 'Especialista em degradê', imagemUrl: 'foto.png' }),
+    ).toEqual({ descricao: 'Especialista em degradê', imagemUrl: 'foto.png' });
   });
 });

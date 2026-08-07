@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 /**
  * Resolve o subdomínio da barbearia.
  *
+ * O arquivo chamava `middleware.ts` até o Next 16, que renomeou a convenção
+ * para `proxy.ts`. É o mesmo código no mesmo lugar do ciclo — só o nome mudou.
+ *
  * `latita.barbeariabrutal.com/agendamento` passa a servir o mesmo conteúdo de
  * `/barbearia/latita/agendamento`, sem redirecionar — a pessoa nunca vê o
  * caminho interno.
@@ -55,7 +58,7 @@ const CAMINHOS_DO_SISTEMA = [
   '/sitemap.xml',
 ]
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const url = request.nextUrl
 
   if (CAMINHOS_DO_SISTEMA.some((c) => url.pathname.startsWith(c))) {

@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Atendente de WhatsApp (planos Profissional e Premium)\n\nO cliente escreve no WhatsApp da barbearia, a Evolution chama este fluxo, e um\nagente de IA conversa: consulta o cardápio, procura horário livre, marca,\nremarca e cancela — tudo pela API, que é quem manda nas regras.\n\n### O que trocar antes de ativar\n\n1. **Credencial `Token do bot` (Header Auth)** — Name `x-whatsapp-token`,\n   Value igual ao `WHATSAPP_BOT_TOKEN` do Render. Vincule nas seis\n   ferramentas do agente.\n2. **Credencial `Evolution apikey` (Header Auth)** — Name `apikey`, Value a\n   apikey da sua Evolution. Vincule no nó **Responder no WhatsApp**.\n3. **Credencial do modelo** — OpenAI (ou troque o nó por outro provedor).\n4. No nó **Onde ficam as coisas**, ajuste `evolutionUrl` para a sua Evolution.\n5. Na Evolution, aponte o webhook `messages.upsert` para a URL de produção\n   deste fluxo.\n\nNada de variável de ambiente: as *Variables* do n8n são recurso pago, e\ncredencial é melhor de qualquer jeito — o valor não viaja no JSON exportado\nnem vai para o repositório.\n\n### Por que foi reescrito\n\nA versão anterior era um roteador de `intent` por expressão regular, e estava\nmorta há tempo: os `\\b` do código viraram caractere de backspace ao entrar no\nJSON, então NENHUMA regra casava e toda mensagem caía no texto de ajuda.\nNinguém conseguia marcar, cancelar nem remarcar por aqui. Além disso ela\nlia o id do agendamento como \"o primeiro número da frase\" (\"remarcar para as\n15:00\" virava agendamento nº 15), tinha a data `2026-08-06` escrita à mão no\ncódigo, e dizia \"reagendado com sucesso\" sem olhar a resposta da API — quando\na API recusava, a execução morria e o cliente não recebia nada.\n\n### A recusa é metade do atendimento\n\nTodas as ferramentas estão em **continueRegularOutput**: quando a API recusa,\no texto da recusa volta PARA o agente em vez de derrubar a execução. É assim\nque \"esse horário de hoje já passou — agora são 17:00\" chega ao cliente em vez\nde silêncio.",
+        "content": "## Atendente de WhatsApp (planos Profissional e Premium)\n\nO cliente escreve no WhatsApp da barbearia, a Evolution chama este fluxo, e um\nagente de IA conversa: consulta o cardápio, procura horário livre, marca,\nremarca e cancela — tudo pela API, que é quem manda nas regras.\n\n### O que ligar antes de ativar (uma vez só)\n\n1. **Credencial `Header Auth`** — Name `x-whatsapp-token`, Value igual ao\n   `WHATSAPP_BOT_TOKEN` do Render. Ela vale para os três papéis: o porteiro do\n   webhook, as seis ferramentas e o envio da resposta.\n2. **Credencial do modelo** — Anthropic.\n3. No Render: `WHATSAPP_WEBHOOK_URL` apontando para a URL de produção deste\n   webhook, e `WHATSAPP_WEBHOOK_TOKEN` com o mesmo valor da credencial acima\n   (se ficar vazia, o backend usa o `WHATSAPP_BOT_TOKEN`).\n\nNada de URL nem de apikey da Evolution aqui dentro — o backend tem as duas.\n\n### Barbearia nova: nenhum passo neste fluxo\n\nO dono cadastra a instance dele e aperta o botão de conectar no painel. O\nbackend chama a Evolution e registra ESTE webhook com o header certo. Um fluxo\natende todas as barbearias: quem diz de quem é a conversa é a instance que a\nEvolution manda no corpo.\n\n### Por que não chegava mensagem\n\nO nó de envio apontava para `evolution.seudominio.com` — a URL de exemplo que\nnunca foi trocada — e usava um id de credencial de exemplo. O cliente escrevia,\no agente pensava, e a resposta ia para um host que não existe. Agora a resposta\nsai pelo backend, que já sabe URL, apikey e a instância da barbearia.\n\n### A recusa é metade do atendimento\n\nTodas as ferramentas estão em **continueRegularOutput**: quando a API recusa, o\ntexto da recusa volta PARA o agente em vez de derrubar a execução. É assim que\n\"esse horário de hoje já passou — agora são 17:00\" chega ao cliente em vez de\nsilêncio.",
         "height": 900,
         "width": 560
       },
@@ -64,15 +64,9 @@
               "type": "string"
             },
             {
-              "id": "evolution",
-              "name": "evolutionUrl",
-              "value": "https://evolution.seudominio.com",
-              "type": "string"
-            },
-            {
               "id": "agora",
               "name": "agoraEmBrasilia",
-              "value": "={{ $now.setZone('America/Sao_Paulo').toFormat(\"cccc, dd/LL/yyyy 'às' HH:mm\") }}",
+              "value": "={{ $now.setZone('America/Sao_Paulo').setLocale('pt-BR').toFormat(\"cccc, dd/LL/yyyy 'às' HH:mm\") }}",
               "type": "string"
             },
             {
@@ -134,19 +128,21 @@
         "promptType": "define",
         "text": "={{ $json.mensagem }}",
         "options": {
-          "systemMessage": "=Você é a pessoa que atende o WhatsApp de uma barbearia no Brasil. Não é um robô e não fala como um: fala como um atendente simpático, direto e sem frescura.\n\nCOMO FALAR\n- Português do Brasil, informal e educado. Frases curtas. Uma ideia por mensagem.\n- Nada de \"prezado cliente\", \"protocolo\", \"solicitação\" ou lista numerada de menu.\n- Nunca diga que é uma IA, um assistente virtual ou um bot. Se perguntarem, diga que é do atendimento da barbearia.\n- Nada de emoji em excesso: no máximo um, e só quando couber.\n- Se souber o nome da pessoa, use uma vez no começo, não em toda mensagem.\n- Nunca invente preço, horário, nome de barbeiro ou serviço. Tudo isso vem das ferramentas.\n\nO QUE VOCÊ SABE\n- Agora em Brasília: {{ $json.agoraEmBrasilia }}. Hoje é {{ $json.hoje }}.\n- Telefone de quem está falando: {{ $json.telefone }}\n- Nome no WhatsApp: {{ $json.nome }}\n- Instância desta barbearia (use em TODA ferramenta): {{ $json.instance }}\n\nCOMO USAR AS FERRAMENTAS\n- Toda ferramenta precisa do parâmetro `instance` com o valor acima.\n- Datas sempre no formato `AAAA-MM-DD HH:MM`, no horário de Brasília. Converta você mesmo \"amanhã\", \"sexta\", \"depois de amanhã\" a partir da data de hoje.\n- Antes de oferecer horário, consulte `horarios_livres`. Nunca chute. Se a pessoa pedir um horário específico, pode tentar direto — se a API recusar, ela te diz o porquê.\n- Antes de marcar, você precisa de: serviço, profissional e horário. Pergunte o que faltar, uma coisa por vez.\n- Para remarcar ou cancelar você precisa do id do agendamento. Se a pessoa não disser, chame `meus_agendamentos` e ofereça o que ela tem marcado.\n\nQUANDO A API RECUSA\n- A recusa vem em português, já pronta para o cliente ler. Repasse o sentido dela com suas palavras, sem inventar motivo diferente e sem esconder o problema.\n- Depois da recusa, ofereça o próximo passo: consulte `horarios_livres` e diga o que tem de verdade.\n- Se a recusa falar em plano, assinatura ou token, NÃO repasse: diga que teve um problema no sistema e que alguém da barbearia vai retornar.\n\nREGRAS QUE NÃO SE QUEBRAM\n- Nunca confirme um agendamento sem a ferramenta ter respondido com sucesso.\n- Nunca fale de agendamento de outra pessoa.\n- Se pedirem algo fora de agendamento (reclamação, negociação de preço, assunto pessoal), diga que vai passar para a barbearia e encerre com educação.\n\nResponda SEMPRE só com o texto da mensagem de WhatsApp — sem aspas em volta, sem markdown, sem assinatura."
+          "systemMessage": "=Você é a pessoa que atende o WhatsApp de uma barbearia no Brasil. Não é um robô e não fala como um: fala como um atendente simpático, direto e sem frescura.\n\nCOMO FALAR\n- Português do Brasil, informal e educado. Frases curtas. Uma ideia por mensagem.\n- Nada de \"prezado cliente\", \"protocolo\", \"solicitação\" ou lista numerada de menu.\n- Nunca diga que é uma IA, um assistente virtual ou um bot. Se perguntarem, diga que é do atendimento da barbearia.\n- Nada de emoji em excesso: no máximo um, e só quando couber.\n- Se souber o nome da pessoa, use uma vez no começo, não em toda mensagem.\n- Nunca invente preço, horário, nome de barbeiro ou serviço. Tudo isso vem das ferramentas.\n\nO QUE VOCÊ SABE\n- Agora em Brasília: {{ $json.agoraEmBrasilia }}. Hoje é {{ $json.hoje }}.\n- Telefone de quem está falando: {{ $json.telefone }}\n- Nome no WhatsApp: {{ $json.nome }}\n- Instância desta barbearia (use em TODA ferramenta): {{ $json.instance }}\n\nCOMO USAR AS FERRAMENTAS\n- Toda ferramenta precisa do parâmetro `instance` com o valor acima.\n- Datas sempre no formato `AAAA-MM-DD HH:MM`, no horário de Brasília. Converta você mesmo \"amanhã\", \"sexta\", \"depois de amanhã\" a partir da data de hoje.\n- Antes de oferecer horário, consulte `horarios_livres`. Nunca chute. Se a pessoa pedir um horário específico, pode tentar direto — se a API recusar, ela te diz o porquê.\n- Antes de marcar, você precisa de: serviço, profissional e horário. Pergunte o que faltar, uma coisa por vez.\n- Para remarcar ou cancelar você precisa do id do agendamento. Se a pessoa não disser, chame `meus_agendamentos` e ofereça o que ela tem marcado.\n\nQUANDO A API RECUSA\n- A recusa vem em português, já pronta para o cliente ler. Repasse o sentido dela com suas palavras, sem inventar motivo diferente e sem esconder o problema.\n- Depois da recusa, ofereça o próximo passo: consulte `horarios_livres` e diga o que tem de verdade.\n- Se a recusa falar em plano, assinatura ou token, NÃO repasse: diga que teve um problema no sistema e que alguém da barbearia vai retornar.\n\nREGRAS QUE NÃO SE QUEBRAM\n- Nunca confirme um agendamento sem a ferramenta ter respondido com sucesso.\n- Nunca fale de agendamento de outra pessoa.\n- Se pedirem algo fora de agendamento (reclamação, negociação de preço, assunto pessoal), diga que vai passar para a barbearia e encerre com educação.\n\nResponda SEMPRE só com o texto da mensagem de WhatsApp — sem aspas em volta, sem markdown, sem assinatura.",
+          "maxIterations": 12,
+          "enableStreaming": false
         }
       },
       "id": "b5016505-dba8-442b-a4e3-06d60c53a877",
       "name": "Atendente",
       "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 1.7,
+      "typeVersion": 3.1,
       "position": [
         10352,
         6880
       ],
       "onError": "continueRegularOutput",
-      "notes": "Em continueRegularOutput: se o modelo cair, o fluxo segue e o nó seguinte manda a mensagem de desculpa. Cliente sem resposta nenhuma é o pior desfecho."
+      "notes": "Em continueRegularOutput: se o modelo cair, o fluxo segue e o nó seguinte manda a mensagem de desculpa. Cliente sem resposta nenhuma é o pior desfecho.\n\nEstava na typeVersion 1.7, onde o campo `text` só vale para o agente de SQL — a mensagem do cliente não chegava ao modelo."
     },
     {
       "parameters": {
@@ -427,7 +423,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// A mensagem que vai sair, e a garantia de que ALGUMA coisa sai.\n//\n// Cliente que escreve e não recebe nada acha que a barbearia sumiu. Se o\n// agente falhou, ele responde a desculpa — e a execução fica vermelha na\n// lista, para alguém olhar.\nconst config = $('Onde ficam as coisas').item.json;\nconst doAgente = String($json.output ?? $json.text ?? '').trim();\n\nconst desculpa =\n  'Opa! Tive um problema aqui no sistema agora. Já avisei o pessoal da barbearia — me manda de novo em alguns minutos, por favor.';\n\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      evolutionUrl: config.evolutionUrl,\n      instance: config.instance,\n      numero,\n      texto: doAgente || desculpa,\n      deuCerto: !!doAgente,\n    },\n  },\n];"
+        "jsCode": "// A mensagem que vai sair, e a garantia de que ALGUMA coisa sai.\n//\n// Cliente que escreve e não recebe nada acha que a barbearia sumiu. Se o\n// agente falhou, ele responde a desculpa — e a execução fica vermelha na\n// lista, para alguém olhar.\nconst config = $('Onde ficam as coisas').item.json;\nconst doAgente = String($json.output ?? $json.text ?? '').trim();\n\nconst desculpa =\n  'Opa! Tive um problema aqui no sistema agora. Já avisei o pessoal da barbearia — me manda de novo em alguns minutos, por favor.';\n\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      instance: config.instance,\n      numero,\n      texto: doAgente || desculpa,\n      deuCerto: !!doAgente,\n    },\n  },\n];"
       },
       "id": "ae1099f5-a8db-4d45-89ff-8e46cd5a2f80",
       "name": "Montar a resposta",
@@ -440,7 +436,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Áudio, figurinha, documento: o atendente não lê. Dizer isso é melhor do\n// que ficar mudo e deixar a pessoa esperando.\nconst config = $('Onde ficam as coisas').item.json;\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      evolutionUrl: config.evolutionUrl,\n      instance: config.instance,\n      numero,\n      texto: config.semTexto\n        ? 'Consigo te atender por texto, por aqui mesmo. Me escreve o que você precisa?'\n        : 'Oi! Me diz como posso te ajudar — marcar, remarcar ou cancelar um horário?',\n      deuCerto: true,\n    },\n  },\n];"
+        "jsCode": "// Áudio, figurinha, documento: o atendente não lê. Dizer isso é melhor do\n// que ficar mudo e deixar a pessoa esperando.\nconst config = $('Onde ficam as coisas').item.json;\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      instance: config.instance,\n      numero,\n      texto: config.semTexto\n        ? 'Consigo te atender por texto, por aqui mesmo. Me escreve o que você precisa?'\n        : 'Oi! Me diz como posso te ajudar — marcar, remarcar ou cancelar um horário?',\n      deuCerto: true,\n    },\n  },\n];"
       },
       "id": "65ca38f0-e40c-4d4f-a74b-4978b5f54d92",
       "name": "Pedir por escrito",
@@ -454,12 +450,21 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.evolutionUrl }}/message/sendText/{{ $json.instance }}",
+        "url": "=https://barba-brutal-api.onrender.com/whatsapp/agenda/responder",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "instance",
+              "value": "={{ $json.instance }}"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $json.numero, text: $json.texto }) }}",
+        "jsonBody": "={{ JSON.stringify({ telefone: $json.numero, texto: $json.texto }) }}",
         "options": {}
       },
       "id": "3221f588-bc19-4e06-88c9-70dfa4469309",
@@ -472,11 +477,11 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "EVOLUTION_APIKEY_CREDENTIAL",
-          "name": "Evolution apikey"
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth account"
         }
       },
-      "notes": "A apikey vem de credencial. A versão anterior mandava aqui o token do bot do backend, que a Evolution não conhece — nenhuma resposta chegava ao cliente."
+      "notes": "Manda pelo backend, que já tem a URL e a apikey da Evolution e sabe a instância da barbearia. Antes falava direto com a Evolution: exigia mais configuração por instalação e foi onde quebrou — a URL tinha ficado no exemplo (evolution.seudominio.com) e a credencial num id de exemplo."
     },
     {
       "parameters": {

@@ -346,6 +346,7 @@ export class WhatsappService {
     }
   }
 
+
   /**
    * Dá para enviar? A instância pode vir da barbearia; a do ambiente é o
    * padrão de quem não tem número próprio.

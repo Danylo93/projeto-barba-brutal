@@ -1,5 +1,14 @@
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // O repositório tem package-lock.json na raiz E aqui. Sem esta linha o
+  // Turbopack (padrão no Next 16) elege a raiz do monorepo como base e vai
+  // rastrear arquivo que não é do frontend.
+  turbopack: {
+    root: dirname(fileURLToPath(import.meta.url)),
+  },
   env: {
     NEXT_PUBLIC_URL_BASE: process.env.NEXT_PUBLIC_URL_BASE || 'https://barba-brutal-api.onrender.com',
     BACKEND_URL: process.env.BACKEND_URL || 'https://barba-brutal-api.onrender.com',
