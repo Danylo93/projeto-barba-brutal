@@ -33,7 +33,15 @@ function requisicao(token?: string) {
 }
 
 // Segredo falso só para os testes; o real vem de JWT_SECRET no ar.
-const assinar = (payload: any) => jwt.sign(payload, SEGREDO); // nosemgrep: segredo de teste
+//
+// A linha de supressão abaixo leva o ID DA REGRA, não uma justificativa: tudo
+// que vem depois dos dois-pontos é lido como lista de ids. Antes havia ali uma
+// frase em português, e o Semgrep saiu procurando regras com o nome de cada
+// palavra dela — não achou nenhuma, a supressão não valeu, e o CI ficou
+// vermelho por dias com um comentário que qualquer humano leria como
+// resolvido. O porquê mora aqui em cima; lá embaixo, só o id.
+// nosemgrep: javascript.jsonwebtoken.security.jwt-hardcode.hardcoded-jwt-secret
+const assinar = (payload: any) => jwt.sign(payload, SEGREDO);
 
 let avancou: boolean;
 const next = () => {
@@ -111,7 +119,8 @@ describe('UsuarioMiddleware', () => {
   it('token assinado com outro segredo é recusado', async () => {
     const mw = new UsuarioMiddleware(fakeRepo(contas) as any);
     // Outro segredo falsificado de propósito, para provar a recusa.
-    const req = requisicao(jwt.sign({ id: 2, tenantId: 1, tipo: 'usuario' }, 'outro-segredo')); // nosemgrep: segredo de teste
+    // nosemgrep: javascript.jsonwebtoken.security.jwt-hardcode.hardcoded-jwt-secret
+    const req = requisicao(jwt.sign({ id: 2, tenantId: 1, tipo: 'usuario' }, 'outro-segredo'));
 
     await expect(mw.use(req, {} as any, next)).rejects.toMatchObject({ status: 401 });
   });
