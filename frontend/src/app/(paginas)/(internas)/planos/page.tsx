@@ -109,8 +109,8 @@ export default function PlanosPage() {
       setResultadoTroca({ tipoAlteracao, valorProporcional })
 
       if (tipoAlteracao === 'trial') {
-        setSucesso(`Teste de 30 dias do plano ${plano.nome} ativado!`)
-        toastSuccess('Plano ativado', `Teste de 30 dias do plano ${plano.nome} ativado!`)
+        setSucesso(`Teste de 30 dias com acesso Premium ativado! Plano escolhido para depois: ${plano.nome}.`)
+        toastSuccess('Acesso Premium liberado', `Seu teste de 30 dias começou. Plano escolhido para depois: ${plano.nome}.`)
       } else if (tipoAlteracao === 'upgrade') {
         const extra = valorProporcional > 0 ? ` Diferença proporcional: R$ ${valorProporcional.toFixed(2).replace('.', ',')}.` : ''
         setSucesso(`Upgrade para ${plano.nome} solicitado.${extra}`)

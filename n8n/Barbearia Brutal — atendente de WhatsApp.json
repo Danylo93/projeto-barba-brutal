@@ -301,7 +301,7 @@
       ],
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Cria a conta de quem está falando pelo WhatsApp. Só use depois de obter nome completo, e-mail e uma aceitação EXPLÍCITA dos Termos e da Política de Privacidade. Nunca peça senha: o cliente recebe por e-mail um link seguro para criá-la.",
+        "toolDescription": "Cria a conta de quem está falando pelo WhatsApp. Só use depois de obter nome completo, e-mail e uma aceitação EXPLÍCITA dos Termos e da Política de Privacidade. Pergunte separadamente se a pessoa autoriza lembretes opcionais para refazer serviços pelo WhatsApp; recusar não impede o cadastro. Nunca peça senha: o cliente recebe por e-mail um link seguro para criá-la.",
         "method": "POST",
         "url": "https://barba-brutal-api.onrender.com/whatsapp/agenda/clientes/cadastrar",
         "authentication": "genericCredentialType",
@@ -336,6 +336,10 @@
             {
               "name": "aceitouTermos",
               "value": "={{ $fromAI('aceitouTermos', 'true somente depois de a pessoa aceitar explicitamente os Termos e a Política de Privacidade', 'boolean') }}"
+            },
+            {
+              "name": "aceitouLembretes",
+              "value": "={{ $fromAI('aceitouLembretes', 'true se a pessoa autorizou explicitamente lembretes opcionais de retorno; false se recusou. Pergunte antes, mas a recusa não impede o cadastro', 'boolean') }}"
             }
           ]
         },

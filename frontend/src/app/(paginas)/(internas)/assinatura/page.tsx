@@ -22,6 +22,7 @@ import useTrialStatus from '@/hooks/useTrialStatus'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useToast } from '@/hooks/use-toast'
 import UpgradeCallout from '@/components/painel/UpgradeCallout'
+import { chaveDoPlano } from '@/hooks/usePlanoAssinatura'
 
 interface Assinatura {
   id: number
@@ -219,7 +220,7 @@ export default function AssinaturaPage() {
           </motion.div>
         )}
 
-        {assinatura && assinatura.plano?.nome === 'Básico' && (
+        {assinatura && ['basico', 'gratuito'].includes(chaveDoPlano(assinatura.plano?.nome)) && (
           <div className="mb-6">
             <UpgradeCallout
               titulo="Seu plano atual é Básico"

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Save, AlertCircle, Loader2, Copy, Palette } from 'lucide-react'
+import { Settings, Save, AlertCircle, BellRing, Loader2, Copy, Palette } from 'lucide-react'
 import { motion } from 'framer-motion'
 import useSessao from '@/data/hooks/useSessao'
 import useAPI from '@/data/hooks/useAPI'
@@ -51,6 +51,9 @@ export default function ConfiguracoesPage() {
     const [horarios, setHorarios] = useState<DiaHorario[]>(horariosPadrao())
     const [corPrimaria, setCorPrimaria] = useState('#09090b')
     const [corSecundaria, setCorSecundaria] = useState('#f59e0b')
+    const [configuracoesExistentes, setConfiguracoesExistentes] = useState<Record<string, unknown>>({})
+    const [lembreteRetornoAtivo, setLembreteRetornoAtivo] = useState(false)
+    const [diasLembreteRetorno, setDiasLembreteRetorno] = useState<15 | 20 | 30 | 40>(30)
     
     // Integrações
     const [webhookUrl, setWebhookUrl] = useState('')
@@ -66,11 +69,23 @@ export default function ConfiguracoesPage() {
         try {
             setLoading(true)
             const response = await httpGet('tenants/me')
-            const conf = response?.configuracoes
+            const conf =
+                response?.configuracoes && typeof response.configuracoes === 'object'
+                    ? response.configuracoes
+                    : {}
+            setConfiguracoesExistentes(conf)
             if (response?.corPrimaria) setCorPrimaria(response.corPrimaria)
             if (response?.corSecundaria) setCorSecundaria(response.corSecundaria)
             if (conf?.webhookUrl) setWebhookUrl(conf.webhookUrl)
             if (conf?.evolutionToken) setEvolutionToken(conf.evolutionToken)
+            const retorno = conf?.lembreteRetorno
+            const diasRetorno = Number(retorno?.dias)
+            setLembreteRetornoAtivo(retorno?.ativo === true)
+            setDiasLembreteRetorno(
+                [15, 20, 30, 40].includes(diasRetorno)
+                    ? (diasRetorno as 15 | 20 | 30 | 40)
+                    : 30,
+            )
             // Deriva o horário de cada dia (aceita formato novo e o antigo).
             setHorarios(DIAS_SEMANA.map((d) => horarioDoDia(conf, d.id)))
         } catch (err) {
@@ -114,9 +129,14 @@ export default function ConfiguracoesPage() {
 
             const diasAbertos = horarios.filter((h) => h.aberto).map((h) => h.dia)
             const configuracoes = {
+                ...configuracoesExistentes,
                 horarios,
                 webhookUrl,
                 evolutionToken,
+                lembreteRetorno: {
+                    ativo: lembreteRetornoAtivo,
+                    dias: diasLembreteRetorno,
+                },
                 // Mantém as chaves antigas por compatibilidade com leitores legados.
                 diasAbertos,
                 horaAbertura: (horarios.find((h) => h.aberto) ?? horarios[1]).abertura,
@@ -130,6 +150,7 @@ export default function ConfiguracoesPage() {
             }
 
             setSucesso(true)
+            setConfiguracoesExistentes(configuracoes)
             setWhatsappRefreshKey((valor) => valor + 1)
             toastSuccess('Configurações salvas', 'As configurações da barbearia foram atualizadas.')
             setTimeout(() => setSucesso(false), 3000)
@@ -166,7 +187,7 @@ export default function ConfiguracoesPage() {
                     >
                         Geral
                     </button>
-                    {plano.isBasico ? (
+                    {!plano.isProfissional ? (
                         <button
                             type="button"
                             onClick={() => setAbaAtual('geral')}
@@ -296,6 +317,71 @@ export default function ConfiguracoesPage() {
                     </div>
                 </motion.div>
 
+                {/* Automação de retorno — disponível em todos os planos. */}
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.08 }}
+                    className="rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.04] p-6 sm:p-8"
+                >
+                    <div className="mb-6 flex items-start justify-between gap-4 border-b border-zinc-800/80 pb-6">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10">
+                                <BellRing size={20} className="text-emerald-300" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold tracking-tight text-white">
+                                    Lembrete automático de retorno
+                                </h2>
+                                <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+                                    Lembra o cliente de refazer um serviço depois do período escolhido.
+                                    Só entra quem realmente teve o atendimento concluído.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={lembreteRetornoAtivo}
+                            onClick={() => setLembreteRetornoAtivo((valor) => !valor)}
+                            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                                lembreteRetornoAtivo ? 'bg-emerald-400' : 'bg-zinc-700'
+                            }`}
+                        >
+                            <span
+                                className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${
+                                    lembreteRetornoAtivo ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
+                        </button>
+                    </div>
+
+                    <p className="mb-3 text-sm font-semibold text-zinc-200">
+                        Depois de quantos dias lembrar?
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        {([15, 20, 30, 40] as const).map((dias) => (
+                            <button
+                                key={dias}
+                                type="button"
+                                onClick={() => setDiasLembreteRetorno(dias)}
+                                className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${
+                                    diasLembreteRetorno === dias
+                                        ? 'border-emerald-400 bg-emerald-400/15 text-emerald-300'
+                                        : 'border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:border-zinc-600 hover:text-white'
+                                }`}
+                            >
+                                {dias} dias
+                            </button>
+                        ))}
+                    </div>
+                    <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 text-xs leading-relaxed text-zinc-500">
+                        O sistema não envia se o cliente já refez ou já marcou o mesmo serviço.
+                        Serviços vencidos juntos são agrupados em uma mensagem. O envio respeita a
+                        autorização de comunicação do cliente e utiliza o WhatsApp da barbearia.
+                    </div>
+                </motion.div>
+
                 {/* --- SEÇÃO DE IDENTIDADE VISUAL --- */}
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -350,7 +436,7 @@ export default function ConfiguracoesPage() {
                 </div>
                 )}
 
-                {abaAtual === 'integracoes' && !plano.isBasico && (
+                {abaAtual === 'integracoes' && plano.isProfissional && (
                     <div className="flex flex-col gap-8 animate-slide-up">
                         <WhatsappConnectionCard refreshKey={whatsappRefreshKey} />
 
@@ -393,11 +479,23 @@ export default function ConfiguracoesPage() {
                     </div>
                 )}
 
-                {plano.isBasico && (
+                {!plano.carregando && !plano.isProfissional && (
                     <div className="mt-8">
                         <UpgradeCallout
-                            titulo="Integrações bloqueadas no Básico"
-                            descricao="WhatsApp, n8n, webhook e instance da Evolution ficam liberados a partir do plano Profissional. No Premium você continua com tudo e ainda destrava os recursos avançados."
+                            titulo={
+                                plano.erro
+                                    ? 'Não foi possível confirmar seu plano'
+                                    : !plano.ativo
+                                      ? 'Sua assinatura não está ativa'
+                                      : 'Integrações bloqueadas no Básico'
+                            }
+                            descricao={
+                                plano.erro
+                                    ? 'Atualize a página ou confira sua assinatura antes de acessar as integrações.'
+                                    : !plano.ativo
+                                      ? 'Regularize sua assinatura para voltar a usar as integrações.'
+                                      : 'WhatsApp, n8n, webhook e instance da Evolution ficam liberados a partir do plano Profissional. No Premium você continua com tudo e ainda destrava os recursos avançados.'
+                            }
                             ctaPrincipal="Ver planos"
                             ctaSecundario="Abrir assinatura"
                         />

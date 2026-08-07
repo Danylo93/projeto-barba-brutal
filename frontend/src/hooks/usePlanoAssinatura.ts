@@ -17,6 +17,19 @@ export interface PlanoAssinatura {
   isPremium: boolean
   emTeste: boolean
   planoId: number | null
+  erro: boolean
+  status: string | null
+  dataFim: string | null
+  expirado: boolean
+  bloqueado: boolean
+}
+
+export function chaveDoPlano(nome: unknown) {
+  return String(nome ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
 }
 
 export default function usePlanoAssinatura(): PlanoAssinatura {
@@ -24,6 +37,13 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
   const { httpGet } = useAPI()
   const [carregando, setCarregando] = useState(true)
   const [assinatura, setAssinatura] = useState<any>(null)
+  const [erro, setErro] = useState(false)
+  const [agora, setAgora] = useState(() => Date.now())
+
+  useEffect(() => {
+    const relogio = window.setInterval(() => setAgora(Date.now()), 60_000)
+    return () => window.clearInterval(relogio)
+  }, [])
 
   useEffect(() => {
     let ativo = true
@@ -35,10 +55,18 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
       }
 
       try {
+        if (ativo) setErro(false)
         const data = await httpGet('tenants/me')
-        if (ativo) setAssinatura(data?.assinatura ?? null)
+        if (ativo) {
+          const recebida = data?.assinatura ?? null
+          setAssinatura(recebida)
+          setErro(!recebida?.plano?.nome)
+        }
       } catch {
-        if (ativo) setAssinatura(null)
+        if (ativo) {
+          setAssinatura(null)
+          setErro(true)
+        }
       } finally {
         if (ativo) setCarregando(false)
       }
@@ -51,21 +79,42 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
     }
   }, [httpGet, usuario?.tenantId, usuario?.tipo])
 
-  const nome = assinatura?.plano?.nome ?? 'Básico'
+  const nomeContratado = String(
+    assinatura?.plano?.nome ?? (carregando ? 'Carregando...' : 'Indisponível'),
+  ).trim()
+  const status = assinatura?.status ? String(assinatura.status) : null
+  const dataFim = assinatura?.dataFim ? String(assinatura.dataFim) : null
+  const dataFimMs = dataFim ? new Date(dataFim).getTime() : Number.NaN
+  const expirado = Number.isFinite(dataFimMs) && dataFimMs <= agora
+  const emTeste = status === 'trialing' && !expirado
+  const nome = emTeste ? 'Premium' : nomeContratado
+  const chave = chaveDoPlano(nome)
+  const statusAtivo = ['active', 'trialing'].includes(status ?? '')
+  const planoDisponivel = emTeste || assinatura?.plano?.ativo !== false
+  const assinaturaAtiva = statusAtivo && !expirado && planoDisponivel
+  const ehTenant = usuario?.tipo === 'tenant' && !!usuario?.tenantId
+  const bloqueado = ehTenant && !!assinatura && !erro && !assinaturaAtiva
 
   return useMemo(
     () => ({
       id: assinatura?.id ?? null,
       nome,
-      descricao: assinatura?.plano?.descricao ?? null,
-      ativo: assinatura?.status === 'active',
+      descricao: emTeste
+        ? 'Acesso Premium liberado durante os 30 dias de teste grátis.'
+        : assinatura?.plano?.descricao ?? null,
+      ativo: assinaturaAtiva,
       carregando,
-      isBasico: nome === 'Básico' || nome === 'Gratuito',
-      isProfissional: nome === 'Profissional' || nome === 'Premium',
-      isPremium: nome === 'Premium',
-      emTeste: assinatura?.status === 'trialing',
+      isBasico: assinaturaAtiva && (chave === 'basico' || chave === 'gratuito'),
+      isProfissional: assinaturaAtiva && (chave === 'profissional' || chave === 'premium'),
+      isPremium: assinaturaAtiva && chave === 'premium',
+      emTeste,
       planoId: assinatura?.planoId ?? null,
+      erro,
+      status,
+      dataFim,
+      expirado,
+      bloqueado,
     }),
-    [assinatura, carregando, nome],
+    [assinatura, assinaturaAtiva, bloqueado, carregando, chave, dataFim, emTeste, erro, expirado, nome, status],
   )
 }

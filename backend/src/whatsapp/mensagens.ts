@@ -109,6 +109,30 @@ export function mensagemLembreteBarbeiro(a: DadosDoAviso): string {
   ].join('\n');
 }
 
+/**
+ * Convite de retorno depois de um serviço realmente concluído.
+ *
+ * Não promete desconto nem horário e não finge ser lembrete do agendamento.
+ * O texto identifica o serviço que originou o contato e mostra como revogar
+ * este tipo de comunicação.
+ */
+export function mensagemLembreteRetorno(dados: {
+  cliente: string;
+  barbearia: string;
+  servicos: string;
+  dias: number;
+}): string {
+  return [
+    `✂️ *Está na hora de cuidar do visual?*`,
+    ``,
+    `Olá, ${dados.cliente}! Já faz ${dados.dias} dias desde seu último atendimento de *${dados.servicos}* na *${dados.barbearia}*.`,
+    ``,
+    `Quando quiser refazer o serviço, é só chamar por aqui para consultar os horários.`,
+    ``,
+    `Você pode desativar estes lembretes a qualquer momento em *Meus dados* no aplicativo.`,
+  ].join('\n');
+}
+
 const dia = (d: Date) =>
   d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
@@ -129,11 +153,12 @@ export function mensagemPlanoContratado(dados: {
     return [
       `Fechado, ${nomeBarbearia}! 💈`,
       ``,
-      `Plano: *${nomePlano}*`,
+      `Plano escolhido para depois do teste: *${nomePlano}*`,
+      `Acesso durante o teste: *Premium*`,
       `Valor: ${dinheiro(preco)}/mês`,
       `Teste grátis até *${dia(fimDoTeste)}* — sem cartão, sem cobrança.`,
       ``,
-      `Enquanto isso o sistema está liberado por inteiro. O melhor primeiro passo é cadastrar seus serviços e sua equipe: aí sua agenda já começa a receber cliente.`,
+      `Durante os 30 dias, todos os recursos Premium ficam liberados. O melhor primeiro passo é cadastrar seus serviços e sua equipe: aí sua agenda já começa a receber cliente.`,
       ``,
       `Qualquer dúvida, é só responder aqui.`,
     ].join('\n');
@@ -147,5 +172,40 @@ export function mensagemPlanoContratado(dados: {
     `Válido até *${dia(fimDoTeste)}*`,
     ``,
     `Obrigado por continuar com a gente.`,
+  ].join('\n');
+}
+
+export type TipoAvisoAssinatura = 'vence_amanha' | 'expirou';
+
+/** Aviso operacional do SaaS para o dono da barbearia. */
+export function mensagemAvisoAssinatura(dados: {
+  nomeBarbearia: string;
+  nomePlano: string;
+  dataFim: Date;
+  emTeste: boolean;
+  tipo: TipoAvisoAssinatura;
+  urlPlanos: string;
+}): string {
+  const { nomeBarbearia, nomePlano, dataFim, emTeste, tipo, urlPlanos } = dados;
+  const origem = emTeste ? 'Seu teste grátis com acesso Premium' : `Seu plano ${nomePlano}`;
+
+  if (tipo === 'vence_amanha') {
+    return [
+      `⏰ *${origem} vence amanhã*`,
+      ``,
+      `Olá, ${nomeBarbearia}! A validade termina em *${dia(dataFim)}*.` ,
+      `Escolha ou confirme um plano para não interromper sua agenda e suas ferramentas.`,
+      ``,
+      urlPlanos,
+    ].join('\n');
+  }
+
+  return [
+    `🔒 *${origem} expirou*`,
+    ``,
+    `Olá, ${nomeBarbearia}! A validade terminou em *${dia(dataFim)}* e o painel foi pausado. Seus dados continuam guardados.`,
+    ``,
+    `Escolha um plano para liberar o acesso novamente:`,
+    urlPlanos,
   ].join('\n');
 }

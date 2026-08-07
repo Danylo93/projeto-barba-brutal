@@ -28,6 +28,7 @@ function LoginContent() {
     const [email, setEmail] = useState('')
     const [senha, setSenha] = useState('')
     const [aceitoTermos, setAceitoTermos] = useState(false)
+    const [aceitoLembretes, setAceitoLembretes] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [fieldErrors, setFieldErrors] = useState<{ email?: string; telefone?: string }>({})
@@ -178,7 +179,7 @@ function LoginContent() {
             throw new Error(data.message || 'Não foi possível criar a conta')
         }
         // Prova do aceite, exigida pela LGPD (art. 8º, §1º).
-        await registrarAceiteDeTermos(data.access_token, tenantId)
+        await registrarAceiteDeTermos(data.access_token, tenantId, aceitoLembretes)
         criarSessao(data.access_token)
         irPara('/agendamento', true)
     }
@@ -319,25 +320,38 @@ function LoginContent() {
                 )}
 
                 {modo === 'cadastrar' && (
-                    <label className="flex select-none items-start gap-2 text-sm text-zinc-400">
-                        <input
-                            type="checkbox"
-                            checked={aceitoTermos}
-                            onChange={(e) => setAceitoTermos(e.target.checked)}
-                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-600 bg-zinc-900 accent-yellow-400"
-                        />
-                        <span>
-                            Li e aceito os{' '}
-                            <Link href="/terms" target="_blank" className="text-yellow-400 hover:text-yellow-300">
-                                termos de uso
-                            </Link>{' '}
-                            e a{' '}
-                            <Link href="/privacy" target="_blank" className="text-yellow-400 hover:text-yellow-300">
-                                política de privacidade
-                            </Link>
-                            , e concordo em receber mensagens sobre os meus agendamentos.
-                        </span>
-                    </label>
+                    <div className="flex flex-col gap-3">
+                        <label className="flex select-none items-start gap-2 text-sm text-zinc-400">
+                            <input
+                                type="checkbox"
+                                checked={aceitoTermos}
+                                onChange={(e) => setAceitoTermos(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-600 bg-zinc-900 accent-yellow-400"
+                            />
+                            <span>
+                                Li e aceito os{' '}
+                                <Link href="/terms" target="_blank" className="text-yellow-400 hover:text-yellow-300">
+                                    termos de uso
+                                </Link>{' '}
+                                e a{' '}
+                                <Link href="/privacy" target="_blank" className="text-yellow-400 hover:text-yellow-300">
+                                    política de privacidade
+                                </Link>
+                                , e concordo em receber mensagens sobre os meus agendamentos.
+                            </span>
+                        </label>
+                        <label className="flex select-none items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-sm text-zinc-400">
+                            <input
+                                type="checkbox"
+                                checked={aceitoLembretes}
+                                onChange={(e) => setAceitoLembretes(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-600 bg-zinc-900 accent-yellow-400"
+                            />
+                            <span>
+                                Quero receber no WhatsApp lembretes opcionais para refazer os serviços que concluí. Posso cancelar quando quiser em Meus dados.
+                            </span>
+                        </label>
+                    </div>
                 )}
 
                 <button

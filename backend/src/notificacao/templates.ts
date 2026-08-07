@@ -155,7 +155,7 @@ export function emailPlanoContratado(dados: {
   const linhas = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;border:1px solid #3f3f46;border-radius:12px;">
       <tr><td style="padding:14px 16px;border-bottom:1px solid #3f3f46;">
-        <span style="color:${APAGADO};font-size:13px;">Plano</span><br>
+        <span style="color:${APAGADO};font-size:13px;">${emTeste ? 'Plano escolhido para depois do teste' : 'Plano'}</span><br>
         <strong style="font-size:16px;">${esc(nomePlano)}</strong>
       </td></tr>
       <tr><td style="padding:14px 16px;border-bottom:1px solid #3f3f46;">
@@ -170,10 +170,10 @@ export function emailPlanoContratado(dados: {
 
   if (emTeste) {
     return {
-      assunto: `Teste liberado — plano ${nomePlano}`,
+      assunto: 'Teste liberado — acesso Premium por 30 dias',
       html: moldura(
         `<p style="margin:0 0 14px;">Fechado, <strong>${esc(nomeBarbearia)}</strong>! 💈</p>
-         <p style="margin:0;">Seu teste está valendo e o sistema está liberado por inteiro — sem cartão, sem cobrança até lá.</p>
+         <p style="margin:0;">Seu teste está valendo com <strong>acesso Premium</strong> por 30 dias — sem cartão, sem cobrança até lá.</p>
          ${linhas}
          <p style="margin:0 0 4px;"><strong>O melhor primeiro passo:</strong></p>
          <p style="margin:0 0 14px;color:${APAGADO};">
@@ -185,11 +185,12 @@ export function emailPlanoContratado(dados: {
       texto: [
         `Fechado, ${nomeBarbearia}!`,
         '',
-        `Plano: ${nomePlano}`,
+        `Plano escolhido para depois do teste: ${nomePlano}`,
+        'Acesso durante o teste: Premium',
         `Valor: ${dinheiro(preco)}/mês`,
         `Teste grátis até ${dia(validoAte)} — sem cartão, sem cobrança.`,
         '',
-        'O sistema está liberado por inteiro. O melhor primeiro passo é cadastrar seus serviços e sua equipe.',
+        'Todos os recursos Premium estão liberados. O melhor primeiro passo é cadastrar seus serviços e sua equipe.',
         urlPainel,
       ].join('\n'),
     };
@@ -212,6 +213,47 @@ export function emailPlanoContratado(dados: {
       `Válido até ${dia(validoAte)}`,
       '',
       urlPainel,
+    ].join('\n'),
+  };
+}
+
+export function emailAvisoAssinatura(dados: {
+  nomeBarbearia: string;
+  nomePlano: string;
+  validoAte: Date;
+  emTeste: boolean;
+  tipo: 'vence_amanha' | 'expirou';
+  urlPlanos: string;
+}): Email {
+  const { nomeBarbearia, nomePlano, validoAte, emTeste, tipo, urlPlanos } = dados;
+  const origem = emTeste ? 'teste grátis com acesso Premium' : `plano ${nomePlano}`;
+  const expirou = tipo === 'expirou';
+  const assunto = expirou
+    ? `Seu ${origem} expirou`
+    : `Seu ${origem} vence amanhã`;
+
+  const explicacao = expirou
+    ? `A validade terminou em <strong style="color:${AMARELO};">${dia(validoAte)}</strong> e o painel foi pausado. Seus dados continuam guardados.`
+    : `A validade termina em <strong style="color:${AMARELO};">${dia(validoAte)}</strong>. Escolha ou confirme um plano para não interromper sua agenda e suas ferramentas.`;
+
+  return {
+    assunto,
+    html: moldura(
+      `<p style="margin:0 0 14px;">Olá, <strong>${esc(nomeBarbearia)}</strong>.</p>
+       <p style="margin:0 0 14px;">Seu ${esc(origem)} ${expirou ? 'expirou' : 'vence amanhã'}.</p>
+       <p style="margin:0;color:${APAGADO};">${explicacao}</p>
+       ${botao(expirou ? 'Reativar meu acesso' : 'Escolher meu plano', urlPlanos)}`,
+      'Precisa de ajuda para escolher? Responda este e-mail.',
+    ),
+    texto: [
+      `Olá, ${nomeBarbearia}.`,
+      '',
+      `Seu ${origem} ${expirou ? 'expirou' : 'vence amanhã'}.`,
+      expirou
+        ? `A validade terminou em ${dia(validoAte)} e o painel foi pausado. Seus dados continuam guardados.`
+        : `A validade termina em ${dia(validoAte)}. Escolha ou confirme um plano para não interromper seu acesso.`,
+      '',
+      urlPlanos,
     ].join('\n'),
   };
 }

@@ -1,17 +1,19 @@
 # WhatsApp (n8n + Evolution API)
 
-Três fluxos, um trabalho cada:
+Cinco fluxos, um trabalho cada:
 
 | Arquivo | O que faz | Quando roda |
 |---|---|---|
 | `barbabrutal1confirmacaoagendamento.json` | Ao **criar** um agendamento, avisa cliente e barbeiro | a cada 1 min |
 | `barbabrutal2lembrete1h.json` | **1 hora antes** do horário, lembra cliente e barbeiro | a cada 5 min |
+| `barbabrutal3lembrete-retorno.json` | Lembra o cliente de **refazer um serviço concluído** | todo dia às 10h |
+| `barbabrutal4avisos-plano.json` | Avisa a barbearia **1 dia antes e quando o plano expira**, por WhatsApp e e-mail | a cada hora |
 | `Barbearia Brutal — atendente de WhatsApp.json` | **Atende** o cliente: marca, remarca e cancela pela conversa | a cada mensagem |
 
-Os dois primeiros falam; o terceiro conversa. Este README cobre os três, e o
+Os quatro primeiros falam; o quinto conversa. Este README cobre os cinco, e o
 atendente tem uma seção própria mais abaixo.
 
-Os dois têm dois nós de trabalho: um relógio e uma chamada HTTP. **Quem busca,
+Os quatro automáticos têm dois nós de trabalho: um relógio e uma chamada HTTP. **Quem busca,
 monta a mensagem, envia pela Evolution e marca o que saiu é o backend.**
 
 ---
@@ -108,12 +110,12 @@ qualquer jeito: o valor não viaja no JSON exportado nem vai para o repositório
 
 ## Importar e ativar
 
-1. n8n → **Workflows** → **Import from File** → selecione os dois `.json`.
+1. n8n → **Workflows** → **Import from File** → selecione os quatro fluxos automáticos `.json`.
 2. Vincule a credencial **Token do lembrete** (Header Auth). Não há credencial
    de Postgres nem de Redis.
 3. Teste manual no nó de disparo: deve responder um resumo como
    `{ "tipo": "lembrete", "enviados": 0, "falhas": 0, "marcados": 0, "pendentes": 0, "semTelefone": [] }`.
-4. **Ative** os dois.
+4. **Ative** os quatro.
 
 > Se você tinha a versão anterior importada, **desative os fluxos antigos**
 > antes de ativar estes. Os dois rodando juntos mandam a mensagem em dobro.
@@ -162,6 +164,8 @@ só; sem ele, vale para todas.
 |---|---|
 | `POST /lembretes/disparar` | busca, envia e marca os lembretes. `?minutosAntes=60&janelaMin=5&limite=60` |
 | `POST /lembretes/confirmacoes/disparar` | o mesmo, para as confirmações |
+| `POST /lembretes/retorno/disparar` | processa os retornos configurados em 15, 20, 30 ou 40 dias; disponível em todos os planos |
+| `POST /assinaturas/avisos-expiracao/disparar` | envia por WhatsApp e e-mail o aviso da véspera e o da expiração; cada canal tem deduplicação própria |
 | `GET /lembretes/proximos` | só lê: pendentes de lembrete, com as mensagens já montadas |
 | `GET /lembretes/confirmacoes` | só lê: pendentes de confirmação |
 | `POST /lembretes/enviados` | marca ids de lembrete (`{ "ids": [1,2] }`) |

@@ -9,6 +9,11 @@ import {
   problemaAntesDeNormalizar,
   problemaDoSlug,
 } from './slug';
+import {
+  configuracaoDeRetorno,
+  configuracaoDeRetornoValida,
+} from '../lembrete/retorno';
+import { testeGratisVigente } from '../assinatura/teste-gratis';
 
 @Injectable()
 export class TenantService {
@@ -62,6 +67,12 @@ export class TenantService {
         },
       },
     });
+    if (tenant?.assinatura && testeGratisVigente(tenant.assinatura)) {
+      const premium = await this.prisma.plano.findFirst({
+        where: { nome: 'Premium', ativo: true },
+      });
+      if (premium) tenant.assinatura.plano = premium;
+    }
     if (tenant) {
       delete (tenant as any).senha; // nunca expor o hash da senha
       delete (tenant as any).apiKey; // a chave só aparece na tela que a gera
@@ -517,6 +528,15 @@ export class TenantService {
     comoAdmin: boolean,
   ): Promise<any> {
     const conf = { ...configuracoes };
+
+    if ('lembreteRetorno' in conf) {
+      if (!configuracaoDeRetornoValida(conf.lembreteRetorno)) {
+        throw new BadRequestException(
+          'O lembrete de retorno aceita somente 15, 20, 30 ou 40 dias.',
+        );
+      }
+      conf.lembreteRetorno = configuracaoDeRetorno(conf);
+    }
 
     if (!comoAdmin) {
       const guardada = await this.instanceGuardada(id);

@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
-import { mensagemPlanoContratado } from '../whatsapp/mensagens';
+import {
+  mensagemAvisoAssinatura,
+  mensagemPlanoContratado,
+  TipoAvisoAssinatura,
+} from '../whatsapp/mensagens';
 import { NotificacaoService } from '../notificacao/notificacao.service';
-import { emailPlanoContratado } from '../notificacao/templates';
+import { emailAvisoAssinatura, emailPlanoContratado } from '../notificacao/templates';
 import {
   corpoDaAssinatura,
   corpoDoPlano,
@@ -13,10 +17,12 @@ import {
   traduzirStatus,
 } from './mercadopago-assinatura';
 import { dominioDaOpcao } from './dominio';
+import { DIAS_TESTE_GRATIS } from './teste-gratis';
 
 @Injectable()
 export class AssinaturaService {
   private readonly logger = new Logger(AssinaturaService.name);
+  private avisosEmAndamento = false;
 
   constructor(
     private prisma: PrismaService,
@@ -97,7 +103,7 @@ export class AssinaturaService {
     // Sem assinatura vigente e sem teste gasto → inicia teste de 30 dias.
     if (!emVigor && !jaUsouTeste) {
       const dataFim = new Date();
-      dataFim.setDate(dataFim.getDate() + 30);
+      dataFim.setDate(dataFim.getDate() + DIAS_TESTE_GRATIS);
       const criada = await this.prisma.assinatura.upsert({
         where: { tenantId },
         create: {
@@ -116,6 +122,7 @@ export class AssinaturaService {
           dataInicio: agora,
           dataFim,
           renovacaoAutomatica: true,
+          ...this.zerarAvisosDeValidade(),
         },
         include: { plano: true },
       });
@@ -224,6 +231,178 @@ export class AssinaturaService {
     }
 
     await Promise.all(envios);
+  }
+
+  private zerarAvisosDeValidade() {
+    return {
+      avisoVencimentoWhatsappEm: null,
+      avisoVencimentoEmailEm: null,
+      avisoExpiracaoWhatsappEm: null,
+      avisoExpiracaoEmailEm: null,
+    };
+  }
+
+  /**
+   * Envia o aviso de véspera e o aviso de expiração pelos dois canais.
+   *
+   * Cada coluna é um comprovante independente. Só é preenchida depois de o
+   * canal aceitar o envio; assim, uma pane no e-mail não repete o WhatsApp e a
+   * próxima rodada ainda tenta apenas o que ficou faltando.
+   */
+  async dispararAvisosExpiracao(opcoes: { agora?: Date; limite?: number } = {}) {
+    if (this.avisosEmAndamento) {
+      return { ignorado: true, motivo: 'Já existe uma rodada em andamento.' };
+    }
+
+    this.avisosEmAndamento = true;
+    const agora = opcoes.agora ?? new Date();
+    const ateAmanha = new Date(agora.getTime() + 24 * 60 * 60 * 1000);
+    const limite = Math.min(500, Math.max(1, Number(opcoes.limite) || 200));
+    const include = {
+      tenant: {
+        select: {
+          nome: true,
+          telefone: true,
+          email: true,
+          configuracoes: true,
+        },
+      },
+      plano: { select: { nome: true } },
+    } as const;
+    const resumo = {
+      consultadas: 0,
+      whatsapp: { enviados: 0, falhas: 0, semDestino: 0 },
+      email: { enviados: 0, falhas: 0, semDestino: 0, desativado: 0 },
+    };
+
+    try {
+      const [vencendo, expiradas] = await Promise.all([
+        this.prisma.assinatura.findMany({
+          where: {
+            status: { in: ['active', 'trialing'] },
+            dataFim: { gt: agora, lte: ateAmanha },
+            OR: [
+              { avisoVencimentoWhatsappEm: null },
+              { avisoVencimentoEmailEm: null },
+            ],
+          },
+          include,
+          orderBy: { dataFim: 'asc' },
+          take: limite,
+        }),
+        this.prisma.assinatura.findMany({
+          where: {
+            status: { in: ['active', 'trialing'] },
+            dataFim: { lte: agora },
+            OR: [
+              { avisoExpiracaoWhatsappEm: null },
+              { avisoExpiracaoEmailEm: null },
+            ],
+          },
+          include,
+          orderBy: { dataFim: 'asc' },
+          take: limite,
+        }),
+      ]);
+
+      resumo.consultadas = vencendo.length + expiradas.length;
+      for (const assinatura of vencendo) {
+        await this.processarAvisoDeValidade(assinatura, 'vence_amanha', agora, resumo);
+      }
+      for (const assinatura of expiradas) {
+        await this.processarAvisoDeValidade(assinatura, 'expirou', agora, resumo);
+      }
+
+      return { ignorado: false, ...resumo };
+    } finally {
+      this.avisosEmAndamento = false;
+    }
+  }
+
+  private async processarAvisoDeValidade(
+    assinatura: any,
+    tipo: TipoAvisoAssinatura,
+    enviadoEm: Date,
+    resumo: {
+      whatsapp: { enviados: number; falhas: number; semDestino: number };
+      email: { enviados: number; falhas: number; semDestino: number; desativado: number };
+    },
+  ) {
+    const emTeste = assinatura.status === 'trialing' || assinatura.emTeste === true;
+    const dados = {
+      nomeBarbearia: assinatura.tenant.nome,
+      nomePlano: emTeste ? 'Premium' : assinatura.plano.nome,
+      dataFim: assinatura.dataFim,
+      emTeste,
+      tipo,
+      urlPlanos: `${this.urlDoSite}/planos`,
+    };
+    const config = (assinatura.tenant.configuracoes as Record<string, unknown> | null) ?? {};
+    const instancia = String(config.evolutionInstance ?? '').trim() || undefined;
+    const campoWhatsapp = tipo === 'expirou'
+      ? 'avisoExpiracaoWhatsappEm'
+      : 'avisoVencimentoWhatsappEm';
+    const campoEmail = tipo === 'expirou'
+      ? 'avisoExpiracaoEmailEm'
+      : 'avisoVencimentoEmailEm';
+
+    if (!assinatura[campoWhatsapp]) {
+      if (!assinatura.tenant.telefone) {
+        resumo.whatsapp.semDestino += 1;
+      } else {
+        const enviado = await this.whatsapp
+          .enviarTexto(
+            assinatura.tenant.telefone,
+            mensagemAvisoAssinatura(dados),
+            instancia,
+          )
+          .catch(() => false);
+        if (enviado) {
+          await this.marcarCanalDoAviso(assinatura.id, campoWhatsapp, enviadoEm);
+          resumo.whatsapp.enviados += 1;
+        } else {
+          resumo.whatsapp.falhas += 1;
+        }
+      }
+    }
+
+    if (!assinatura[campoEmail]) {
+      if (!assinatura.tenant.email) {
+        resumo.email.semDestino += 1;
+      } else if (!this.notificacao.emailAtivo) {
+        resumo.email.desativado += 1;
+      } else {
+        try {
+          await this.notificacao.enviarTemplate(
+            assinatura.tenant.email,
+            emailAvisoAssinatura({
+              nomeBarbearia: dados.nomeBarbearia,
+              nomePlano: dados.nomePlano,
+              validoAte: dados.dataFim,
+              emTeste: dados.emTeste,
+              tipo: dados.tipo,
+              urlPlanos: dados.urlPlanos,
+            }),
+          );
+          await this.marcarCanalDoAviso(assinatura.id, campoEmail, enviadoEm);
+          resumo.email.enviados += 1;
+        } catch (erro) {
+          resumo.email.falhas += 1;
+          this.logger.error(
+            `Falha no aviso de validade por e-mail (assinatura ${assinatura.id}): ${
+              erro instanceof Error ? erro.message : erro
+            }`,
+          );
+        }
+      }
+    }
+  }
+
+  private async marcarCanalDoAviso(id: number, campo: string, enviadoEm: Date) {
+    await this.prisma.assinatura.update({
+      where: { id },
+      data: { [campo]: enviadoEm } as any,
+    });
   }
 
   // ─────────────────────────── Pix (Mercado Pago) ───────────────────────────
@@ -529,6 +708,7 @@ export class AssinaturaService {
         dataInicio,
         dataFim,
         meioPagamento: 'pix_avulso',
+        ...this.zerarAvisosDeValidade(),
       },
     });
 
@@ -876,6 +1056,7 @@ export class AssinaturaService {
         renovacaoAutomatica: true,
         mpPreapprovalId: preapprovalId,
         meioPagamento: 'recorrente',
+        ...this.zerarAvisosDeValidade(),
       },
     });
 
@@ -906,7 +1087,12 @@ export class AssinaturaService {
     fim.setDate(fim.getDate() + 30);
     await this.prisma.assinatura.update({
       where: { id: assinatura.id },
-      data: { status: 'active', emTeste: false, dataFim: fim },
+      data: {
+        status: 'active',
+        emTeste: false,
+        dataFim: fim,
+        ...this.zerarAvisosDeValidade(),
+      },
     });
   }
 

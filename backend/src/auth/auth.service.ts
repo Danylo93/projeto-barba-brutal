@@ -230,29 +230,15 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    // Valida assinatura usando os dados já carregados
+    // O dono precisa conseguir entrar depois do vencimento para ver o bloqueio,
+    // escolher outro plano e reativar a conta. Aqui validamos a identidade; as
+    // rotas funcionais continuam protegidas pelas regras da assinatura.
     const assinatura = tenant.assinatura
     if (!assinatura) {
       throw new BadRequestException(
         'Sua barbearia não possui um plano ativo. Por favor, adquira um plano para continuar.',
       )
     }
-    if (assinatura.status !== 'active' && assinatura.status !== 'trialing') {
-      throw new BadRequestException(
-        `Sua assinatura está com status "${assinatura.status}". Por favor, regularize sua situação para continuar.`,
-      )
-    }
-    if (assinatura.dataFim < new Date()) {
-      throw new BadRequestException(
-        'Sua assinatura expirou. Por favor, renove seu plano para continuar.',
-      )
-    }
-    if (!assinatura.plano.ativo) {
-      throw new BadRequestException(
-        'O plano associado à sua assinatura não está mais disponível.',
-      )
-    }
-
     const sid = novaSessao();
     await this.prisma.tenant.update({
       where: { id: tenant.id },

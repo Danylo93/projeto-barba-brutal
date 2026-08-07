@@ -360,6 +360,17 @@ export class WhatsappService {
   }
 
   /**
+   * A Evolution está acessível mesmo sem uma instância global.
+   *
+   * Em ambiente multi-tenant cada barbearia pode ter a própria instância; por
+   * isso exigir `EVOLUTION_INSTANCE` global impediria todos os envios mesmo
+   * quando a instância do tenant estivesse corretamente cadastrada.
+   */
+  get provedorConfigurado(): boolean {
+    return !!(this.url && this.apikey);
+  }
+
+  /**
    * De qual número sai a mensagem.
    *
    * O sistema passou a ter uma instância da Evolution por barbearia

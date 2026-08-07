@@ -68,23 +68,47 @@ export default function ClubePage() {
             <Cabecalho
                 titulo="Clube de Assinatura"
                 descricao={
-                    ehDono && !plano.isBasico
+                    ehDono && plano.isProfissional
                         ? 'Receita recorrente: crie planos e receba por Pix.'
                         : 'Assine um plano e economize nos seus atendimentos.'
                 }
             />
             <div className="container mx-auto max-w-5xl px-4 py-10 md:px-0">
-                {ehDono ? (plano.isBasico ? <AcessoBloqueado /> : <VisaoDono />) : <VisaoCliente />}
+                {ehDono ? (
+                    plano.carregando ? (
+                        <Skeleton className="h-64 w-full" />
+                    ) : plano.isProfissional ? (
+                        <VisaoDono />
+                    ) : (
+                        <AcessoBloqueado
+                            motivo={plano.erro ? 'erro' : !plano.ativo ? 'inativa' : 'basico'}
+                        />
+                    )
+                ) : (
+                    <VisaoCliente />
+                )}
             </div>
         </div>
     )
 }
 
-function AcessoBloqueado() {
+function AcessoBloqueado({ motivo = 'basico' }: { motivo?: 'basico' | 'erro' | 'inativa' }) {
     return (
         <UpgradeCallout
-            titulo="Clube disponível no Profissional"
-            descricao="No plano Básico o clube de assinatura fica bloqueado. Faça upgrade para o Profissional para criar planos e receber por Pix direto da sua barbearia."
+            titulo={
+                motivo === 'erro'
+                    ? 'Não foi possível confirmar seu plano'
+                    : motivo === 'inativa'
+                      ? 'Sua assinatura não está ativa'
+                      : 'Clube disponível no Profissional'
+            }
+            descricao={
+                motivo === 'erro'
+                    ? 'A assinatura não foi carregada. Reabra a página ou confira sua assinatura antes de acessar o clube.'
+                    : motivo === 'inativa'
+                      ? 'Regularize sua assinatura para voltar a criar planos e receber por Pix.'
+                      : 'No plano Básico o clube de assinatura fica bloqueado. Faça upgrade para o Profissional para criar planos e receber por Pix direto da sua barbearia.'
+            }
             ctaPrincipal="Ver planos"
             ctaSecundario="Abrir assinatura"
         />

@@ -13,7 +13,27 @@ export const VERSAO_PRIVACIDADE = '2026-07-28'
  * Roda depois do cadastro dar certo e nunca derruba o fluxo: se falhar, o
  * usuário já tem conta, e um erro aqui não pode barrar a entrada dele.
  */
-export async function registrarAceiteDeTermos(token: string, tenantId?: number | null) {
+export async function registrarAceiteDeTermos(
+    token: string,
+    tenantId?: number | null,
+    comunicacoesWhatsapp?: boolean,
+) {
+    const consentimentos = [
+        { tipo: 'termos_de_uso', aceito: true, versao: VERSAO_TERMOS },
+        { tipo: 'politica_privacidade', aceito: true, versao: VERSAO_PRIVACIDADE },
+    ]
+
+    // O lembrete de retorno tem finalidade promocional e, por isso, fica
+    // separado das mensagens operacionais do agendamento. A escolha só é
+    // registrada nos cadastros de cliente que exibem esse controle.
+    if (typeof comunicacoesWhatsapp === 'boolean') {
+        consentimentos.push({
+            tipo: 'comunicacoes_whatsapp',
+            aceito: comunicacoesWhatsapp,
+            versao: VERSAO_PRIVACIDADE,
+        })
+    }
+
     try {
         await fetch('/api-backend/lgpd/consentimento', {
             method: 'POST',
@@ -24,10 +44,7 @@ export async function registrarAceiteDeTermos(token: string, tenantId?: number |
             body: JSON.stringify({
                 visitanteId: idDoVisitante(),
                 tenantId: tenantId ?? undefined,
-                consentimentos: [
-                    { tipo: 'termos_de_uso', aceito: true, versao: VERSAO_TERMOS },
-                    { tipo: 'politica_privacidade', aceito: true, versao: VERSAO_PRIVACIDADE },
-                ],
+                consentimentos,
             }),
         })
     } catch {

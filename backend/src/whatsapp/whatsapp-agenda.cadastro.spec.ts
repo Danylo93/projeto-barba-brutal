@@ -151,6 +151,7 @@ describe('cadastro do cliente no atendimento por WhatsApp', () => {
         nome: '  João   da Silva  ',
         email: '  JOAO@X.APP ',
         aceitouTermos: true,
+        aceitouLembretes: true,
       },
     );
 
@@ -168,6 +169,7 @@ describe('cadastro do cliente no atendimento por WhatsApp', () => {
       expect.arrayContaining([
         expect.objectContaining({ tipo: 'termos_de_uso', aceito: true }),
         expect.objectContaining({ tipo: 'politica_privacidade', aceito: true }),
+        expect.objectContaining({ tipo: 'comunicacoes_whatsapp', aceito: true }),
       ]),
       expect.any(Object),
     );

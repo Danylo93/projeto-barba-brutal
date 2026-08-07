@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Download, ShieldCheck, Trash2, Check, X } from 'lucide-react'
+import { Download, ShieldCheck, Trash2, Check, X, MessageCircle } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import useUsuario from '@/data/hooks/useUsuario'
 import Cabecalho from '@/components/shared/Cabecalho'
@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Skeleton } from '@/components/ui/skeleton'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 import { limparConsentimento, lerConsentimento } from '@/lib/consentimento'
+import { VERSAO_PRIVACIDADE } from '@/lib/registrar-aceite'
 
 interface Consentimento {
     id: number
@@ -32,6 +33,7 @@ const ROTULO: Record<string, string> = {
     cookies_marketing: 'Cookies de marketing',
     termos_de_uso: 'Termos de uso',
     politica_privacidade: 'Política de privacidade',
+    comunicacoes_whatsapp: 'Lembretes de retorno pelo WhatsApp',
 }
 
 export default function MeusDadosPage() {
@@ -45,6 +47,7 @@ export default function MeusDadosPage() {
     const [confirmarExclusao, setConfirmarExclusao] = useState(false)
     const [motivo, setMotivo] = useState('')
     const [pedidoFeito, setPedidoFeito] = useState(false)
+    const [salvandoWhatsapp, setSalvandoWhatsapp] = useState(false)
 
     const carregar = useCallback(async () => {
         try {
@@ -97,6 +100,38 @@ export default function MeusDadosPage() {
     }
 
     const cookies = lerConsentimento()
+    const consentimentoWhatsapp = consentimentos
+        .filter((c) => c.tipo === 'comunicacoes_whatsapp')
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0]
+    const whatsappAceito = consentimentoWhatsapp?.aceito === true
+
+    async function atualizarLembretesWhatsapp() {
+        try {
+            setSalvandoWhatsapp(true)
+            const novoValor = !whatsappAceito
+            const resposta = await httpPost('lgpd/consentimento', {
+                consentimentos: [
+                    {
+                        tipo: 'comunicacoes_whatsapp',
+                        aceito: novoValor,
+                        versao: VERSAO_PRIVACIDADE,
+                    },
+                ],
+            })
+            if (resposta?.statusCode >= 400) throw new Error(resposta.message)
+            await carregar()
+            success(
+                novoValor ? 'Lembretes autorizados' : 'Lembretes desativados',
+                novoValor
+                    ? 'A barbearia poderá lembrar você de refazer um serviço concluído.'
+                    : 'Você não receberá mais lembretes de retorno.',
+            )
+        } catch (e) {
+            toastErro('Não foi possível salvar', e instanceof Error ? e.message : 'Tente novamente.')
+        } finally {
+            setSalvandoWhatsapp(false)
+        }
+    }
 
     return (
         <div className="flex min-h-screen flex-col bg-zinc-900">
@@ -217,6 +252,39 @@ export default function MeusDadosPage() {
                         </ul>
                     )}
                 </section>
+
+                {usuario?.tipo !== 'tenant' && (
+                    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 text-yellow-400">
+                                    <MessageCircle size={20} />
+                                    <h2 className="font-bold">Lembretes para voltar à barbearia</h2>
+                                </div>
+                                <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                                    Autorize lembretes opcionais no WhatsApp quando fizer tempo que você concluiu um serviço. Mensagens de confirmação e alterações dos seus agendamentos continuam separadas desta escolha.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={atualizarLembretesWhatsapp}
+                                disabled={carregando || salvandoWhatsapp}
+                                aria-pressed={whatsappAceito}
+                                className={`shrink-0 rounded-xl px-5 py-3 text-sm font-bold transition-colors disabled:opacity-60 ${
+                                    whatsappAceito
+                                        ? 'border border-red-500/40 text-red-400 hover:bg-red-500/10'
+                                        : 'bg-yellow-400 text-zinc-900 hover:bg-yellow-300'
+                                }`}
+                            >
+                                {salvandoWhatsapp
+                                    ? 'Salvando...'
+                                    : whatsappAceito
+                                      ? 'Desativar lembretes'
+                                      : 'Autorizar lembretes'}
+                            </button>
+                        </div>
+                    </section>
+                )}
 
                 {/* Exclusão */}
                 <section className="rounded-xl border border-red-500/20 bg-red-500/5 p-5">

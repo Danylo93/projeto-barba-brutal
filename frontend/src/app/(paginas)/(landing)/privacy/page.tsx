@@ -85,6 +85,12 @@ export default function PoliticaDePrivacidade() {
                             diferente e depende de consentimento.
                         </>,
                         <>
+                            <strong className="text-zinc-200">Lembrete para refazer um serviço</strong>{' '}
+                            no WhatsApp — base: consentimento (art. 7º, I). Essa mensagem só pode
+                            sair depois de um atendimento concluído e pode ser autorizada ou
+                            desativada a qualquer momento em Meus dados, sem impedir o uso da agenda.
+                        </>,
+                        <>
                             <strong className="text-zinc-200">Pagamentos</strong> (valor, status,
                             código Pix) — base: execução de contrato e obrigação legal fiscal. Não
                             recebemos nem guardamos dados de cartão.

@@ -93,7 +93,7 @@ function CheckoutForm({ plano, tenantId }: { plano: Plano; tenantId: number }) {
 
       <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
         <p className="text-blue-600 text-sm">
-          <strong>Período de teste:</strong> Você terá 14 dias gratuitos para testar o plano. 
+          <strong>Período de teste:</strong> Você terá 30 dias gratuitos com acesso Premium.
           Após esse período, será cobrado automaticamente.
         </p>
       </div>

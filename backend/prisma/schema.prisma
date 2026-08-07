@@ -110,12 +110,17 @@ model Assinatura {
   dataInicio        DateTime
   dataFim           DateTime
   renovacaoAutomatica Boolean @default(true)
+  avisoVencimentoWhatsappEm DateTime?
+  avisoVencimentoEmailEm    DateTime?
+  avisoExpiracaoWhatsappEm  DateTime?
+  avisoExpiracaoEmailEm     DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   plano             Plano     @relation(fields: [planoId], references: [id])
 
+  @@index([status, dataFim])
   @@map("assinatura")
 }
 
@@ -263,6 +268,9 @@ model Agendamento {
   /// Redis fosse limpo, o marcador voltava a zero e todo mundo da última hora
   /// recebia a confirmação de novo.
   confirmacaoEnviadaEm DateTime?
+  /// Quando o cliente recebeu o lembrete para voltar e refazer os serviços.
+  /// Separado do lembrete de horário e gerado só por atendimento concluído.
+  retornoEnviadoEm DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -314,7 +322,7 @@ model ConsentimentoLgpd {
   titularTipo String
   titularId   Int?
   tenantId    Int?
-  /// cookies_analise, cookies_marketing, termos_de_uso, politica_privacidade
+  /// cookies_analise, cookies_marketing, comunicacoes_whatsapp, termos_de_uso, politica_privacidade
   tipo        String
   /// Versão do texto aceito, para saber a que redação o titular consentiu.
   versao      String

@@ -1,0 +1,100 @@
+{
+  "name": "Barbearia Brutal — Avisos de vencimento do plano",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Vencimento da assinatura\n\nA cada hora, pede ao backend para avisar as barbearias cujo plano vence nas próximas 24 horas e as que acabaram de expirar. WhatsApp e e-mail possuem marcadores separados: só o canal confirmado sai da fila.\n\nCredencial: Header Auth com Name `x-lembrete-token` e o mesmo `LEMBRETE_TOKEN` do backend.",
+        "height": 360,
+        "width": 480
+      },
+      "id": "nota-validade",
+      "name": "Como funciona",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, -160]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "uma-vez-por-hora",
+      "name": "A cada hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://barba-brutal-api.onrender.com/assinaturas/avisos-expiracao/disparar",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limite",
+              "value": "200"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          },
+          "timeout": 180000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "disparar-validade",
+      "name": "Disparar avisos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 260],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notesInFlow": true,
+      "notes": "O backend evita duplicidade por assinatura, evento e canal. O que falhar continua pendente para a próxima hora.",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bb-lembrete-token",
+          "name": "Token do lembrete"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "fim-validade",
+      "name": "Avisos processados",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [820, 260]
+    }
+  ],
+  "connections": {
+    "A cada hora": {
+      "main": [[{ "node": "Disparar avisos", "type": "main", "index": 0 }]]
+    },
+    "Disparar avisos": {
+      "main": [[{ "node": "Avisos processados", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "timezone": "America/Sao_Paulo"
+  },
+  "pinData": {},
+  "tags": [{ "name": "barbearia-brutal" }]
+}

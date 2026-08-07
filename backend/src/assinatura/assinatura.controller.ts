@@ -11,7 +11,10 @@ import {
   Req,
   UseGuards,
   ForbiddenException,
+  UnauthorizedException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AssinaturaService } from './assinatura.service';
 import { DominioPixDto } from './assinatura.dto';
 import { OPCOES_DE_DOMINIO } from './dominio';
@@ -38,6 +41,18 @@ function exigirTenant(user: any): number {
 @Controller('assinaturas')
 export class AssinaturaController {
   constructor(private readonly assinaturaService: AssinaturaService) {}
+
+  private exigirTokenDeAviso(token: string) {
+    const esperado = process.env.LEMBRETE_TOKEN;
+    if (!esperado) {
+      throw new ServiceUnavailableException(
+        'Avisos de assinatura desativados (defina LEMBRETE_TOKEN no backend).',
+      );
+    }
+    if (!token || token !== esperado) {
+      throw new UnauthorizedException('Token de aviso inválido.');
+    }
+  }
 
   // ── Endpoints "me": o tenant autenticado gerencia o próprio plano ──
 
@@ -149,6 +164,19 @@ export class AssinaturaController {
   @Post('webhook/mercadopago')
   handleMercadoPago(@Body() body: any, @Query() query: any) {
     return this.assinaturaService.handleWebhookMercadoPago(body, query);
+  }
+
+  /** Relógio server-to-server que avisa um dia antes e depois da expiração. */
+  @Post('avisos-expiracao/disparar')
+  @SkipThrottle()
+  dispararAvisosExpiracao(
+    @Headers('x-lembrete-token') token: string,
+    @Query('limite') limite?: string,
+  ) {
+    this.exigirTokenDeAviso(token);
+    return this.assinaturaService.dispararAvisosExpiracao({
+      limite: Number(limite) || undefined,
+    });
   }
 
   // ── Endpoints por tenantId: restritos ao próprio tenant ou admin ──

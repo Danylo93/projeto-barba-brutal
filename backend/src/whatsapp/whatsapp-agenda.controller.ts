@@ -89,6 +89,7 @@ export class WhatsappAgendaController {
       nome?: string;
       email?: string;
       aceitouTermos?: boolean;
+      aceitouLembretes?: boolean;
     },
     @Query('instance') instance: string,
   ) {

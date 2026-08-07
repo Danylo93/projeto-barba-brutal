@@ -59,20 +59,22 @@ export default function FinancasPage() {
       const uri = 'agendamentos/barbeiro/meus-horarios'
       const resposta = await httpGet(uri)
       setAgendamentos(Array.isArray(resposta) ? resposta : [])
-      if (isTenant && usuario.tenantId && (plano.isProfissional || plano.isPremium)) {
-        setAbaAtual('comissoes')
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar finanças')
       setAgendamentos([])
     } finally {
       setLoading(false)
     }
-  }, [httpGet, usuario, isEmployeeBarber, isTenant, plano.isPremium, plano.isProfissional])
+  }, [httpGet, usuario, isEmployeeBarber])
 
   useEffect(() => {
     carregar()
   }, [carregar])
+
+  useEffect(() => {
+    if (!isTenant || plano.carregando || plano.erro) return
+    setAbaAtual(plano.isPremium ? 'avancado' : plano.isProfissional ? 'comissoes' : 'basico')
+  }, [isTenant, plano.carregando, plano.erro, plano.isPremium, plano.isProfissional])
 
   // Calcular ganhos
   const totalArrecadado = agendamentos
@@ -88,6 +90,17 @@ export default function FinancasPage() {
     const isBasico = plano.isBasico
     const isProfissional = plano.isProfissional
     const isPremium = plano.isPremium
+
+    if (plano.carregando) {
+      return (
+        <div className="flex min-h-screen flex-col bg-zinc-900">
+          <Cabecalho titulo="Financeiro" descricao="Identificando sua assinatura..." />
+          <div className="container mx-auto max-w-5xl px-4 py-10 md:px-0">
+            <Skeleton className="h-72 w-full rounded-xl bg-zinc-800" />
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div className="flex flex-col bg-zinc-900 min-h-screen">
@@ -110,7 +123,7 @@ export default function FinancasPage() {
               onClick={() => setAbaAtual('basico')}
               className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'basico' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              Dashboard Básico
+              Dashboard {plano.nome}
             </button>
             <button
               onClick={() => isProfissional ? setAbaAtual('comissoes') : router.push('/planos')}
@@ -135,15 +148,20 @@ export default function FinancasPage() {
               <TrendingUp size={48} className="text-zinc-700 mb-4" />
               <h3 className="text-xl font-bold text-white mb-2">Visão Geral de Agendamentos</h3>
               <p className="text-zinc-400 max-w-md">
-                No plano básico você pode acompanhar no dashboard inicial a quantidade de agendamentos realizados.
-                Para análises de comissão, faça upgrade para o Profissional.
+                {plano.erro
+                  ? 'Não foi possível confirmar sua assinatura agora. Atualize a página antes de alterar o plano.'
+                  : !plano.ativo
+                    ? `Sua assinatura ${plano.nome} não está ativa. Regularize-a para acessar os relatórios do plano.`
+                  : isBasico
+                    ? 'No plano Básico você acompanha os agendamentos pelo dashboard inicial. Para análises de comissão, faça upgrade para o Profissional.'
+                    : `Seu plano ${plano.nome} está ativo. Use as abas acima para acessar os relatórios liberados na sua assinatura.`}
               </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              {(isBasico || plano.erro || !plano.ativo) && <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => router.push('/planos')}
                   className="inline-flex items-center justify-center rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-zinc-900 hover:bg-yellow-300 transition-colors"
                 >
-                  Fazer upgrade
+                  {plano.erro || !plano.ativo ? 'Verificar planos' : 'Fazer upgrade'}
                 </button>
                 <button
                   onClick={() => router.push('/assinatura')}
@@ -151,7 +169,7 @@ export default function FinancasPage() {
                 >
                   Ver minha assinatura
                 </button>
-              </div>
+              </div>}
             </div>
           )}
 

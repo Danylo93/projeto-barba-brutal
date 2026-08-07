@@ -1,0 +1,123 @@
+{
+  "name": "Barbearia Brutal — Lembrete de retorno (WhatsApp)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Lembrete automático de retorno\n\nEste fluxo é somente o relógio diário. O backend decide quais barbearias ativaram o recurso, respeita 15, 20, 30 ou 40 dias, exige atendimento concluído e consentimento do cliente, evita mensagem se o mesmo serviço já foi repetido ou agendado e grava o envio apenas depois de a Evolution aceitar.\n\nDisponível em todos os planos. Cada barbearia envia pela sua própria instância da Evolution.\n\nCredencial: Header Auth com Name `x-lembrete-token` e o mesmo `LEMBRETE_TOKEN` do backend.",
+        "height": 440,
+        "width": 480
+      },
+      "id": "nota-retorno",
+      "name": "Como funciona",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, -180]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "uma-vez-por-dia",
+      "name": "Todo dia às 10h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://barba-brutal-api.onrender.com/lembretes/retorno/disparar",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limite",
+              "value": "200"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          },
+          "timeout": 180000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "disparar-retornos",
+      "name": "Disparar retornos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notesInFlow": true,
+      "notes": "Se uma tentativa falhar, os atendimentos continuam pendentes no banco. A próxima execução tenta novamente sem duplicar o que já saiu.",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bb-lembrete-token",
+          "name": "Token do lembrete"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "fim-retorno",
+      "name": "Retornos processados",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [820, 300],
+      "notesInFlow": true,
+      "notes": "Abra a saída do nó anterior para ver enviados, falhas, suprimidos, clientes sem consentimento e clientes sem telefone."
+    }
+  ],
+  "connections": {
+    "Todo dia às 10h": {
+      "main": [
+        [
+          {
+            "node": "Disparar retornos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparar retornos": {
+      "main": [
+        [
+          {
+            "node": "Retornos processados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "timezone": "America/Sao_Paulo"
+  },
+  "pinData": {},
+  "tags": [
+    {
+      "name": "barbearia-brutal"
+    }
+  ]
+}

@@ -40,6 +40,7 @@ import { RecuperacaoService } from '../auth/recuperacao.service';
 import { LgpdService } from '../lgpd/lgpd.service';
 import { VERSAO_PRIVACIDADE, VERSAO_TERMOS } from '../lgpd/versoes';
 import { NotificacaoService } from '../notificacao/notificacao.service';
+import { testeGratisVigente } from '../assinatura/teste-gratis';
 
 @Injectable()
 export class WhatsappAgendaService {
@@ -151,7 +152,8 @@ export class WhatsappAgendaService {
       ['active', 'trialing'].includes(String(assinatura.status)) &&
       (!assinatura.dataFim || new Date(assinatura.dataFim).getTime() > Date.now());
 
-    if (!valendo || !planoTemRobo(assinatura!.plano)) {
+    const testePremium = testeGratisVigente(assinatura);
+    if (!valendo || (!testePremium && !planoTemRobo(assinatura!.plano))) {
       throw new ForbiddenException(ROBO_FORA_DO_PLANO);
     }
   }
@@ -321,6 +323,7 @@ export class WhatsappAgendaService {
       nome?: string;
       email?: string;
       aceitouTermos?: boolean;
+      aceitouLembretes?: boolean;
     },
     instance?: string,
   ) {
@@ -393,6 +396,11 @@ export class WhatsappAgendaService {
         [
           { tipo: 'termos_de_uso', aceito: true, versao: VERSAO_TERMOS },
           { tipo: 'politica_privacidade', aceito: true, versao: VERSAO_PRIVACIDADE },
+          {
+            tipo: 'comunicacoes_whatsapp',
+            aceito: body.aceitouLembretes === true,
+            versao: VERSAO_PRIVACIDADE,
+          },
         ],
         { userAgent: 'Cadastro pelo WhatsApp' },
       )

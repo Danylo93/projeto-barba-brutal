@@ -130,4 +130,23 @@ export class LembreteController {
     const tenant = this.exigirToken(token, tenantId);
     return this.service.marcar('confirmacao', corpo?.ids ?? [], tenant);
   }
+
+  // ───────────────────────── lembrete de retorno ─────────────────────────
+
+  /**
+   * Rotina diária: procura serviços já realizados cujo prazo de retorno
+   * venceu. Cada tenant usa os 15, 20, 30 ou 40 dias definidos no painel.
+   */
+  @Post('retorno/disparar')
+  async dispararRetornos(
+    @Headers('x-lembrete-token') token: string,
+    @Query('tenantId') tenantId?: string,
+    @Query('limite') limite?: string,
+  ) {
+    const tenant = this.exigirToken(token, tenantId);
+    return this.service.dispararRetornos({
+      tenantId: tenant,
+      limite: Number(limite) || undefined,
+    });
+  }
 }

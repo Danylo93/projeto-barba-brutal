@@ -7,12 +7,14 @@ import {
   mensagemSolicitacaoCliente,
   mensagemLembreteBarbeiro,
   mensagemLembreteCliente,
+  mensagemLembreteRetorno,
 } from '../whatsapp/mensagens';
 import {
   calcularJanela,
   calcularJanelaDeConfirmacao,
   telefoneUtilizavel,
 } from './janela';
+import { configuracaoDeRetorno } from './retorno';
 
 /** Quantos agendamentos um disparo processa por vez. */
 const LIMITE_PADRAO = 60;
@@ -42,6 +44,7 @@ export function instanciaDaBarbearia(tenant: any): string | null {
 }
 
 type Tipo = 'lembrete' | 'confirmacao';
+type TipoDisparo = Tipo | 'retorno';
 
 /**
  * Avisos de WhatsApp do agendamento (confirmação e lembrete de 1 hora antes).
@@ -72,7 +75,7 @@ export class LembreteService {
    * mesma mensagem duas vezes. Vale para um processo — que é como o backend
    * roda hoje no Render.
    */
-  private readonly emAndamento = new Set<Tipo>();
+  private readonly emAndamento = new Set<TipoDisparo>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -130,9 +133,11 @@ export class LembreteService {
   ) {
     // Sem Evolution configurada, marcar como enviado seria a pior mentira
     // possível: o agendamento sairia da fila sem ninguém ter sido avisado.
-    if (!this.whatsapp.configurado) {
+    const provedorDisponivel =
+      this.whatsapp.provedorConfigurado ?? this.whatsapp.configurado;
+    if (!provedorDisponivel) {
       throw new ServiceUnavailableException(
-        'WhatsApp não configurado (defina EVOLUTION_URL, EVOLUTION_APIKEY e EVOLUTION_INSTANCE).',
+        'WhatsApp não configurado (defina EVOLUTION_URL e EVOLUTION_APIKEY).',
       );
     }
 
@@ -251,6 +256,250 @@ export class LembreteService {
       pendentes: Math.max(0, pendentes.total - marcados),
       semTelefone: pendentes.semTelefone,
     };
+  }
+
+  /**
+   * Lembra o cliente de refazer um serviço depois do intervalo escolhido.
+   *
+   * Regras que evitam spam e mensagem errada:
+   * - só atendimento `concluido` origina retorno;
+   * - se o cliente fez ou já marcou o mesmo serviço depois, o antigo é
+   *   encerrado sem envio;
+   * - vários serviços vencidos do mesmo cliente viram uma única mensagem;
+   * - só envia com consentimento específico e registra no banco apenas depois
+   *   de a Evolution aceitar.
+   *
+   * Não há consulta de plano: esta automação é liberada em todos eles.
+   */
+  async dispararRetornos(
+    opcoes: { tenantId?: number; limite?: number; agora?: Date } = {},
+  ) {
+    const provedorDisponivel =
+      this.whatsapp.provedorConfigurado ?? this.whatsapp.configurado;
+    if (!provedorDisponivel) {
+      throw new ServiceUnavailableException(
+        'WhatsApp não configurado (defina EVOLUTION_URL e EVOLUTION_APIKEY).',
+      );
+    }
+
+    if (this.emAndamento.has('retorno')) {
+      this.logger.warn('Disparo de retorno ignorado: já havia um em andamento.');
+      return {
+        tipo: 'retorno',
+        ignorado: true,
+        enviados: 0,
+        falhas: 0,
+        marcados: 0,
+        suprimidos: 0,
+        semConsentimento: 0,
+        semTelefone: [] as { id: number; tenantId: number; cliente: string }[],
+      };
+    }
+
+    this.emAndamento.add('retorno');
+    try {
+      return await this.executarRetornos(opcoes);
+    } finally {
+      this.emAndamento.delete('retorno');
+    }
+  }
+
+  private async executarRetornos(opcoes: {
+    tenantId?: number;
+    limite?: number;
+    agora?: Date;
+  }) {
+    const agora = opcoes.agora ?? new Date();
+    const limite = Math.max(1, Math.min(500, Number(opcoes.limite) || LIMITE_PADRAO));
+    const tenants = await this.prisma.tenant.findMany({
+      where: {
+        ativo: true,
+        ...(opcoes.tenantId ? { id: opcoes.tenantId } : {}),
+      },
+      select: { id: true, nome: true, configuracoes: true },
+      orderBy: { id: 'asc' },
+    });
+
+    let enviados = 0;
+    let falhas = 0;
+    let marcados = 0;
+    let suprimidos = 0;
+    let semConsentimento = 0;
+    const semTelefone: { id: number; tenantId: number; cliente: string }[] = [];
+
+    for (const tenant of tenants) {
+      if (enviados >= limite) break;
+      const configuracao = configuracaoDeRetorno(tenant.configuracoes);
+      if (!configuracao.ativo) continue;
+
+      const corte = new Date(
+        agora.getTime() - configuracao.dias * 24 * 60 * 60 * 1000,
+      );
+      // Busca folgada: clientes sem consentimento continuam pendentes para o
+      // caso de aceitarem depois, mas não podem esconder toda a fila seguinte.
+      const candidatos = await this.prisma.agendamento.findMany({
+        where: {
+          tenantId: tenant.id,
+          status: 'concluido',
+          data: { lte: corte },
+          retornoEnviadoEm: null,
+        },
+        select: {
+          id: true,
+          tenantId: true,
+          usuarioId: true,
+          data: true,
+          usuario: { select: { id: true, nome: true, telefone: true, ativo: true } },
+          servicos: { select: { id: true, nome: true } },
+        },
+        orderBy: { data: 'desc' },
+        take: Math.max(1000, limite * 10),
+      });
+      if (!candidatos.length) continue;
+
+      const usuarios = [...new Set(candidatos.map((a) => a.usuarioId))];
+      const menorData = candidatos.reduce(
+        (menor, a) => (a.data < menor ? a.data : menor),
+        candidatos[0].data,
+      );
+      const posteriores = await this.prisma.agendamento.findMany({
+        where: {
+          tenantId: tenant.id,
+          usuarioId: { in: usuarios },
+          status: { in: ['agendado', 'confirmado', 'concluido'] },
+          data: { gt: menorData },
+        },
+        select: {
+          id: true,
+          usuarioId: true,
+          data: true,
+          servicos: { select: { id: true } },
+        },
+      });
+
+      const porCliente = new Map<
+        number,
+        {
+          usuario: (typeof candidatos)[number]['usuario'];
+          ids: Set<number>;
+          servicos: Map<number, string>;
+        }
+      >();
+
+      for (const candidato of candidatos) {
+        const servicosPendentes = candidato.servicos.filter(
+          (servico) =>
+            !posteriores.some(
+              (posterior) =>
+                posterior.usuarioId === candidato.usuarioId &&
+                posterior.data > candidato.data &&
+                posterior.servicos.some((s) => s.id === servico.id),
+            ),
+        );
+
+        if (!servicosPendentes.length || !candidato.usuario.ativo) {
+          const r = await this.marcarRetornos([candidato.id], tenant.id, agora);
+          suprimidos += r.marcados;
+          continue;
+        }
+
+        const grupo = porCliente.get(candidato.usuarioId) ?? {
+          usuario: candidato.usuario,
+          ids: new Set<number>(),
+          servicos: new Map<number, string>(),
+        };
+        grupo.ids.add(candidato.id);
+        for (const servico of servicosPendentes) {
+          grupo.servicos.set(servico.id, servico.nome);
+        }
+        porCliente.set(candidato.usuarioId, grupo);
+      }
+
+      const consentimentos = await this.prisma.consentimentoLgpd.findMany({
+        where: {
+          tenantId: tenant.id,
+          titularTipo: 'usuario',
+          titularId: { in: [...porCliente.keys()] },
+          tipo: 'comunicacoes_whatsapp',
+        },
+        select: { titularId: true, aceito: true },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      });
+      const ultimaEscolha = new Map<number, boolean>();
+      for (const consentimento of consentimentos) {
+        if (
+          consentimento.titularId != null &&
+          !ultimaEscolha.has(consentimento.titularId)
+        ) {
+          ultimaEscolha.set(consentimento.titularId, consentimento.aceito);
+        }
+      }
+
+      for (const [usuarioId, grupo] of porCliente) {
+        if (enviados >= limite) break;
+        if (ultimaEscolha.get(usuarioId) !== true) {
+          semConsentimento++;
+          continue;
+        }
+        if (!telefoneUtilizavel(grupo.usuario.telefone)) {
+          semTelefone.push({
+            id: usuarioId,
+            tenantId: tenant.id,
+            cliente: grupo.usuario.nome,
+          });
+          continue;
+        }
+
+        const ok = await this.whatsapp.enviarTexto(
+          grupo.usuario.telefone,
+          mensagemLembreteRetorno({
+            cliente: grupo.usuario.nome,
+            barbearia: tenant.nome,
+            servicos: [...grupo.servicos.values()].join(', '),
+            dias: configuracao.dias,
+          }),
+          instanciaDaBarbearia(tenant),
+        );
+        if (!ok) {
+          falhas++;
+          continue;
+        }
+
+        enviados++;
+        const r = await this.marcarRetornos([...grupo.ids], tenant.id, agora);
+        marcados += r.marcados;
+      }
+    }
+
+    this.logger.log(
+      `Disparo de retorno: ${enviados} cliente(s), ${falhas} falha(s), ` +
+        `${marcados} atendimento(s) marcado(s), ${suprimidos} superado(s), ` +
+        `${semConsentimento} sem consentimento e ${semTelefone.length} sem telefone.`,
+    );
+
+    return {
+      tipo: 'retorno',
+      ignorado: false,
+      enviados,
+      falhas,
+      marcados,
+      suprimidos,
+      semConsentimento,
+      semTelefone,
+    };
+  }
+
+  private async marcarRetornos(
+    ids: number[],
+    tenantId: number,
+    enviadoEm = new Date(),
+  ) {
+    if (!ids.length) return { marcados: 0 };
+    const { count } = await this.prisma.agendamento.updateMany({
+      where: { id: { in: ids }, tenantId, retornoEnviadoEm: null },
+      data: { retornoEnviadoEm: enviadoEm },
+    });
+    return { marcados: count };
   }
 
   /**

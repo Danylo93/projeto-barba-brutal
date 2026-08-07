@@ -57,7 +57,7 @@ function CheckoutSuccessContent() {
             <h3 className="font-semibold text-green-800 mb-2">O que acontece agora?</h3>
             <ul className="text-green-700 text-sm space-y-1 text-left">
               <li>• Sua conta está ativa e pronta para uso</li>
-              <li>• Você tem 14 dias de teste gratuito</li>
+              <li>• Você tem 30 dias de teste gratuito com acesso Premium</li>
               <li>• Após o período de teste, a cobrança será automática</li>
               <li>• Você receberá um email de confirmação em breve</li>
             </ul>

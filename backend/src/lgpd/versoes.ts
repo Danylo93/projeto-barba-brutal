@@ -13,6 +13,7 @@ export const VERSAO_COOKIES = '2026-07-28';
 export const TIPOS_DE_CONSENTIMENTO = [
   'cookies_analise',
   'cookies_marketing',
+  'comunicacoes_whatsapp',
   'termos_de_uso',
   'politica_privacidade',
 ] as const;
