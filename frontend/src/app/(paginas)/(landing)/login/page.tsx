@@ -22,7 +22,7 @@ function LoginContent() {
     const { criarSessao } = useSessao()
     const { error: toastErro, warning: toastAviso } = useToast()
 
-    const [modo, setModo] = useState<Modo>('entrar')
+    const [modo, setModo] = useState<Modo>(params.get('modo') === 'cadastrar' ? 'cadastrar' : 'entrar')
     const [nome, setNome] = useState('')
     const [telefone, setTelefone] = useState('')
     const [email, setEmail] = useState('')

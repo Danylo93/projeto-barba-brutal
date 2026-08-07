@@ -104,6 +104,42 @@ export function emailRecuperacaoSenha(dados: {
   };
 }
 
+export function emailPrimeiroAcessoCliente(dados: {
+  nomeCliente: string;
+  nomeBarbearia: string;
+  linkCriarSenha: string;
+  linkEntrar: string;
+}): Email {
+  const { nomeCliente, nomeBarbearia, linkCriarSenha, linkEntrar } = dados;
+  return {
+    assunto: `Seu cadastro na ${nomeBarbearia}`,
+    html: moldura(
+      `<p style="margin:0 0 14px;">Olá, <strong>${esc(nomeCliente)}</strong>.</p>
+       <p style="margin:0 0 6px;">Seu cadastro na <strong>${esc(nomeBarbearia)}</strong> foi concluído pelo WhatsApp.</p>
+       <p style="margin:0 0 6px;">Crie sua senha para também consultar e administrar seus horários pelo site:</p>
+       ${botao('Criar minha senha', linkCriarSenha)}
+       <p style="margin:0 0 14px;color:${APAGADO};font-size:13px;">
+         O link de criação de senha vale por 60 minutos e só funciona uma vez.
+       </p>
+       <p style="margin:0;color:${APAGADO};font-size:13px;">
+         Depois, você pode entrar por este endereço:<br>
+         <span style="color:${TEXTO};word-break:break-all;">${esc(linkEntrar)}</span>
+       </p>`,
+      `<strong style="color:${TEXTO};">Não reconhece este cadastro?</strong> Fale diretamente com a ${esc(nomeBarbearia)}.`,
+    ),
+    texto: [
+      `Olá, ${nomeCliente}.`,
+      '',
+      `Seu cadastro na ${nomeBarbearia} foi concluído pelo WhatsApp.`,
+      'Crie sua senha para também administrar seus horários pelo site:',
+      linkCriarSenha,
+      '',
+      'O link vale por 60 minutos e só funciona uma vez.',
+      `Depois, entre por: ${linkEntrar}`,
+    ].join('\n'),
+  };
+}
+
 /* ──────────────────────────── plano contratado ──────────────────────────── */
 
 export function emailPlanoContratado(dados: {

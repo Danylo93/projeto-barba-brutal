@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { NotificacaoService } from '../notificacao/notificacao.service';
-import { emailRecuperacaoSenha } from '../notificacao/templates';
+import { emailPrimeiroAcessoCliente, emailRecuperacaoSenha } from '../notificacao/templates';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 
@@ -116,6 +116,53 @@ export class RecuperacaoService {
     }
 
     return resposta;
+  }
+
+  /**
+   * Entrega o acesso web para uma conta criada durante a conversa no WhatsApp.
+   *
+   * A senha provisória é aleatória e nunca sai do servidor. O cliente recebe
+   * um link de uso único para escolher a própria senha, em vez de mandar uma
+   * senha em texto pelo WhatsApp ou pelo e-mail.
+   */
+  async enviarPrimeiroAcesso(
+    usuario: { id: number; nome: string; email: string; tenantId: number },
+    nomeBarbearia: string,
+  ): Promise<void> {
+    const token = randomBytes(32).toString('hex');
+    const expiraEm = new Date(Date.now() + VALIDADE_MINUTOS * 60_000);
+
+    await this.prisma.recuperacaoSenha.deleteMany({
+      where: { titularTipo: 'usuario', titularId: usuario.id, usadoEm: null },
+    });
+    await this.prisma.recuperacaoSenha.create({
+      data: {
+        titularTipo: 'usuario',
+        titularId: usuario.id,
+        tokenHash: this.hashDoToken(token),
+        expiraEm,
+      },
+    });
+
+    const linkCriarSenha =
+      `${this.urlDoSite}/redefinir-senha?token=${token}&tenant=${usuario.tenantId}`;
+    const linkEntrar = `${this.urlDoSite}/login?tenant=${usuario.tenantId}`;
+
+    this.notificacao.enviarTemplateEmSegundoPlano(
+      usuario.email,
+      emailPrimeiroAcessoCliente({
+        nomeCliente: usuario.nome,
+        nomeBarbearia,
+        linkCriarSenha,
+        linkEntrar,
+      }),
+    );
+
+    if (!this.notificacao.emailAtivo) {
+      this.logger.warn(
+        `E-mail não configurado: primeiro acesso de ${usuario.email} não foi enviado.`,
+      );
+    }
   }
 
   /** Troca a senha e queima o token. */

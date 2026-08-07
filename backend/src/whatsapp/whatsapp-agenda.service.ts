@@ -2,11 +2,11 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../db/prisma.service';
 import { AgendamentoRepository } from '../agendamento/agendamento.repository';
@@ -35,13 +35,24 @@ import {
   expedienteDoDia,
   validarServicosDoAgendamento,
 } from '../agendamento/agendamento.validacao';
+import { AuthService } from '../auth/auth.service';
+import { RecuperacaoService } from '../auth/recuperacao.service';
+import { LgpdService } from '../lgpd/lgpd.service';
+import { VERSAO_PRIVACIDADE, VERSAO_TERMOS } from '../lgpd/versoes';
+import { NotificacaoService } from '../notificacao/notificacao.service';
 
 @Injectable()
 export class WhatsappAgendaService {
+  private readonly logger = new Logger(WhatsappAgendaService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly agendamentos: AgendamentoRepository,
     private readonly whatsapp: WhatsappService,
+    private readonly auth: AuthService,
+    private readonly recuperacao: RecuperacaoService,
+    private readonly lgpd: LgpdService,
+    private readonly notificacao: NotificacaoService,
   ) {}
 
   private normalizarInstance(valor: string): string {
@@ -202,17 +213,31 @@ export class WhatsappAgendaService {
 
   private digitos(valor: string): string {
     const numero = String(valor ?? '').replace(/\D/g, '');
-    if (numero.length < 10) throw new BadRequestException('Telefone inválido.');
-    return numero.startsWith('55') ? numero : `55${numero}`;
+    if (numero.length === 10 || numero.length === 11) return `55${numero}`;
+    if ((numero.length === 12 || numero.length === 13) && numero.startsWith('55')) {
+      return numero;
+    }
+    throw new BadRequestException('Telefone inválido.');
   }
 
   private telefoneCanonico(valor: string): string | null {
     const numero = String(valor ?? '').replace(/\D/g, '');
-    if (numero.length < 10) return null;
-    return numero.startsWith('55') ? numero : `55${numero}`;
+    if (numero.length === 10 || numero.length === 11) return `55${numero}`;
+    if ((numero.length === 12 || numero.length === 13) && numero.startsWith('55')) {
+      return numero;
+    }
+    return null;
   }
 
-  private async cliente(tenantId: number, telefone: string, nome?: string, criar = false) {
+  private cadastroCompleto(usuario: { email?: string | null } | null): boolean {
+    return !!usuario && !String(usuario.email ?? '').endsWith('@cliente.local');
+  }
+
+  private emailValido(email: string): boolean {
+    return email.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  private async buscarCliente(tenantId: number, telefone: string) {
     const numero = this.digitos(telefone);
     // Só os candidatos, não a base inteira. Isto carregava TODOS os clientes
     // da barbearia na memória a cada mensagem de WhatsApp para comparar
@@ -229,25 +254,179 @@ export class WhatsappAgendaService {
       },
       take: 25,
     });
-    let usuario = usuarios.find((u) => this.telefoneCanonico(u.telefone) === numero);
-    if (!usuario && criar) {
-      const senha = await bcrypt.hash(randomBytes(24).toString('hex'), 10);
-      usuario = await this.prisma.usuario.create({
-        data: {
-          tenantId,
-          nome: String(nome || 'Cliente WhatsApp').slice(0, 100),
-          telefone: numero,
-          email: `whatsapp.${numero}.${tenantId}@cliente.local`,
-          senha,
-        },
-      });
-    }
-    if (!usuario) {
+    return usuarios.find((u) => this.telefoneCanonico(u.telefone) === numero) ?? null;
+  }
+
+  private async cliente(tenantId: number, telefone: string) {
+    const usuario = await this.buscarCliente(tenantId, telefone);
+    if (!this.cadastroCompleto(usuario)) {
       throw new NotFoundException(
-        'Não achei nenhum cadastro com este número. Me diz seu nome e o que você quer fazer que eu abro um para você.',
+        'Não achei cadastro com este WhatsApp. Ofereça o link de cadastro ou peça nome, e-mail e aceite dos termos para cadastrar pela conversa.',
       );
     }
-    return usuario;
+    return usuario!;
+  }
+
+  private linksDeCadastro(tenantId: number) {
+    const site = (process.env.FRONTEND_URL || 'http://localhost:3000')
+      .split(',')[0]
+      .trim()
+      .replace(/\/+$/, '');
+    return {
+      cadastroUrl: `${site}/login?tenant=${tenantId}&modo=cadastrar&destino=%2Fagendamento`,
+      termosUrl: `${site}/terms`,
+      privacidadeUrl: `${site}/privacy`,
+    };
+  }
+
+  async statusCliente(
+    token: string,
+    tenantTexto: string,
+    telefone: string,
+    instance?: string,
+  ) {
+    const tenantId = await this.autenticar(token, tenantTexto, instance);
+    const [usuario, tenant] = await Promise.all([
+      this.buscarCliente(tenantId, telefone),
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { nome: true },
+      }),
+    ]);
+    const links = this.linksDeCadastro(tenantId);
+
+    return this.cadastroCompleto(usuario)
+      ? {
+          cadastrado: true,
+          cliente: { id: usuario.id, nome: usuario.nome },
+          barbearia: tenant?.nome,
+          ...links,
+          mensagem: `Cadastro encontrado no nome de ${usuario.nome}.`,
+        }
+      : {
+          cadastrado: false,
+          cadastroIncompleto: !!usuario,
+          barbearia: tenant?.nome,
+          ...links,
+          mensagem:
+            'Este WhatsApp ainda não tem cadastro. A pessoa pode usar o link ou concluir aqui informando nome, e-mail e aceitando os termos e a política de privacidade.',
+        };
+  }
+
+  async cadastrarCliente(
+    token: string,
+    tenantTexto: string,
+    body: {
+      telefone?: string;
+      nome?: string;
+      email?: string;
+      aceitouTermos?: boolean;
+    },
+    instance?: string,
+  ) {
+    const tenantId = await this.autenticar(token, tenantTexto, instance);
+    const numero = this.digitos(body.telefone || '');
+    const existente = await this.buscarCliente(tenantId, numero);
+    if (this.cadastroCompleto(existente)) {
+      return {
+        cadastrado: true,
+        jaExistia: true,
+        cliente: { id: existente.id, nome: existente.nome },
+        mensagem: 'Este WhatsApp já está cadastrado. Pode continuar o atendimento.',
+      };
+    }
+
+    const nome = String(body.nome ?? '').trim().replace(/\s+/g, ' ');
+    const email = String(body.email ?? '').trim().toLowerCase();
+    if (nome.length < 2 || nome.length > 120) {
+      throw new BadRequestException('Peça o nome completo da pessoa antes de cadastrar.');
+    }
+    if (!this.emailValido(email)) {
+      throw new BadRequestException(
+        'Peça um e-mail válido antes de cadastrar (por exemplo, nome@email.com).',
+      );
+    }
+    if (body.aceitouTermos !== true) {
+      const { termosUrl, privacidadeUrl } = this.linksDeCadastro(tenantId);
+      throw new BadRequestException(
+        `Antes de cadastrar, a pessoa precisa aceitar os Termos (${termosUrl}) e a Política de Privacidade (${privacidadeUrl}).`,
+      );
+    }
+
+    const emailEmUso = await this.prisma.usuario.findFirst({
+      where: { tenantId, email },
+      select: { id: true },
+    });
+    if (emailEmUso && emailEmUso.id !== existente?.id) {
+      throw new BadRequestException(
+        'Esse e-mail já está cadastrado com outro WhatsApp. Para proteger a conta, peça para a pessoa entrar pelo link ou falar com a barbearia.',
+      );
+    }
+
+    // A senha aleatória nunca é mostrada. O e-mail abaixo leva um link de uso
+    // único para a própria pessoa criar a senha dela.
+    let usuario: any;
+    if (existente) {
+      // Versões anteriores criavam `@cliente.local` para conseguir marcar sem
+      // cadastro. Completar a mesma linha preserva todos os horários já ligados
+      // a ela, em vez de abrir uma segunda conta para o mesmo WhatsApp.
+      usuario = await this.prisma.usuario.update({
+        where: { id: existente.id },
+        data: { nome, email, telefone: numero.slice(2) },
+      });
+    } else {
+      const criado = await this.auth.registerUsuario({
+        nome,
+        email,
+        telefone: numero.slice(2),
+        senha: randomBytes(32).toString('hex'),
+        tenantId,
+      });
+      usuario = criado.usuario as any;
+    }
+
+    // Mesma prova que o checkbox do cadastro web registra, agora vinculada à
+    // conta criada na conversa.
+    await this.lgpd
+      .registrar(
+        { titularTipo: 'usuario', titularId: usuario.id, tenantId },
+        [
+          { tipo: 'termos_de_uso', aceito: true, versao: VERSAO_TERMOS },
+          { tipo: 'politica_privacidade', aceito: true, versao: VERSAO_PRIVACIDADE },
+        ],
+        { userAgent: 'Cadastro pelo WhatsApp' },
+      )
+      .catch((erro) =>
+        this.logger.error(
+          `Falha ao registrar o aceite do cliente ${usuario.id}: ${erro?.message ?? erro}`,
+        ),
+      );
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { nome: true },
+    });
+    let emailEnviado = false;
+    try {
+      await this.recuperacao.enviarPrimeiroAcesso(
+        { id: usuario.id, nome: usuario.nome, email: usuario.email, tenantId },
+        tenant?.nome || 'barbearia',
+      );
+      emailEnviado = this.notificacao.emailAtivo;
+    } catch (erro: any) {
+      this.logger.error(
+        `Falha ao preparar primeiro acesso do cliente ${usuario.id}: ${erro?.message ?? erro}`,
+      );
+    }
+
+    return {
+      cadastrado: true,
+      cliente: { id: usuario.id, nome: usuario.nome, email: usuario.email },
+      emailEnviado,
+      mensagem: emailEnviado
+        ? 'Cadastro concluído. Enviamos um e-mail para a pessoa criar a senha; o atendimento pode continuar por aqui.'
+        : 'Cadastro concluído, mas o canal de e-mail está indisponível. O atendimento pode continuar por aqui e a barbearia precisa verificar o envio.',
+    };
   }
 
   /**
@@ -279,12 +458,18 @@ export class WhatsappAgendaService {
   async listar(token: string, tenantTexto: string, telefone: string, instance?: string) {
     const tenantId = await this.autenticar(token, tenantTexto, instance);
     const usuario = await this.cliente(tenantId, telefone);
-    return this.agendamentos.buscarPorUsuario(usuario.id);
+    const marcados = await this.agendamentos.buscarPorUsuario(usuario.id);
+    // Esta ferramenta serve para escolher o que ainda pode ser remarcado ou
+    // cancelado. Devolver cancelado/concluído fazia o robô oferecer ação que a
+    // própria API recusaria logo depois.
+    return marcados.filter((agendamento) =>
+      ['agendado', 'confirmado'].includes(String(agendamento.status ?? 'agendado')),
+    );
   }
 
   async criar(token: string, tenantTexto: string, body: any, instance?: string) {
     const tenantId = await this.autenticar(token, tenantTexto, instance);
-    const usuario = await this.cliente(tenantId, body.telefone, body.nome, true);
+    const usuario = await this.cliente(tenantId, body.telefone);
 
     // Mesmo cuidado do reagendamento: sem fuso na ponta, a hora do cliente
     // virava a hora do servidor.
@@ -319,6 +504,12 @@ export class WhatsappAgendaService {
     } as any);
 
     const criado = await this.agendamentos.buscarPorId(id, tenantId);
+    // A criação pelo WhatsApp passa pelo mesmo aviso por e-mail do app.
+    this.notificacao.notificarNovoAgendamento(id).catch((erro) =>
+      this.logger.error(
+        `Falha ao avisar o cliente do agendamento ${id}: ${erro?.message ?? erro}`,
+      ),
+    );
     return { ...(criado as any), quando: comoOClienteLe(quando) };
   }
 

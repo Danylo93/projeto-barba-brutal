@@ -69,6 +69,32 @@ export class WhatsappAgendaController {
     return this.service.listar(token, tenantId, telefone, instance);
   }
 
+  @Get('clientes/status')
+  statusCliente(
+    @Headers('x-whatsapp-token') token: string,
+    @Query('tenantId') tenantId: string,
+    @Query('telefone') telefone: string,
+    @Query('instance') instance: string,
+  ) {
+    return this.service.statusCliente(token, tenantId, telefone, instance);
+  }
+
+  @Post('clientes/cadastrar')
+  cadastrarCliente(
+    @Headers('x-whatsapp-token') token: string,
+    @Query('tenantId') tenantId: string,
+    @Body()
+    body: {
+      telefone?: string;
+      nome?: string;
+      email?: string;
+      aceitouTermos?: boolean;
+    },
+    @Query('instance') instance: string,
+  ) {
+    return this.service.cadastrarCliente(token, tenantId, body, instance);
+  }
+
   @Post('agendamentos')
   criar(
     @Headers('x-whatsapp-token') token: string,

@@ -2,6 +2,7 @@ import {
   emailAgendamentoConfirmado,
   emailBoasVindas,
   emailPlanoContratado,
+  emailPrimeiroAcessoCliente,
   emailRecuperacaoSenha,
 } from './templates';
 
@@ -108,6 +109,21 @@ describe('templates de e-mail', () => {
     });
   });
 
+  describe('primeiro acesso do cliente cadastrado pelo WhatsApp', () => {
+    it('explica o cadastro e leva à criação segura da senha', () => {
+      const email = emailPrimeiroAcessoCliente({
+        nomeCliente: 'João',
+        nomeBarbearia: 'Lá Tita',
+        linkCriarSenha: 'https://x.app/redefinir-senha?token=seguro',
+        linkEntrar: 'https://x.app/login?tenant=7',
+      });
+      expect(email.assunto).toContain('Lá Tita');
+      expect(email.texto).toContain('redefinir-senha?token=seguro');
+      expect(email.texto).toContain('login?tenant=7');
+      expect(email.html).not.toMatch(/senha provisória|senha temporária/i);
+    });
+  });
+
   describe('agendamento confirmado', () => {
     const base = {
       nomeCliente: 'João',
@@ -160,6 +176,12 @@ describe('templates de e-mail', () => {
         servicos: 'c',
         profissional: 'd',
         quando: new Date(),
+      }),
+      emailPrimeiroAcessoCliente({
+        nomeCliente: 'a',
+        nomeBarbearia: 'b',
+        linkCriarSenha: 'https://x.com/criar',
+        linkEntrar: 'https://x.com/entrar',
       }),
     ];
     for (const email of emails) {

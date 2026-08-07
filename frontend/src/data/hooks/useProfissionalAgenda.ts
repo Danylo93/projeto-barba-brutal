@@ -26,8 +26,8 @@ export default function useProfissionalAgenda() {
     async function excluirAgendamento(id: number) {
         try {
             await httpDelete(`agendamentos/${id}`)
-            setAgendamentos(agendamentos.filter((a) => a.id !== id))
-            success('Agendamento excluído', 'O agendamento foi cancelado com sucesso.')
+            setAgendamentos(agendamentos.map((a) => a.id === id ? { ...a, status: 'cancelado' } : a))
+            success('Agendamento cancelado', 'O agendamento continua no histórico.')
         } catch (err) {
             toastError('Erro ao cancelar', err instanceof Error ? err.message : 'Erro ao cancelar o agendamento')
         }

@@ -60,7 +60,9 @@ function supressoes(): { arquivo: string; linha: number; ids: string[] }[] {
         // Este próprio arquivo fala de `nosemgrep:` o tempo todo, em prosa.
         if (arquivo === __filename) return;
 
-        const marca = texto.match(/nosemgrep:(.*)$/);
+        // `split('\n')` deixa o `\r` no Windows. Como ponto não casa com
+        // retorno de carro, o `$` fazia TODAS as supressões sumirem da busca.
+        const marca = texto.match(/nosemgrep:([^\r\n]*)\r?$/);
         if (!marca) return;
 
         const ids = marca[1]
