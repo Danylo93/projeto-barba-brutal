@@ -490,9 +490,26 @@ export class WhatsappAgendaService {
     // Esta ferramenta serve para escolher o que ainda pode ser remarcado ou
     // cancelado. Devolver cancelado/concluído fazia o robô oferecer ação que a
     // própria API recusaria logo depois.
-    return marcados.filter((agendamento) =>
-      ['agendado', 'confirmado'].includes(String(agendamento.status ?? 'agendado')),
-    );
+    return marcados
+      .filter((agendamento) =>
+        ['agendado', 'confirmado'].includes(String(agendamento.status ?? 'agendado')),
+      )
+      // `quando` já escrito, igual ao que `marcar` e `remarcar` devolvem.
+      //
+      // Sem ele saía só o `data` cru terminado em Z, e o modelo lia a hora que
+      // estava ali: um agendamento das 15:00 de Brasília, gravado como
+      // 18:00Z, foi anunciado ao cliente no WhatsApp como "amanhã às 18h".
+      // Três horas erradas, ditas com toda a confiança de quem leu no banco.
+      // Prompt nenhum conserta isso — a hora tem que sair da API já escrita
+      // do jeito que o cliente lê.
+      .map((agendamento) => {
+        const quando = agendamento.data ? new Date(agendamento.data as any) : null;
+        return {
+          ...(agendamento as any),
+          quando:
+            quando && !Number.isNaN(quando.getTime()) ? comoOClienteLe(quando) : null,
+        };
+      });
   }
 
   async criar(token: string, tenantTexto: string, body: any, instance?: string) {
