@@ -8,6 +8,7 @@ import useAPI from '@/data/hooks/useAPI'
 import Cabecalho from '@/components/shared/Cabecalho'
 import { useToast } from '@/hooks/use-toast'
 import UpgradeCallout from '@/components/painel/UpgradeCallout'
+import WhatsappConnectionCard from '@/components/painel/WhatsappConnectionCard'
 import usePlanoAssinatura from '@/hooks/usePlanoAssinatura'
 import {
     DiaHorario,
@@ -55,6 +56,7 @@ export default function ConfiguracoesPage() {
     const [webhookUrl, setWebhookUrl] = useState('')
     const [evolutionToken, setEvolutionToken] = useState('')
     const [evolutionInstance, setEvolutionInstance] = useState('')
+    const [whatsappRefreshKey, setWhatsappRefreshKey] = useState(0)
 
     useEffect(() => {
         if (token) fetchConfiguracoes()
@@ -139,7 +141,9 @@ export default function ConfiguracoesPage() {
             }
 
             setSucesso(true)
-            toastSuccess('Configurações salvas', 'Seus horários foram atualizados.')
+            setEvolutionInstance(instanciaLimpa)
+            setWhatsappRefreshKey((valor) => valor + 1)
+            toastSuccess('Configurações salvas', 'As configurações da barbearia foram atualizadas.')
             setTimeout(() => setSucesso(false), 3000)
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'Erro desconhecido'
@@ -360,18 +364,24 @@ export default function ConfiguracoesPage() {
 
                 {abaAtual === 'integracoes' && !plano.isBasico && (
                     <div className="flex flex-col gap-8 animate-slide-up">
+                        <WhatsappConnectionCard
+                            instance={evolutionInstance}
+                            onInstanceChange={setEvolutionInstance}
+                            refreshKey={whatsappRefreshKey}
+                        />
+
                         <div className="bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-6 sm:p-8">
                             <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                                <AlertCircle size={20} className="text-yellow-400" /> Webhooks e Robôs
+                                <AlertCircle size={20} className="text-yellow-400" /> Webhook personalizado
                             </h2>
                             <p className="text-zinc-400 text-sm mb-6">
-                                Conecte sua barbearia a sistemas de IA (como n8n ou Evolution API). O sistema irá notificar esses endpoints em tempo real sobre novos agendamentos e cancelamentos.
+                                Opcional para integrações próprias. O sistema envia novos agendamentos e cancelamentos para o endereço informado.
                             </p>
 
                             <div className="space-y-5">
                                 <div>
                                     <label className="block text-sm font-medium text-zinc-300 mb-1">
-                                        URL do Webhook (n8n / Make / etc)
+                                        URL do webhook (n8n / Make / etc.)
                                     </label>
                                     <input
                                         type="url"
@@ -384,30 +394,15 @@ export default function ConfiguracoesPage() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-zinc-300 mb-1">
-                                        Token da Evolution API (Opcional)
+                                        Chave enviada ao webhook (opcional)
                                     </label>
                                     <input
                                         type="password"
-                                        placeholder="Seu token da API do WhatsApp"
+                                        placeholder="Chave de autenticação do seu endpoint"
                                         value={evolutionToken}
                                         onChange={(e) => setEvolutionToken(e.target.value)}
                                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-400 transition-colors"
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-zinc-300 mb-1">
-                                        Instance da Evolution API
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="barbearia-premium-01"
-                                        value={evolutionInstance}
-                                        onChange={(e) => setEvolutionInstance(e.target.value)}
-                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-400 transition-colors"
-                                    />
-                                    <p className="text-xs text-zinc-500 mt-1">
-                                        Essa instance identifica automaticamente qual barbearia está falando com o fluxo.
-                                    </p>
                                 </div>
                             </div>
                         </div>

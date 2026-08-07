@@ -3,15 +3,18 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Atendente de WhatsApp (planos Profissional e Premium)\n\nO cliente escreve no WhatsApp da barbearia, a Evolution chama este fluxo, e um\nagente de IA conversa: consulta o cardápio, procura horário livre, marca,\nremarca e cancela — tudo pela API, que é quem manda nas regras.\n\n### O que trocar antes de ativar\n\n1. **Credencial `Token do bot` (Header Auth)** — Name `x-whatsapp-token`,\n   Value igual ao `WHATSAPP_BOT_TOKEN` do Render. Vincule nas seis\n   ferramentas do agente.\n2. **Credencial `Evolution apikey` (Header Auth)** — Name `apikey`, Value a\n   apikey da sua Evolution. Vincule no nó **Responder no WhatsApp**.\n3. **Credencial do modelo** — Anthropic (a chave sai de console.anthropic.com).\n4. No nó **Onde ficam as coisas**, ajuste `evolutionUrl` para a sua Evolution.\n5. Na Evolution, aponte o webhook `messages.upsert` para a URL de produção\n   deste fluxo.\n\nNada de variável de ambiente: as *Variables* do n8n são recurso pago, e\ncredencial é melhor de qualquer jeito — o valor não viaja no JSON exportado\nnem vai para o repositório.\n\n### Por que foi reescrito\n\nA versão anterior era um roteador de `intent` por expressão regular, e estava\nmorta há tempo: os `\\b` do código viraram caractere de backspace ao entrar no\nJSON, então NENHUMA regra casava e toda mensagem caía no texto de ajuda.\nNinguém conseguia marcar, cancelar nem remarcar por aqui. Além disso ela\nlia o id do agendamento como \"o primeiro número da frase\" (\"remarcar para as\n15:00\" virava agendamento nº 15), tinha a data `2026-08-06` escrita à mão no\ncódigo, e dizia \"reagendado com sucesso\" sem olhar a resposta da API — quando\na API recusava, a execução morria e o cliente não recebia nada.\n\n### A recusa é metade do atendimento\n\nTodas as ferramentas estão em **continueRegularOutput**: quando a API recusa,\no texto da recusa volta PARA o agente em vez de derrubar a execução. É assim\nque \"esse horário de hoje já passou — agora são 17:00\" chega ao cliente em vez\nde silêncio.",
+        "content": "## Atendente de WhatsApp (planos Profissional e Premium)\n\nO cliente escreve no WhatsApp da barbearia, a Evolution chama este fluxo, e um\nagente de IA conversa: consulta o cardápio, procura horário livre, marca,\nremarca e cancela — tudo pela API, que é quem manda nas regras.\n\n### O que ligar antes de ativar (uma vez só)\n\n1. **Credencial `Header Auth`** — Name `x-whatsapp-token`, Value igual ao\n   `WHATSAPP_BOT_TOKEN` do Render. Ela vale para os três papéis: o porteiro do\n   webhook, as seis ferramentas e o envio da resposta.\n2. **Credencial do modelo** — Anthropic.\n3. No Render: `WHATSAPP_WEBHOOK_URL` apontando para a URL de produção deste\n   webhook, e `WHATSAPP_WEBHOOK_TOKEN` com o mesmo valor da credencial acima\n   (se ficar vazia, o backend usa o `WHATSAPP_BOT_TOKEN`).\n\nNada de URL nem de apikey da Evolution aqui dentro — o backend tem as duas.\n\n### Barbearia nova: nenhum passo neste fluxo\n\nO dono cadastra a instance dele e aperta o botão de conectar no painel. O\nbackend chama a Evolution e registra ESTE webhook com o header certo. Um fluxo\natende todas as barbearias: quem diz de quem é a conversa é a instance que a\nEvolution manda no corpo.\n\n### Por que não chegava mensagem\n\nO nó de envio apontava para `evolution.seudominio.com` — a URL de exemplo que\nnunca foi trocada — e usava um id de credencial de exemplo. O cliente escrevia,\no agente pensava, e a resposta ia para um host que não existe. Agora a resposta\nsai pelo backend, que já sabe URL, apikey e a instância da barbearia.\n\n### A recusa é metade do atendimento\n\nTodas as ferramentas estão em **continueRegularOutput**: quando a API recusa, o\ntexto da recusa volta PARA o agente em vez de derrubar a execução. É assim que\n\"esse horário de hoje já passou — agora são 17:00\" chega ao cliente em vez de\nsilêncio.",
         "height": 900,
         "width": 560
       },
-      "id": "nota",
+      "id": "434a240f-fdc1-4a20-bbb6-06aa506a6633",
       "name": "Como funciona",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-720, -160]
+      "position": [
+        8800,
+        6544
+      ]
     },
     {
       "parameters": {
@@ -20,16 +23,19 @@
         "authentication": "headerAuth",
         "options": {}
       },
-      "id": "webhook",
+      "id": "a743c9a3-1ea9-4c2d-998b-f15b6c3b3152",
       "name": "Webhook da Evolution",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-100, 200],
+      "position": [
+        9424,
+        6896
+      ],
       "webhookId": "barba-brutal-whatsapp",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "bb-webhook-evolution",
-          "name": "Segredo do webhook"
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth account"
         }
       },
       "notes": "Com Header Auth ligado, só quem sabe o segredo consegue falar com este fluxo. Sem isso, qualquer um que descubra a URL se passa por qualquer cliente e cancela agendamento alheio. Configure o mesmo header na Evolution."
@@ -38,11 +44,14 @@
       "parameters": {
         "jsCode": "// O que interessa da mensagem que a Evolution mandou.\n//\n// Sai fora o que não é conversa de cliente: mensagem que a própria barbearia\n// enviou, grupo, e evento que não é de mensagem (a Evolution manda dezenas de\n// tipos no mesmo webhook).\nconst body = $json.body || {};\nconst dados = body.data || {};\n\nif (body.event && body.event !== 'messages.upsert') return [];\nif (dados?.key?.fromMe) return [];\n\nconst jid = dados?.key?.remoteJid || dados?.key?.remoteJidAlt || '';\nif (String(jid).includes('@g.us')) return []; // grupo não é atendimento\n\nconst telefone = String(jid).split('@')[0].replace(/\\D/g, '');\nif (!telefone) return [];\n\nconst m = dados?.message || {};\nconst texto = String(\n  m.conversation ||\n    m.extendedTextMessage?.text ||\n    m.imageMessage?.caption ||\n    m.videoMessage?.caption ||\n    m.buttonsResponseMessage?.selectedDisplayText ||\n    m.listResponseMessage?.title ||\n    '',\n).trim();\n\n// Áudio, figurinha e localização: o agente não lê, então é melhor dizer isso\n// do que ficar mudo.\nconst semTexto = !texto && (m.audioMessage || m.stickerMessage || m.documentMessage || m.locationMessage);\n\nreturn [\n  {\n    json: {\n      telefone,\n      // A instância é quem diz de qual barbearia é a conversa. Vem da própria\n      // Evolution — ninguém digita, e barbearia nova não pede configuração.\n      instance: body.instance || dados?.instance || '',\n      nome: String(dados?.pushName || '').trim(),\n      mensagem: texto,\n      semTexto: !!semTexto,\n    },\n  },\n];"
       },
-      "id": "extrair",
+      "id": "116fc5fc-fcb6-4044-ac94-35e419675143",
       "name": "Extrair a mensagem",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [120, 200]
+      "position": [
+        9648,
+        6896
+      ]
     },
     {
       "parameters": {
@@ -52,12 +61,6 @@
               "id": "backend",
               "name": "backendUrl",
               "value": "https://barba-brutal-api.onrender.com",
-              "type": "string"
-            },
-            {
-              "id": "evolution",
-              "name": "evolutionUrl",
-              "value": "https://evolution.seudominio.com",
               "type": "string"
             },
             {
@@ -77,11 +80,14 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "config",
+      "id": "0dc8de0a-839a-485f-aaba-8de084f503c5",
       "name": "Onde ficam as coisas",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [340, 200],
+      "position": [
+        9872,
+        6896
+      ],
       "notes": "A data de hoje é calculada aqui e entra no prompt. A versão anterior tinha 2026-08-06 escrita à mão no código: todo mundo que dissesse só a hora era mandado para aquele dia, para sempre."
     },
     {
@@ -98,18 +104,24 @@
               "id": "tem-texto",
               "leftValue": "={{ $json.mensagem }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty" }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
             }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "tem-texto",
+      "id": "56b08619-a502-4e51-837a-c520e8e6106a",
       "name": "Veio texto?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [560, 200]
+      "position": [
+        10080,
+        6896
+      ]
     },
     {
       "parameters": {
@@ -119,33 +131,16 @@
           "systemMessage": "=Você é a pessoa que atende o WhatsApp de uma barbearia no Brasil. Não é um robô e não fala como um: fala como um atendente simpático, direto e sem frescura.\n\nCOMO FALAR\n- Português do Brasil, informal e educado. Frases curtas. Uma ideia por mensagem.\n- Nada de \"prezado cliente\", \"protocolo\", \"solicitação\" ou lista numerada de menu.\n- Nunca diga que é uma IA, um assistente virtual ou um bot. Se perguntarem, diga que é do atendimento da barbearia.\n- Nada de emoji em excesso: no máximo um, e só quando couber.\n- Se souber o nome da pessoa, use uma vez no começo, não em toda mensagem.\n- Nunca invente preço, horário, nome de barbeiro ou serviço. Tudo isso vem das ferramentas.\n\nO QUE VOCÊ SABE\n- Agora em Brasília: {{ $json.agoraEmBrasilia }}. Hoje é {{ $json.hoje }}.\n- Telefone de quem está falando: {{ $json.telefone }}\n- Nome no WhatsApp: {{ $json.nome }}\n- Instância desta barbearia (use em TODA ferramenta): {{ $json.instance }}\n\nCOMO USAR AS FERRAMENTAS\n- Toda ferramenta precisa do parâmetro `instance` com o valor acima.\n- Datas sempre no formato `AAAA-MM-DD HH:MM`, no horário de Brasília. Converta você mesmo \"amanhã\", \"sexta\", \"depois de amanhã\" a partir da data de hoje.\n- Antes de oferecer horário, consulte `horarios_livres`. Nunca chute. Se a pessoa pedir um horário específico, pode tentar direto — se a API recusar, ela te diz o porquê.\n- Antes de marcar, você precisa de: serviço, profissional e horário. Pergunte o que faltar, uma coisa por vez.\n- Para remarcar ou cancelar você precisa do id do agendamento. Se a pessoa não disser, chame `meus_agendamentos` e ofereça o que ela tem marcado.\n\nQUANDO A API RECUSA\n- A recusa vem em português, já pronta para o cliente ler. Repasse o sentido dela com suas palavras, sem inventar motivo diferente e sem esconder o problema.\n- Depois da recusa, ofereça o próximo passo: consulte `horarios_livres` e diga o que tem de verdade.\n- Se a recusa falar em plano, assinatura ou token, NÃO repasse: diga que teve um problema no sistema e que alguém da barbearia vai retornar.\n\nREGRAS QUE NÃO SE QUEBRAM\n- Nunca confirme um agendamento sem a ferramenta ter respondido com sucesso.\n- Nunca fale de agendamento de outra pessoa.\n- Se pedirem algo fora de agendamento (reclamação, negociação de preço, assunto pessoal), diga que vai passar para a barbearia e encerre com educação.\n\nResponda SEMPRE só com o texto da mensagem de WhatsApp — sem aspas em volta, sem markdown, sem assinatura."
         }
       },
-      "id": "agente",
+      "id": "b5016505-dba8-442b-a4e3-06d60c53a877",
       "name": "Atendente",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [820, 180],
+      "position": [
+        10352,
+        6880
+      ],
       "onError": "continueRegularOutput",
       "notes": "Em continueRegularOutput: se o modelo cair, o fluxo segue e o nó seguinte manda a mensagem de desculpa. Cliente sem resposta nenhuma é o pior desfecho."
-    },
-    {
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "list",
-          "value": "claude-opus-5",
-          "cachedResultName": "Claude Opus 5"
-        },
-        "options": { "temperature": 0.4, "maxTokensToSample": 2048 }
-      },
-      "id": "modelo",
-      "name": "Modelo",
-      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
-      "typeVersion": 1.3,
-      "position": [700, 420],
-      "credentials": {
-        "anthropicApi": { "id": "bb-anthropic", "name": "Anthropic" }
-      },
-      "notes": "Temperatura baixa: atendimento precisa ser previsível. Quem manda no conteúdo são as ferramentas. Se `claude-opus-5` não aparecer na lista, troque o campo para \"By ID\" e digite o nome — o n8n lê o catálogo da Anthropic e uma versão antiga do nó pode ter a lista defasada."
     },
     {
       "parameters": {
@@ -153,11 +148,14 @@
         "sessionKey": "={{ $('Onde ficam as coisas').item.json.instance }}:{{ $('Onde ficam as coisas').item.json.telefone }}",
         "contextWindowLength": 20
       },
-      "id": "memoria",
+      "id": "fee2cb1d-58df-41f5-a1ad-f75f94809729",
       "name": "Memória da conversa",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
-      "position": [850, 420],
+      "position": [
+        10368,
+        7296
+      ],
       "notes": "A chave junta instância e telefone: o mesmo número pode ser cliente de duas barbearias, e as conversas não podem se misturar. Sem memória, cada mensagem recomeça do zero e o atendimento repete as mesmas perguntas."
     },
     {
@@ -170,23 +168,26 @@
         "parametersQuery": {
           "values": [
             {
-              "name": "instance",
-              "valueProvider": "modelRequired",
-              "description": "Instância desta barbearia, exatamente como está no prompt"
+              "name": "instance"
             }
           ]
-        },
-        "optimizeResponse": false
+        }
       },
-      "id": "t-cardapio",
+      "id": "6a4b160e-522b-4c44-a371-d7bfbbba5bb2",
       "name": "cardapio",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1020, 420],
-      "onError": "continueRegularOutput",
+      "position": [
+        10528,
+        7280
+      ],
       "credentials": {
-        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
-      }
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -198,38 +199,36 @@
         "parametersQuery": {
           "values": [
             {
-              "name": "instance",
-              "valueProvider": "modelRequired",
-              "description": "Instância desta barbearia"
+              "name": "instance"
             },
             {
-              "name": "data",
-              "valueProvider": "modelRequired",
-              "description": "Dia procurado, no formato AAAA-MM-DD"
+              "name": "data"
             },
             {
-              "name": "profissionalId",
-              "valueProvider": "modelRequired",
-              "description": "Id do profissional, vindo do cardapio"
+              "name": "profissionalId"
             },
             {
               "name": "servicos",
-              "valueProvider": "modelOptional",
-              "description": "Ids dos serviços separados por vírgula — importa porque atendimento longo não cabe em qualquer fresta"
+              "valueProvider": "modelOptional"
             }
           ]
-        },
-        "optimizeResponse": false
+        }
       },
-      "id": "t-horarios",
+      "id": "23cea742-f62f-498b-aa89-6b0db52eb595",
       "name": "horarios_livres",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1160, 420],
-      "onError": "continueRegularOutput",
+      "position": [
+        10672,
+        7280
+      ],
       "credentials": {
-        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
-      }
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -241,28 +240,29 @@
         "parametersQuery": {
           "values": [
             {
-              "name": "instance",
-              "valueProvider": "modelRequired",
-              "description": "Instância desta barbearia"
+              "name": "instance"
             },
             {
-              "name": "telefone",
-              "valueProvider": "modelRequired",
-              "description": "Telefone de quem está falando, como está no prompt"
+              "name": "telefone"
             }
           ]
-        },
-        "optimizeResponse": false
+        }
       },
-      "id": "t-meus",
+      "id": "97af2e4f-c6a8-4e85-ab11-1919483caefb",
       "name": "meus_agendamentos",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1300, 420],
-      "onError": "continueRegularOutput",
+      "position": [
+        10848,
+        7280
+      ],
       "credentials": {
-        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
-      }
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -275,9 +275,7 @@
         "parametersQuery": {
           "values": [
             {
-              "name": "instance",
-              "valueProvider": "modelRequired",
-              "description": "Instância desta barbearia"
+              "name": "instance"
             }
           ]
         },
@@ -285,43 +283,39 @@
         "parametersBody": {
           "values": [
             {
-              "name": "telefone",
-              "valueProvider": "modelRequired",
-              "description": "Telefone de quem está falando"
+              "name": "telefone"
             },
             {
               "name": "nome",
-              "valueProvider": "modelOptional",
-              "description": "Nome do cliente, para abrir o cadastro na primeira vez"
+              "valueProvider": "modelOptional"
             },
             {
-              "name": "profissionalId",
-              "valueProvider": "modelRequired",
-              "description": "Id do profissional"
+              "name": "profissionalId"
             },
             {
-              "name": "servicos",
-              "valueProvider": "modelRequired",
-              "description": "Lista de ids de serviço, ex.: [3]"
+              "name": "servicos"
             },
             {
-              "name": "data",
-              "valueProvider": "modelRequired",
-              "description": "Data e hora no formato AAAA-MM-DD HH:MM, horário de Brasília"
+              "name": "data"
             }
           ]
-        },
-        "optimizeResponse": false
+        }
       },
-      "id": "t-marcar",
+      "id": "239b0483-3252-48de-ad56-9ce06c48017c",
       "name": "marcar",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1440, 420],
-      "onError": "continueRegularOutput",
+      "position": [
+        11024,
+        7280
+      ],
       "credentials": {
-        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
-      }
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -334,9 +328,7 @@
         "parametersQuery": {
           "values": [
             {
-              "name": "instance",
-              "valueProvider": "modelRequired",
-              "description": "Instância desta barbearia"
+              "name": "instance"
             }
           ]
         },
@@ -344,14 +336,10 @@
         "parametersBody": {
           "values": [
             {
-              "name": "telefone",
-              "valueProvider": "modelRequired",
-              "description": "Telefone de quem está falando"
+              "name": "telefone"
             },
             {
-              "name": "data",
-              "valueProvider": "modelRequired",
-              "description": "Novo horário no formato AAAA-MM-DD HH:MM, horário de Brasília"
+              "name": "data"
             }
           ]
         },
@@ -363,18 +351,23 @@
               "type": "number"
             }
           ]
-        },
-        "optimizeResponse": false
+        }
       },
-      "id": "t-remarcar",
+      "id": "bb8945a0-e092-4b91-9153-8187cb9e5a11",
       "name": "remarcar",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1580, 420],
-      "onError": "continueRegularOutput",
+      "position": [
+        11184,
+        7280
+      ],
       "credentials": {
-        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth account"
+        }
       },
+      "onError": "continueRegularOutput",
       "notes": "O id vem de meus_agendamentos, nunca do primeiro número da frase. A versão anterior lia \"remarcar para as 15:00\" como agendamento nº 15."
     },
     {
@@ -388,9 +381,7 @@
         "parametersQuery": {
           "values": [
             {
-              "name": "instance",
-              "valueProvider": "modelRequired",
-              "description": "Instância desta barbearia"
+              "name": "instance"
             }
           ]
         },
@@ -398,9 +389,7 @@
         "parametersBody": {
           "values": [
             {
-              "name": "telefone",
-              "valueProvider": "modelRequired",
-              "description": "Telefone de quem está falando"
+              "name": "telefone"
             }
           ]
         },
@@ -412,112 +401,305 @@
               "type": "number"
             }
           ]
-        },
-        "optimizeResponse": false
+        }
       },
-      "id": "t-cancelar",
+      "id": "2b1818f8-2575-42b1-8389-bc13d0ff2701",
       "name": "cancelar",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [1720, 420],
-      "onError": "continueRegularOutput",
+      "position": [
+        11344,
+        7264
+      ],
       "credentials": {
-        "httpHeaderAuth": { "id": "bb-bot-token", "name": "Token do bot" }
-      }
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// A mensagem que vai sair, e a garantia de que ALGUMA coisa sai.\n//\n// Cliente que escreve e não recebe nada acha que a barbearia sumiu. Se o\n// agente falhou, ele responde a desculpa — e a execução fica vermelha na\n// lista, para alguém olhar.\nconst config = $('Onde ficam as coisas').item.json;\nconst doAgente = String($json.output ?? $json.text ?? '').trim();\n\nconst desculpa =\n  'Opa! Tive um problema aqui no sistema agora. Já avisei o pessoal da barbearia — me manda de novo em alguns minutos, por favor.';\n\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      evolutionUrl: config.evolutionUrl,\n      instance: config.instance,\n      numero,\n      texto: doAgente || desculpa,\n      deuCerto: !!doAgente,\n    },\n  },\n];"
+        "jsCode": "// A mensagem que vai sair, e a garantia de que ALGUMA coisa sai.\n//\n// Cliente que escreve e não recebe nada acha que a barbearia sumiu. Se o\n// agente falhou, ele responde a desculpa — e a execução fica vermelha na\n// lista, para alguém olhar.\nconst config = $('Onde ficam as coisas').item.json;\nconst doAgente = String($json.output ?? $json.text ?? '').trim();\n\nconst desculpa =\n  'Opa! Tive um problema aqui no sistema agora. Já avisei o pessoal da barbearia — me manda de novo em alguns minutos, por favor.';\n\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      instance: config.instance,\n      numero,\n      texto: doAgente || desculpa,\n      deuCerto: !!doAgente,\n    },\n  },\n];"
       },
-      "id": "montar",
+      "id": "ae1099f5-a8db-4d45-89ff-8e46cd5a2f80",
       "name": "Montar a resposta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 180]
+      "position": [
+        10640,
+        6880
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Áudio, figurinha, documento: o atendente não lê. Dizer isso é melhor do\n// que ficar mudo e deixar a pessoa esperando.\nconst config = $('Onde ficam as coisas').item.json;\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      evolutionUrl: config.evolutionUrl,\n      instance: config.instance,\n      numero,\n      texto: config.semTexto\n        ? 'Consigo te atender por texto, por aqui mesmo. Me escreve o que você precisa?'\n        : 'Oi! Me diz como posso te ajudar — marcar, remarcar ou cancelar um horário?',\n      deuCerto: true,\n    },\n  },\n];"
+        "jsCode": "// Áudio, figurinha, documento: o atendente não lê. Dizer isso é melhor do\n// que ficar mudo e deixar a pessoa esperando.\nconst config = $('Onde ficam as coisas').item.json;\nconst numero = config.telefone.startsWith('55') ? config.telefone : `55${config.telefone}`;\n\nreturn [\n  {\n    json: {\n      instance: config.instance,\n      numero,\n      texto: config.semTexto\n        ? 'Consigo te atender por texto, por aqui mesmo. Me escreve o que você precisa?'\n        : 'Oi! Me diz como posso te ajudar — marcar, remarcar ou cancelar um horário?',\n      deuCerto: true,\n    },\n  },\n];"
       },
-      "id": "sem-texto",
+      "id": "65ca38f0-e40c-4d4f-a74b-4978b5f54d92",
       "name": "Pedir por escrito",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [820, 340]
+      "position": [
+        10352,
+        6656
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.evolutionUrl }}/message/sendText/{{ $json.instance }}",
+        "url": "=https://barba-brutal-api.onrender.com/whatsapp/agenda/responder",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "instance",
+              "value": "={{ $json.instance }}"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ number: $json.numero, text: $json.texto }) }}",
+        "jsonBody": "={{ JSON.stringify({ telefone: $json.numero, texto: $json.texto }) }}",
         "options": {}
       },
-      "id": "enviar",
+      "id": "3221f588-bc19-4e06-88c9-70dfa4469309",
       "name": "Responder no WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1360, 240],
+      "position": [
+        10944,
+        6752
+      ],
       "credentials": {
-        "httpHeaderAuth": { "id": "bb-evolution-apikey", "name": "Evolution apikey" }
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth account"
+        }
       },
-      "notes": "A apikey vem de credencial. A versão anterior mandava aqui o token do bot do backend, que a Evolution não conhece — nenhuma resposta chegava ao cliente."
+      "notes": "Manda pelo backend, que já tem a URL e a apikey da Evolution e sabe a instância da barbearia. Antes falava direto com a Evolution: exigia mais configuração por instalação e foi onde quebrou — a URL tinha ficado no exemplo (evolution.seudominio.com) e a credencial num id de exemplo."
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-haiku-4-5-20251001",
+          "mode": "list",
+          "cachedResultName": "Claude Haiku 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.5,
+      "position": [
+        10224,
+        7088
+      ],
+      "id": "c9619aff-3524-4445-a01c-fc9ff61fcb3d",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "NHpvL7cfBIhgpg21",
+          "name": "Anthropic account"
+        }
+      }
     }
   ],
+  "pinData": {},
   "connections": {
     "Webhook da Evolution": {
-      "main": [[{ "node": "Extrair a mensagem", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extrair a mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extrair a mensagem": {
-      "main": [[{ "node": "Onde ficam as coisas", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Onde ficam as coisas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Onde ficam as coisas": {
-      "main": [[{ "node": "Veio texto?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Veio texto?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Veio texto?": {
       "main": [
-        [{ "node": "Atendente", "type": "main", "index": 0 }],
-        [{ "node": "Pedir por escrito", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Atendente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pedir por escrito",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Atendente": {
-      "main": [[{ "node": "Montar a resposta", "type": "main", "index": 0 }]]
-    },
-    "Modelo": {
-      "ai_languageModel": [[{ "node": "Atendente", "type": "ai_languageModel", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Montar a resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Memória da conversa": {
-      "ai_memory": [[{ "node": "Atendente", "type": "ai_memory", "index": 0 }]]
+      "ai_memory": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
     },
     "cardapio": {
-      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
     },
     "horarios_livres": {
-      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
     },
     "meus_agendamentos": {
-      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
     },
     "marcar": {
-      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
     },
     "remarcar": {
-      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
     },
     "cancelar": {
-      "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]]
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Montar a resposta": {
-      "main": [[{ "node": "Responder no WhatsApp", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Responder no WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Pedir por escrito": {
-      "main": [[{ "node": "Responder no WhatsApp", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Responder no WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": false,
-  "settings": { "executionOrder": "v1" },
-  "versionId": "2"
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a81ba68e-e0be-4ccb-a62a-39c3e3d9c62e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2bd32c27fc03f573becc4a2c6e8a55d67f61556cb4a29b9ae608676468485774"
+  },
+  "nodeGroups": [],
+  "id": "KuD7F2AuUNLfAXsc",
+  "tags": [
+    {
+      "updatedAt": "2026-07-24T00:46:47.293Z",
+      "createdAt": "2026-07-24T00:46:47.293Z",
+      "id": "Qms1O0kfWoTShMvj",
+      "name": "NegócioComAgentesDeIA"
+    }
+  ]
 }

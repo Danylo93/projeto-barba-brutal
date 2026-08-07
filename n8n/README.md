@@ -6,7 +6,7 @@ Três fluxos, um trabalho cada:
 |---|---|---|
 | `barbabrutal1confirmacaoagendamento.json` | Ao **criar** um agendamento, avisa cliente e barbeiro | a cada 1 min |
 | `barbabrutal2lembrete1h.json` | **1 hora antes** do horário, lembra cliente e barbeiro | a cada 5 min |
-| `Fluxo_WhatsApp_Barbearia_Premium.json` | **Atende** o cliente: marca, remarca e cancela pela conversa | a cada mensagem |
+| `Barbearia Brutal — atendente de WhatsApp.json` | **Atende** o cliente: marca, remarca e cancela pela conversa | a cada mensagem |
 
 Os dois primeiros falam; o terceiro conversa. Este README cobre os três, e o
 atendente tem uma seção própria mais abaixo.

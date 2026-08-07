@@ -42,6 +42,23 @@ export class WhatsappAgendaController {
     );
   }
 
+  /**
+   * Envia a resposta do atendente pelo WhatsApp da própria barbearia.
+   *
+   * Existe para o n8n não precisar da URL nem da apikey da Evolution: quem
+   * tem as duas é o backend, e a instância sai da barbearia que o token
+   * resolveu.
+   */
+  @Post('responder')
+  responder(
+    @Headers('x-whatsapp-token') token: string,
+    @Query('tenantId') tenantId: string,
+    @Body() body: { telefone?: string; texto?: string },
+    @Query('instance') instance: string,
+  ) {
+    return this.service.responder(token, tenantId, body, instance);
+  }
+
   @Get('agendamentos')
   listar(
     @Headers('x-whatsapp-token') token: string,

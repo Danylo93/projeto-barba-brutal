@@ -11,6 +11,7 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../db/prisma.service';
 import { AgendamentoRepository } from '../agendamento/agendamento.repository';
 import { WhatsappService } from './whatsapp.service';
+import { instanciaDaBarbearia } from '../lembrete/lembrete.service';
 import {
   ConfiguracaoDoBotInvalida,
   MOTIVO_SEM_INSTANCIA,
@@ -413,6 +414,55 @@ export class WhatsappAgendaService {
         'Um dos serviços desse agendamento saiu do nosso cardápio. Me diz o que você quer fazer que eu marco de novo.',
       );
     }
+  }
+
+  /**
+   * Manda a resposta do atendente de volta para o cliente.
+   *
+   * O fluxo do n8n falava direto com a Evolution, e por isso precisava saber a
+   * URL dela e carregar a apikey numa credencial. Duas coisas erradas: era
+   * mais um passo de configuração por instalação — e foi exatamente onde
+   * quebrou, com a URL de exemplo (`evolution.seudominio.com`) publicada — e
+   * espalhava a apikey da Evolution para fora do backend.
+   *
+   * Aqui o backend já tem URL, apikey e a instância da barbearia. O n8n só
+   * diz para quem e o quê, com o token que ele já usa nas outras ferramentas.
+   */
+  async responder(
+    token: string,
+    tenantTexto: string,
+    body: { telefone?: string; texto?: string },
+    instance?: string,
+  ) {
+    const tenantId = await this.autenticar(token, tenantTexto, instance);
+
+    const texto = String(body?.texto ?? '').trim();
+    if (!texto) throw new BadRequestException('Sem texto para enviar.');
+
+    const numero = String(body?.telefone ?? '').replace(/\D/g, '');
+    if (numero.length < 10) throw new BadRequestException('Telefone inválido.');
+
+    // A instância sai da barbearia que o token/instance resolveu — nunca do
+    // corpo. Sem isso, um token válido mandaria mensagem pelo número de outra.
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { configuracoes: true },
+    });
+    const daBarbearia = instanciaDaBarbearia(tenant);
+
+    if (!this.whatsapp.configuradoPara(daBarbearia)) {
+      throw new ServiceUnavailableException(
+        'O WhatsApp desta barbearia não está conectado.',
+      );
+    }
+
+    const enviou = await this.whatsapp.enviarTexto(numero, texto, daBarbearia);
+    if (!enviou) {
+      throw new ServiceUnavailableException(
+        'A Evolution recusou o envio da mensagem.',
+      );
+    }
+    return { enviado: true, para: numero };
   }
 
   /**
