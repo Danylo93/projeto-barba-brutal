@@ -113,6 +113,57 @@ export function normalizarIdsDeServico(servicos: unknown): number[] | null {
 /** Fuso de Brasília: é nele que o barbeiro pensa o horário da barbearia. */
 const FUSO_BRASILIA = 'America/Sao_Paulo';
 
+/** A data no calendário de Brasília, como `AAAA-MM-DD`. */
+export function diaCivilEmBrasilia(data: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: FUSO_BRASILIA,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(data);
+}
+
+/**
+ * O começo e o fim de um dia — o dia de quem trabalha na barbearia.
+ *
+ * O recorte era feito com `new Date(ano, mes, dia)`, que usa o fuso do
+ * PROCESSO. No Render o processo é UTC, então "dia 07" ia das 21h do dia 06
+ * até as 20h59 do dia 07 em Brasília: atendimento marcado das 21h em diante
+ * sumia da agenda daquele dia e reaparecia no seguinte. Barbearia que fecha às
+ * 21h não sentia; quem fecha mais tarde via o cliente no dia errado.
+ *
+ * O fim é o último instante ANTES da meia-noite seguinte, não `23:59:59`: com
+ * segundo cheio, um agendamento gravado às 23:59:30 ficava de fora.
+ */
+export function janelaDoDiaEmBrasilia(data: Date): { inicio: Date; fim: Date } {
+  const inicio = new Date(`${diaCivilEmBrasilia(data)}T00:00:00-03:00`);
+  return { inicio, fim: new Date(inicio.getTime() + 24 * 60 * 60000 - 1) };
+}
+
+/** Só `AAAA-MM-DD`, sem hora nenhuma escrita junto. */
+const SO_A_DATA = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * O dia que a tela pediu, lido como dia de Brasília.
+ *
+ * `new Date('2026-08-07')` é meia-noite em UTC — 21h do dia 06 aqui. Quem
+ * abria a agenda do dia 07 mandava exatamente essa string, e o dia inteiro
+ * saía deslocado três horas para trás. Data com hora escrita já é um instante
+ * e passa direto; o que não dá para ler vira `null` para o chamador recusar.
+ */
+export function diaPedidoEmBrasilia(valor: string | Date): Date | null {
+  if (valor instanceof Date) {
+    return Number.isNaN(valor.getTime()) ? null : valor;
+  }
+  const texto = String(valor ?? '').trim();
+  if (!texto) return null;
+
+  const quando = SO_A_DATA.test(texto)
+    ? new Date(`${texto}T00:00:00-03:00`)
+    : new Date(texto);
+  return Number.isNaN(quando.getTime()) ? null : quando;
+}
+
 /** Dia da semana (0=domingo) e hora decimal no fuso de Brasília. */
 export function diaEHoraEmBrasilia(data: Date): { dia: number; hora: number } {
   const fmt = new Intl.DateTimeFormat('en-US', {

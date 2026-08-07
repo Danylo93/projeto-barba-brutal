@@ -14,6 +14,8 @@
  * o que fazer em seguida. "Bad Request" não é resposta de atendimento.
  */
 
+import { expedienteDoDia } from '../agendamento/agendamento.validacao';
+
 /** Brasília é UTC-3 o ano inteiro desde 2019 — não há mais horário de verão. */
 const OFFSET_BRASILIA = '-03:00';
 const FUSO_BRASILIA = 'America/Sao_Paulo';
@@ -396,4 +398,59 @@ export function idsDeServicos(valor: unknown): number[] | null {
     ids.push(id);
   }
   return ids;
+}
+
+/** Como o cliente escreve os dias da semana. */
+const NOMES_DOS_DIAS = [
+  'domingo',
+  'segunda',
+  'terça',
+  'quarta',
+  'quinta',
+  'sexta',
+  'sábado',
+];
+
+/** Hora decimal de volta para relógio: 18.5 vira "18:30". */
+function comoRelogio(valor: number): string {
+  const horas = Math.floor(valor);
+  const minutos = Math.round((valor - horas) * 60);
+  return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
+}
+
+export interface DiaDeExpediente {
+  dia: string;
+  aberto: boolean;
+  abre?: string;
+  fecha?: string;
+}
+
+/**
+ * O horário de funcionamento, dia a dia, pronto para o robô ler em voz alta.
+ *
+ * "Que horas vocês abrem?" e "abre domingo?" são das perguntas mais comuns no
+ * WhatsApp de barbearia, e o robô não tinha como responder: o expediente
+ * existia só dentro da validação de agendamento. Ele acabava dizendo que não
+ * sabia, ou pior, chutando.
+ *
+ * Barbearia que ainda não configurou expediente devolve lista vazia — melhor o
+ * robô dizer que vai confirmar do que inventar um horário que não é o dela.
+ */
+export function expedienteParaOCliente(configuracoes: any): DiaDeExpediente[] {
+  const semana: DiaDeExpediente[] = [];
+  for (let dia = 0; dia < 7; dia++) {
+    const doDia = expedienteDoDia(configuracoes, dia);
+    if (!doDia) return [];
+    semana.push(
+      doDia.aberto
+        ? {
+            dia: NOMES_DOS_DIAS[dia],
+            aberto: true,
+            abre: comoRelogio(doDia.abertura),
+            fecha: comoRelogio(doDia.fechamento),
+          }
+        : { dia: NOMES_DOS_DIAS[dia], aberto: false },
+    );
+  }
+  return semana;
 }

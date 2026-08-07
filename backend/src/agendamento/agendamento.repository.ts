@@ -8,6 +8,8 @@ import {
   duracaoEmMinutos,
   haConflito,
   validarDentroDoExpediente,
+  janelaDoDiaEmBrasilia,
+  diaPedidoEmBrasilia,
 } from './agendamento.validacao';
 import { totalDoAtendimento, valorCobrado, valorDoServicoNoAgendamento } from '../servico/preco';
 
@@ -251,13 +253,14 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   /** Bloqueios que afetam um profissional em um dia — usado na disponibilidade. */
   async buscarBloqueios(
     profissionalId: number,
-    data: Date,
+    data: Date | string,
     tenantId: number,
   ): Promise<{ inicio: Date; fim: Date }[]> {
-    const inicioDoDia = new Date(data);
-    inicioDoDia.setHours(0, 0, 0, 0);
-    const fimDoDia = new Date(data);
-    fimDoDia.setHours(23, 59, 59, 999);
+    // Mesmo recorte da agenda: `setHours` usa o fuso do processo, que no
+    // Render é UTC, e folga marcada das 21h em diante ficava invisível.
+    const pedido = diaPedidoEmBrasilia(data);
+    if (!pedido) return [];
+    const { inicio: inicioDoDia, fim: fimDoDia } = janelaDoDiaEmBrasilia(pedido);
 
     const bloqueios = await this.prismaService.bloqueio.findMany({
       where: {
@@ -351,15 +354,12 @@ export class AgendamentoRepository implements RepositorioAgendamento {
    */
   async buscarPorProfissional(
     profissionalId: number,
-    data: Date,
+    data: Date | string,
     tenantId: number,
   ): Promise<Agendamento[]> {
-    const ano = data.getFullYear();
-    const mes = data.getUTCMonth();
-    const dia = data.getUTCDate();
-
-    const inicioDoDia = new Date(ano, mes, dia, 0, 0, 0);
-    const fimDoDia = new Date(ano, mes, dia, 23, 59, 59);
+    const pedido = diaPedidoEmBrasilia(data);
+    if (!pedido) return [];
+    const { inicio: inicioDoDia, fim: fimDoDia } = janelaDoDiaEmBrasilia(pedido);
 
     const agendamentos = await this.prismaService.agendamento.findMany({
       where: {
@@ -442,7 +442,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
 
   async buscarPorProfissionalEData(
     profissional: number,
-    data: Date,
+    data: Date | string,
     tenantId: number,
   ): Promise<Agendamento[]> {
     return this.buscarPorProfissional(profissional, data, tenantId);

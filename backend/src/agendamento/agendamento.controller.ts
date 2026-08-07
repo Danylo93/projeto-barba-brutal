@@ -97,7 +97,10 @@ export class AgendamentoController {
     @CurrentTenant() tenant: any,
   ) {
     const casoDeUso = new ObterHorariosOcupados(this.repo);
-    return casoDeUso.executar(+profissional, new Date(dataParam), tenant.id);
+    // A data vai como veio: `new Date('2026-08-07')` é meia-noite em UTC, que
+    // aqui ainda é o dia 06 às 21h. Quem lê a data é o repositório, no fuso
+    // de Brasília.
+    return casoDeUso.executar(+profissional, dataParam, tenant.id);
   }
 
   @Get(':profissional/:data')
@@ -108,7 +111,7 @@ export class AgendamentoController {
   ) {
     return this.repo.buscarPorProfissionalEData(
       +profissional,
-      new Date(dataParam),
+      dataParam,
       tenant.id,
     );
   }
