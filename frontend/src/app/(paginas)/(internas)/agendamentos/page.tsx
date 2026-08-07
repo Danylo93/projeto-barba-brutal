@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Calendar, Plus, XCircle, RotateCw } from 'lucide-react'
+import { Calendar, CalendarCheck2, LockKeyhole, Plus, XCircle, RotateCw } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import { Skeleton } from '@/components/ui/skeleton'
 import useUsuario from '@/data/hooks/useUsuario'
@@ -21,6 +21,24 @@ interface AgendamentoUI {
 
 function podeAlterarAgendamento(status?: string) {
   return !status || status === 'agendado' || status === 'confirmado'
+}
+
+function deveFicarRiscado(status?: string) {
+  return status === 'cancelado' || status === 'remarcado'
+}
+
+function rotuloDoStatus(status?: string) {
+  if (status === 'remarcado') return 'remarcado'
+  return status ?? 'agendado'
+}
+
+function classeDoStatus(status?: string) {
+  if (status === 'confirmado') return 'bg-green-500/15 text-green-400'
+  if (status === 'cancelado' || status === 'remarcado') {
+    return 'bg-red-500/15 text-red-400'
+  }
+  if (status === 'concluido') return 'bg-blue-500/15 text-blue-400'
+  return 'bg-yellow-500/15 text-yellow-400'
 }
 
 export default function AgendamentosPage() {
@@ -90,7 +108,11 @@ export default function AgendamentosPage() {
     const id = confirmarRemarcar
     try {
       await httpDelete(`agendamentos/${id}`)
-      setAgendamentos((prev) => prev.filter((a) => a.id !== id))
+      setAgendamentos((prev) =>
+        prev.map((agendamento) =>
+          agendamento.id === id ? { ...agendamento, status: 'cancelado' } : agendamento,
+        ),
+      )
       success('Agendamento cancelado', 'Agora você pode escolher seu novo horário.')
       router.push('/agendamento')
     } catch (err) {
@@ -104,6 +126,21 @@ export default function AgendamentosPage() {
   const descricao = isTenant
     ? 'Todos os agendamentos da sua barbearia'
     : 'Acompanhe seus horários marcados'
+
+  const agendamentosOrdenados = useMemo(() => {
+    const porData = (a: AgendamentoUI, b: AgendamentoUI) =>
+      new Date(a.data).getTime() - new Date(b.data).getTime()
+    const ativos = agendamentos.filter((a) => podeAlterarAgendamento(a.status)).sort(porData)
+    const historico = agendamentos
+      .filter((a) => !podeAlterarAgendamento(a.status))
+      .sort((a, b) => porData(b, a))
+    return [...ativos, ...historico]
+  }, [agendamentos])
+
+  const proximoAtivo = useMemo(
+    () => agendamentosOrdenados.find((a) => podeAlterarAgendamento(a.status)),
+    [agendamentosOrdenados],
+  )
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -127,6 +164,41 @@ export default function AgendamentosPage() {
         {error && (
           <div className="bg-red-950/40 border border-red-900 text-red-300 px-4 py-3 rounded-lg mb-6">
             {error}
+          </div>
+        )}
+
+        {isCliente && !loading && proximoAtivo && (
+          <div className="mb-6 flex items-start gap-4 rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-4 shadow-lg shadow-emerald-950/20">
+            <div className="rounded-full bg-emerald-400/15 p-2 text-emerald-300">
+              <CalendarCheck2 size={24} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">
+                Seu horário ativo
+              </p>
+              <p className="mt-1 text-lg font-black text-white">
+                {new Date(proximoAtivo.data).toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+              <p className="mt-1 text-sm text-zinc-300">
+                Com {proximoAtivo.profissional?.nome ?? 'profissional a confirmar'}
+                {(proximoAtivo.servicos ?? []).length > 0
+                  ? ` · ${(proximoAtivo.servicos ?? []).map((servico) => servico.nome).join(', ')}`
+                  : ''}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isCliente && !loading && !proximoAtivo && agendamentos.length > 0 && (
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-sm text-zinc-300">
+            <LockKeyhole size={20} className="shrink-0 text-zinc-500" />
+            Você não tem horário ativo. Os itens abaixo são apenas o seu histórico.
           </div>
         )}
 
@@ -162,10 +234,21 @@ export default function AgendamentosPage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
             {/* Mobile: cards empilhados (a tabela é ruim em telas estreitas) */}
             <div className="divide-y divide-zinc-800 md:hidden">
-              {agendamentos.map((agendamento) => (
-                <div key={agendamento.id} className="p-4 space-y-3">
+              {agendamentosOrdenados.map((agendamento) => {
+                const ativo = podeAlterarAgendamento(agendamento.status)
+                const riscado = deveFicarRiscado(agendamento.status)
+                return (
+                <div
+                  key={agendamento.id}
+                  aria-disabled={!ativo}
+                  className={`space-y-3 border-l-4 p-4 ${
+                    ativo
+                      ? 'border-l-emerald-400 bg-emerald-500/[0.04]'
+                      : 'border-l-zinc-700 bg-zinc-950/45 opacity-60'
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <div className={`min-w-0 ${riscado ? 'line-through decoration-zinc-500' : ''}`}>
                       <p className="text-sm font-semibold text-white">
                         {new Date(agendamento.data).toLocaleString('pt-BR', {
                           day: '2-digit',
@@ -193,17 +276,17 @@ export default function AgendamentosPage() {
                         </>
                       )}
                     </div>
-                    <span
-                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium ${
-                        agendamento.status === 'confirmado'
-                          ? 'bg-green-500/15 text-green-400'
-                          : agendamento.status === 'cancelado'
-                            ? 'bg-red-500/15 text-red-400'
-                            : 'bg-yellow-500/15 text-yellow-400'
-                      }`}
-                    >
-                      {agendamento.status ?? 'agendado'}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${classeDoStatus(agendamento.status)}`}>
+                        {rotuloDoStatus(agendamento.status)}
+                      </span>
+                      {ativo && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          Ativo
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {isTenant && (
@@ -216,7 +299,7 @@ export default function AgendamentosPage() {
                   )}
 
                   {(agendamento.servicos ?? []).length > 0 && (
-                    <div className="flex flex-wrap gap-1">
+                    <div className={`flex flex-wrap gap-1 ${riscado ? 'line-through decoration-zinc-500' : ''}`}>
                       {(agendamento.servicos ?? []).map((servico, idx) => (
                         <span
                           key={idx}
@@ -246,8 +329,14 @@ export default function AgendamentosPage() {
                       </button>
                     </div>
                   )}
+                  {!ativo && (
+                    <div className="flex items-center gap-2 border-t border-zinc-800 pt-3 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      <LockKeyhole size={14} />
+                      Horário bloqueado
+                    </div>
+                  )}
                 </div>
-              ))}
+              )})}
             </div>
 
             {/* Desktop: tabela */}
@@ -264,18 +353,32 @@ export default function AgendamentosPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
-                  {agendamentos.map((agendamento) => (
-                    <tr key={agendamento.id} className="hover:bg-zinc-800/40">
+                  {agendamentosOrdenados.map((agendamento) => {
+                    const ativo = podeAlterarAgendamento(agendamento.status)
+                    const riscado = deveFicarRiscado(agendamento.status)
+                    const classeRiscado = riscado ? 'line-through decoration-zinc-500' : ''
+                    return (
+                    <tr
+                      key={agendamento.id}
+                      aria-disabled={!ativo}
+                      className={`border-l-4 ${
+                        ativo
+                          ? 'border-l-emerald-400 bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]'
+                          : 'border-l-zinc-700 bg-zinc-950/45 opacity-60'
+                      }`}
+                    >
                       <td className="px-6 py-4 text-sm text-white">
-                        {new Date(agendamento.data).toLocaleString('pt-BR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        <span className={classeRiscado}>
+                          {new Date(agendamento.data).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-white">
+                      <td className={`px-6 py-4 text-sm text-white ${classeRiscado}`}>
                         {isCliente ? (
                           <p className="font-medium">{agendamento.profissional?.nome ?? '-'}</p>
                         ) : (
@@ -286,12 +389,12 @@ export default function AgendamentosPage() {
                         )}
                       </td>
                       {isTenant && (
-                        <td className="px-6 py-4 text-sm text-zinc-300">
+                        <td className={`px-6 py-4 text-sm text-zinc-300 ${classeRiscado}`}>
                           {agendamento.profissional?.nome ?? '-'}
                         </td>
                       )}
                       <td className="px-6 py-4 text-sm">
-                        <div className="flex flex-wrap gap-1">
+                        <div className={`flex flex-wrap gap-1 ${classeRiscado}`}>
                           {(agendamento.servicos ?? []).map((servico, idx) => (
                             <span
                               key={idx}
@@ -303,17 +406,17 @@ export default function AgendamentosPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            agendamento.status === 'confirmado'
-                              ? 'bg-green-500/15 text-green-400'
-                              : agendamento.status === 'cancelado'
-                                ? 'bg-red-500/15 text-red-400'
-                                : 'bg-yellow-500/15 text-yellow-400'
-                          }`}
-                        >
-                          {agendamento.status ?? 'agendado'}
-                        </span>
+                        <div className="flex flex-col items-start gap-1.5">
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${classeDoStatus(agendamento.status)}`}>
+                            {rotuloDoStatus(agendamento.status)}
+                          </span>
+                          {ativo && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                              Horário ativo
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {podeAlterarAgendamento(agendamento.status) ? (
@@ -334,13 +437,14 @@ export default function AgendamentosPage() {
                             </button>
                           </div>
                         ) : (
-                          <span className="text-zinc-600" title="Agendamento encerrado">
-                            —
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-600" title="Agendamento encerrado e bloqueado">
+                            <LockKeyhole size={14} />
+                            Bloqueado
                           </span>
                         )}
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

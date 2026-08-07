@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconCalendar, IconTrash, IconCheck, IconChecks, IconClock } from '@tabler/icons-react'
+import { IconCalendar, IconTrash, IconCheck, IconChecks, IconClock, IconLock } from '@tabler/icons-react'
 import {
     Agendamento,
     formatarDataEHora,
@@ -27,18 +27,23 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
     const isConfirmado = agendamento.status === 'confirmado'
     const isConcluido = agendamento.status === 'concluido'
     const isCancelado = agendamento.status === 'cancelado'
+    const isRemarcado = agendamento.status === 'remarcado'
+    const isAtivo = isAgendado || isConfirmado
+    const isRiscado = isCancelado || isRemarcado
 
     return (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-6 bg-zinc-800 rounded-md p-7">
+        <div
+            aria-disabled={!isAtivo}
+            className={`flex flex-col gap-6 rounded-md border-l-4 p-7 sm:flex-row sm:items-center ${
+                isAtivo
+                    ? 'border-l-emerald-400 bg-emerald-500/[0.06]'
+                    : 'border-l-zinc-700 bg-zinc-900/70 opacity-60'
+            }`}
+        >
             <IconCalendar size={60} stroke={1} className={isConcluido ? 'text-green-500' : isConfirmado ? 'text-blue-500' : 'text-zinc-400'} />
-            <div className="flex-1 flex flex-col">
+            <div className={`flex flex-1 flex-col ${isRiscado ? 'line-through decoration-zinc-500' : ''}`}>
                 <span className="text-[11px] uppercase tracking-wide text-zinc-500">Cliente</span>
-                <span className="text-xl font-bold flex items-center gap-2">
-                    {agendamento.usuario?.nome ?? 'Cliente'}
-                    {isConcluido && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full uppercase">Concluído</span>}
-                    {isConfirmado && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full uppercase">Confirmado</span>}
-                    {isCancelado && <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded-full uppercase">Cancelado</span>}
-                </span>
+                <span className="flex items-center gap-2 text-xl font-bold">{agendamento.usuario?.nome ?? 'Cliente'}</span>
                 <span className="text-zinc-400 text-sm mt-1 flex items-center gap-2">
                     <IconClock size={16} />
                     {formatarDataEHora(dtInicio).split(' ')[1]} às {dtFim.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -56,7 +61,7 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
                     </div>
                 )}
             </div>
-            <div className="flex flex-col items-end sm:items-center min-w-[120px]">
+            <div className={`flex min-w-[120px] flex-col items-end sm:items-center ${isRiscado ? 'line-through decoration-zinc-500' : ''}`}>
                 <span className="text-xl font-black">
                     {duracaoTotal(agendamento.servicos ?? [])}
                 </span>
@@ -64,7 +69,17 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
                     {emReais(valorDoAgendamento(agendamento))}
                 </span>
             </div>
-            <div className="flex items-center gap-2 mt-4 sm:mt-0 justify-end">
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2 sm:mt-0">
+                {isAtivo && (
+                    <span className="mr-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        Ativo
+                    </span>
+                )}
+                {isConcluido && <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs uppercase text-green-400">Concluído</span>}
+                {isConfirmado && <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs uppercase text-blue-400">Confirmado</span>}
+                {isCancelado && <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs uppercase text-red-400">Cancelado</span>}
+                {isRemarcado && <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs uppercase text-red-400">Remarcado</span>}
                 {isAgendado && (
                     <button 
                         className="button bg-blue-500 hover:bg-blue-600 flex items-center gap-1 px-4" 
@@ -91,6 +106,12 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
                     >
                         <IconTrash size={24} stroke={1.5} />
                     </button>
+                )}
+                {!isAtivo && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        <IconLock size={16} />
+                        Bloqueado
+                    </span>
                 )}
             </div>
 
