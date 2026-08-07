@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Calendar, Plus, Trash2, RotateCw } from 'lucide-react'
+import { Calendar, Plus, XCircle, RotateCw } from 'lucide-react'
 import useAPI from '@/data/hooks/useAPI'
 import { Skeleton } from '@/components/ui/skeleton'
 import useUsuario from '@/data/hooks/useUsuario'
@@ -19,6 +19,10 @@ interface AgendamentoUI {
   status?: string
 }
 
+function podeAlterarAgendamento(status?: string) {
+  return !status || status === 'agendado' || status === 'confirmado'
+}
+
 export default function AgendamentosPage() {
   const router = useRouter()
   const { usuario } = useUsuario()
@@ -29,7 +33,7 @@ export default function AgendamentosPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null)
+  const [confirmarCancelamento, setConfirmarCancelamento] = useState<number | null>(null)
   const [confirmarRemarcar, setConfirmarRemarcar] = useState<number | null>(null)
 
   const isTenant = usuario?.tipo === 'tenant'
@@ -63,17 +67,21 @@ export default function AgendamentosPage() {
     carregar()
   }, [carregar])
 
-  const handleDelete = async () => {
-    if (confirmarExclusao === null) return
-    const id = confirmarExclusao
+  const handleCancelar = async () => {
+    if (confirmarCancelamento === null) return
+    const id = confirmarCancelamento
     try {
       await httpDelete(`agendamentos/${id}`)
-      setAgendamentos((prev) => prev.filter((a) => a.id !== id))
-      success('Agendamento excluído', 'O agendamento foi deletado com sucesso.')
+      setAgendamentos((prev) =>
+        prev.map((agendamento) =>
+          agendamento.id === id ? { ...agendamento, status: 'cancelado' } : agendamento,
+        ),
+      )
+      success('Agendamento cancelado', 'O horário foi cancelado e continua no histórico.')
     } catch (err) {
-      toastError('Erro ao excluir', err instanceof Error ? err.message : 'Erro ao deletar')
+      toastError('Erro ao cancelar', err instanceof Error ? err.message : 'Erro ao cancelar o agendamento')
     } finally {
-      setConfirmarExclusao(null)
+      setConfirmarCancelamento(null)
     }
   }
 
@@ -220,7 +228,7 @@ export default function AgendamentosPage() {
                     </div>
                   )}
 
-                  {agendamento.status !== 'concluido' && (
+                  {podeAlterarAgendamento(agendamento.status) && (
                     <div className="flex gap-2 pt-1">
                       <button
                         onClick={() => setConfirmarRemarcar(agendamento.id)}
@@ -230,10 +238,10 @@ export default function AgendamentosPage() {
                         Remarcar
                       </button>
                       <button
-                        onClick={() => setConfirmarExclusao(agendamento.id)}
+                        onClick={() => setConfirmarCancelamento(agendamento.id)}
                         className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-700 py-2 text-sm text-red-400 hover:bg-zinc-800"
                       >
-                        <Trash2 size={16} />
+                        <XCircle size={16} />
                         Cancelar
                       </button>
                     </div>
@@ -308,7 +316,7 @@ export default function AgendamentosPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        {agendamento.status !== 'concluido' && (
+                        {podeAlterarAgendamento(agendamento.status) ? (
                           <div className="flex gap-3">
                             <button
                               onClick={() => setConfirmarRemarcar(agendamento.id)}
@@ -318,13 +326,17 @@ export default function AgendamentosPage() {
                               <RotateCw size={18} />
                             </button>
                             <button
-                              onClick={() => setConfirmarExclusao(agendamento.id)}
+                              onClick={() => setConfirmarCancelamento(agendamento.id)}
                               className="text-red-400 hover:text-red-300"
                               title="Cancelar Agendamento"
                             >
-                              <Trash2 size={18} />
+                              <XCircle size={18} />
                             </button>
                           </div>
+                        ) : (
+                          <span className="text-zinc-600" title="Agendamento encerrado">
+                            —
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -336,12 +348,12 @@ export default function AgendamentosPage() {
         )}
 
         <ConfirmModal
-            aberto={confirmarExclusao !== null}
-            titulo="Excluir Agendamento"
-            mensagem="Tem certeza que deseja excluir este agendamento? Esta ação não pode ser desfeita."
-            textoConfirmar="Excluir"
-            onConfirmar={handleDelete}
-            onCancelar={() => setConfirmarExclusao(null)}
+            aberto={confirmarCancelamento !== null}
+            titulo="Cancelar Agendamento"
+            mensagem="Tem certeza que deseja cancelar este agendamento? Ele continuará no histórico com o status cancelado."
+            textoConfirmar="Cancelar Agendamento"
+            onConfirmar={handleCancelar}
+            onCancelar={() => setConfirmarCancelamento(null)}
         />
 
         <ConfirmModal

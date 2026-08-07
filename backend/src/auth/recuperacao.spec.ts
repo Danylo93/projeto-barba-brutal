@@ -239,6 +239,25 @@ describe('RecuperacaoService.solicitar', () => {
   });
 });
 
+describe('RecuperacaoService.enviarPrimeiroAcesso', () => {
+  it('manda link de uso único com o tenant do novo cliente', async () => {
+    await service.enviarPrimeiroAcesso(
+      { id: 27, nome: 'João', email: 'joao@x.app', tenantId: 7 },
+      'Lá Tita',
+    );
+
+    expect(enviados).toHaveLength(1);
+    expect(enviados[0].para).toBe('joao@x.app');
+    expect(enviados[0].email.assunto).toContain('Lá Tita');
+    expect(enviados[0].email.texto).toContain('&tenant=7');
+
+    const token = tokenDoUltimoEmail();
+    expect(prisma.pedidos[0].tokenHash).toBe(
+      createHash('sha256').update(token).digest('hex'),
+    );
+  });
+});
+
 describe('RecuperacaoService.redefinir', () => {
   async function pedirParaTenant() {
     prisma.tenants.push({ id: 1, nome: 'Marcão', email: 'marcao@x.app', ativo: true });

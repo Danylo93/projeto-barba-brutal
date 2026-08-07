@@ -12,7 +12,7 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
-import { UsuarioLogado } from 'src/usuario/usuario.decorator';
+import { UsuarioLogado } from '../usuario/usuario.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SubscriptionGuard } from '../auth/subscription.guard';
 import { LimitsGuard } from '../auth/limits.guard';
@@ -123,14 +123,25 @@ export class AgendamentoController {
     if (!agendamento) {
       throw new HttpException('Agendamento não encontrado', 404);
     }
-    if (!usuarioLogado.barbeiro && usuarioLogado.id !== agendamento.usuarioId) {
+    if (
+      !usuarioLogado.barbeiro &&
+      usuarioLogado.tipo !== 'tenant' &&
+      usuarioLogado.id !== agendamento.usuarioId
+    ) {
       throw new HttpException('Usuário não autorizado', 401);
     }
-    if (agendamento.status === 'concluido') {
-      throw new HttpException('Não é possível excluir um agendamento já concluído', 400);
+    if (agendamento.status === 'cancelado') {
+      return { id: agendamento.id, status: 'cancelado', jaEstava: true };
     }
-    await this.repo.excluir(+id, tenant.id);
+    if (agendamento.status === 'concluido') {
+      throw new HttpException('Não é possível cancelar um agendamento já concluído', 400);
+    }
+    // DELETE é mantido para não quebrar os clientes existentes, mas o efeito
+    // de negócio é cancelamento. Apagar a linha destruía o histórico que a
+    // própria tela usa para explicar o que aconteceu com aquele horário.
+    await this.repo.atualizarStatus(+id, tenant.id, 'cancelado');
     this.avisarCancelamento(agendamento);
+    return { id: agendamento.id, status: 'cancelado' };
   }
 
   @Patch(':id/status')

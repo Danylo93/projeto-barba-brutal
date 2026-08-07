@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'src/db/prisma.service';
+import { PrismaService } from '../db/prisma.service';
 import { tipoValido, VERSAO_PRIVACIDADE, VERSAO_TERMOS } from './versoes';
 
 export interface OrigemDaRequisicao {

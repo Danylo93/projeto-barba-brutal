@@ -22,6 +22,6 @@ import { RecuperacaoService } from './recuperacao.service';
   ],
   controllers: [AuthController, RecuperacaoController],
   providers: [AuthService, JwtStrategy, SubscriptionValidationService, RecuperacaoService],
-  exports: [AuthService, SubscriptionValidationService],
+  exports: [AuthService, SubscriptionValidationService, RecuperacaoService],
 })
 export class AuthModule {}

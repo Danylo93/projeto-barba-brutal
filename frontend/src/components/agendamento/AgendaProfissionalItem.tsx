@@ -26,6 +26,7 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
     const isAgendado = agendamento.status === 'agendado'
     const isConfirmado = agendamento.status === 'confirmado'
     const isConcluido = agendamento.status === 'concluido'
+    const isCancelado = agendamento.status === 'cancelado'
 
     return (
         <div className="flex flex-col sm:flex-row sm:items-center gap-6 bg-zinc-800 rounded-md p-7">
@@ -36,6 +37,7 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
                     {agendamento.usuario?.nome ?? 'Cliente'}
                     {isConcluido && <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full uppercase">Concluído</span>}
                     {isConfirmado && <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full uppercase">Confirmado</span>}
+                    {isCancelado && <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded-full uppercase">Cancelado</span>}
                 </span>
                 <span className="text-zinc-400 text-sm mt-1 flex items-center gap-2">
                     <IconClock size={16} />
@@ -81,7 +83,7 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
                         <span className="hidden sm:inline">Concluir</span>
                     </button>
                 )}
-                {!isConcluido && (
+                {(isAgendado || isConfirmado) && (
                     <button 
                         className="button bg-red-500 hover:bg-red-600" 
                         onClick={() => setConfirmarCancelamento(true)}
