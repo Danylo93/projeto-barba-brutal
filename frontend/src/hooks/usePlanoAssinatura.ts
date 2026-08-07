@@ -60,7 +60,12 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
         if (ativo) {
           const recebida = data?.assinatura ?? null
           setAssinatura(recebida)
-          setErro(!recebida?.plano?.nome)
+          // Barbearia SEM assinatura não é erro de leitura: é o estado normal
+          // de quem acabou de se cadastrar e ainda não escolheu plano — que é
+          // exatamente quem chega por anúncio. Marcando isso como erro, o
+          // convite para escolher um plano nunca aparecia justamente para
+          // ela. Erro aqui é só o que impediu a resposta de chegar.
+          setErro(false)
         }
       } catch {
         if (ativo) {
@@ -93,7 +98,9 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
   const planoDisponivel = emTeste || assinatura?.plano?.ativo !== false
   const assinaturaAtiva = statusAtivo && !expirado && planoDisponivel
   const ehTenant = usuario?.tipo === 'tenant' && !!usuario?.tenantId
-  const bloqueado = ehTenant && !!assinatura && !erro && !assinaturaAtiva
+  // Sem assinatura nenhuma também é plano inativo — e é o caso mais comum de
+  // todos logo depois do cadastro.
+  const bloqueado = ehTenant && !erro && !assinaturaAtiva
 
   return useMemo(
     () => ({
