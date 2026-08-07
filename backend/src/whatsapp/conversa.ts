@@ -361,3 +361,39 @@ export function montarCardapio(
     profissionais: equipe,
   };
 }
+
+/**
+ * Os ids de serviço que vieram no pedido.
+ *
+ * A ferramenta do n8n manda campo de texto: `"20"` para um serviço, `"20,21"`
+ * para dois. O `/horarios` sempre leu assim; o `/agendamentos` só aceitava
+ * array de verdade e, quando vinha texto, caía num `servicoId` que não existe
+ * — virava `[NaN]`, o banco recusava com "Serviços inválidos", e o cliente
+ * ouvia "deu um problema no sistema" depois de já ter escolhido serviço,
+ * profissional e horário. As duas rotas falam do mesmo conceito e agora leem
+ * pela mesma função.
+ *
+ * Vazio devolve lista vazia. Pedaço ilegível devolve `null` — e é null mesmo
+ * quando os outros pedaços dariam certo: marcar metade do que a pessoa pediu é
+ * pior do que dizer que não entendeu.
+ */
+export function idsDeServicos(valor: unknown): number[] | null {
+  if (valor === null || valor === undefined) return [];
+
+  const pedacos = Array.isArray(valor)
+    ? valor
+    : String(valor)
+        .split(',')
+        .map((p) => p.trim())
+        .filter((p) => p !== '');
+
+  if (!pedacos.length) return [];
+
+  const ids: number[] = [];
+  for (const pedaco of pedacos) {
+    const id = Number(String(pedaco).trim());
+    if (!Number.isInteger(id) || id <= 0) return null;
+    ids.push(id);
+  }
+  return ids;
+}

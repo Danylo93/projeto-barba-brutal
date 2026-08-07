@@ -3,6 +3,7 @@ import {
   diaEmBrasilia,
   horaEmBrasilia,
   horariosLivres,
+  idsDeServicos,
   instanteEmBrasilia,
   montarCardapio,
   noMesmoDia,
@@ -409,5 +410,48 @@ describe('montarCardapio', () => {
       expect(cardapio.servicos).toHaveLength(3);
       expect(cardapio.semProfissional).toEqual([]);
     });
+  });
+});
+
+/**
+ * O caso que quebrou na frente do cliente: ele escolheu barba, profissional e
+ * horário, e no "pode ser hoje às 16h" levou "deu um problema no sistema".
+ *
+ * A ferramenta manda `servicos: "20"` — texto. O `/horarios` lia assim desde
+ * sempre; o `/agendamentos` esperava array e caía num `servicoId` inexistente.
+ */
+describe('idsDeServicos', () => {
+  it('lê o texto que a ferramenta do n8n manda', () => {
+    expect(idsDeServicos('20')).toEqual([20]);
+    expect(idsDeServicos('20,21')).toEqual([20, 21]);
+    expect(idsDeServicos('20, 21 , 22')).toEqual([20, 21, 22]);
+  });
+
+  it('lê array também, que é como a tela manda', () => {
+    expect(idsDeServicos([20, 21])).toEqual([20, 21]);
+    expect(idsDeServicos(['20', '21'])).toEqual([20, 21]);
+  });
+
+  it('sem serviço é lista vazia, não erro', () => {
+    expect(idsDeServicos(undefined)).toEqual([]);
+    expect(idsDeServicos(null)).toEqual([]);
+    expect(idsDeServicos('')).toEqual([]);
+    expect(idsDeServicos('   ')).toEqual([]);
+    expect(idsDeServicos([])).toEqual([]);
+  });
+
+  // Foi assim que o robô montou a URL com um id que ele não tinha.
+  it('lixo é null, para quem chama escolher a frase', () => {
+    expect(idsDeServicos('undefined')).toBeNull();
+    expect(idsDeServicos('barba')).toBeNull();
+    expect(idsDeServicos('0')).toBeNull();
+    expect(idsDeServicos('-3')).toBeNull();
+    expect(idsDeServicos('1.5')).toBeNull();
+  });
+
+  // Marcar metade do que a pessoa pediu é pior do que dizer que não entendeu.
+  it('um pedaço ruim invalida a lista inteira', () => {
+    expect(idsDeServicos('20,barba')).toBeNull();
+    expect(idsDeServicos([20, 'nada'])).toBeNull();
   });
 });

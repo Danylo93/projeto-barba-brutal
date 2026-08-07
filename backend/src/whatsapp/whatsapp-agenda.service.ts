@@ -24,6 +24,7 @@ import {
   comoOClienteLe,
   diaEmBrasilia,
   horariosLivres,
+  idsDeServicos,
   instanteEmBrasilia,
   montarCardapio,
   planoTemRobo,
@@ -296,11 +297,23 @@ export class WhatsappAgendaService {
     const recusa = porqueNaoDaParaRemarcar({ status: 'agendado' }, body.data);
     if (recusa) throw new BadRequestException(recusa);
 
+    // A ferramenta do n8n manda "20" ou "20,21" — texto. Antes só array
+    // passava por aqui: o texto caía no `servicoId`, que não existe, virava
+    // [NaN], e o cliente ouvia "deu um problema no sistema" DEPOIS de ter
+    // escolhido serviço, profissional e horário. É a mesma leitura do
+    // /horarios agora.
+    const pedidos = idsDeServicos(body.servicos ?? body.servicoId);
+    if (pedidos === null || !pedidos.length) {
+      throw new BadRequestException(
+        'Não entendi qual serviço você quer marcar. Me diz pelo nome que eu procuro no cardápio.',
+      );
+    }
+
     const id = await this.agendamentos.salvar({
       tenantId,
       usuarioId: usuario.id,
       profissionalId: Number(body.profissionalId),
-      servicos: Array.isArray(body.servicos) ? body.servicos.map(Number) : [Number(body.servicoId)],
+      servicos: pedidos,
       data: quando,
       observacoes: body.observacoes,
     } as any);
@@ -519,17 +532,13 @@ export class WhatsappAgendaService {
 
     // Sem serviço informado vale um slot: é a menor janela possível, então
     // sobra o máximo de opções para o robô conversar.
-    const pedidos = String(params.servicos ?? '').trim();
-    const ids = pedidos
-      .split(',')
-      .map((s) => Number(String(s).trim()))
-      .filter((n) => Number.isInteger(n) && n > 0);
-
+    //
     // `servicos=undefined` — que é o que sai quando o agente monta a URL com
     // um id que ele não tem — virava "nenhum serviço" e devolvia a lista
     // inteira calculada para 30 minutos. O robô prometia horário para um
     // atendimento de uma hora que não cabia ali.
-    if (pedidos && !ids.length) {
+    const ids = idsDeServicos(params.servicos);
+    if (ids === null) {
       throw new BadRequestException(
         'Não entendi qual serviço você quer. Me diz pelo nome que eu procuro no cardápio.',
       );
