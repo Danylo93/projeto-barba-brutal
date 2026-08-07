@@ -52,7 +52,7 @@ function semSenha<T extends { senha?: any } | null | undefined>(obj: T): T {
  * O que a tela precisa saber da barbearia depois do login.
  *
  * Lista fechada, e não "tudo menos a senha": o registro do tenant guarda a
- * `apiKey` de integração, o CPF/CNPJ do dono, a chave Pix que recebe o clube e
+ * `apiKey` de integração, o CPF/CNPJ do dono, a chave Pix de recebimento e
  * o id de cliente no Stripe. Nada disso tem uso no navegador, e tudo isso ia
  * no corpo da resposta de login — legível por qualquer script na página.
  */

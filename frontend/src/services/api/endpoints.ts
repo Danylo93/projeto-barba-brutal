@@ -95,18 +95,6 @@ export const API_ENDPOINTS = {
     DELETE: (id: number) => `/bloqueios/${id}`,
   },
 
-  CLUBE: {
-    PLANOS: '/clube/planos',
-    PLANO: (id: number) => `/clube/planos/${id}`,
-    CHAVE_PIX: '/clube/chave-pix',
-    RESUMO: '/clube/resumo',
-    ASSINATURAS: '/clube/assinaturas',
-    MINHAS_ASSINATURAS: '/clube/minhas-assinaturas',
-    ASSINAR: (planoId: number) => `/clube/assinar/${planoId}`,
-    CONFIRMAR: (id: number) => `/clube/assinaturas/${id}/confirmar`,
-    CANCELAR: (id: number) => `/clube/assinaturas/${id}/cancelar`,
-  },
-
   LGPD: {
     VERSAO: '/lgpd/versoes',
     CONSENTIMENTO: '/lgpd/consentimento',

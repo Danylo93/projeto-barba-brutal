@@ -358,6 +358,17 @@ model SolicitacaoExclusao {
 }
 
 /// Plano do clube de assinatura que a barbearia oferece aos seus clientes.
+/// CLUBE DESLIGADO — as tabelas ficam de propósito.
+///
+/// O clube saiu do produto (menu, telas e rotas) porque os benefícios eram
+/// texto livre que ninguém aplicava: o sistema cobrava, mas não contava corte
+/// nem dava desconto, e o barbeiro na cadeira nem sabia que o cliente era
+/// assinante. Enquanto isso não for resolvido, mostrar a funcionalidade
+/// promete o que ela não cumpre.
+///
+/// Os modelos continuam aqui para não destruir dado de quem já assinou, e
+/// porque a exportação da LGPD lê estas tabelas. Uma migração que dropasse
+/// isso seria irreversível — e a decisão foi "por enquanto".
 model PlanoClube {
   id          Int      @id @default(autoincrement())
   tenantId    Int
