@@ -139,6 +139,43 @@ export function diaEHoraEmBrasilia(data: Date): { dia: number; hora: number } {
  * com abertura e fechamento por dia) e o antigo (`diasAbertos` +
  * `horaAbertura`/`horaFechamento` iguais para todos os dias).
  */
+/**
+ * Hora em número decimal: 9 é 09:00, 18.5 é 18:30.
+ *
+ * O painel grava o expediente com `<input type="time">`, que devolve STRING
+ * — "09:00". O código lia isso com `Number()`, que devolve NaN. E NaN não
+ * reclama, ele desliga: `Math.ceil(NaN * 60)` deixou o laço de horários livres
+ * sem dar uma volta sequer (o robô dizia "não tenho horário nesse dia" para
+ * todo dia e todo serviço), e `3 < NaN` é false, então a validação de
+ * expediente parou de barrar qualquer coisa — a API aceitava agendamento às
+ * três da manhã numa barbearia que abre às nove.
+ *
+ * `padrao` é para o campo AUSENTE, que é diferente de campo ilegível: sem
+ * `abertura` a gente assume meia-noite, mas "de manhã" escrito no lugar da
+ * hora devolve null e o chamador decide o que fazer — nunca vira NaN.
+ */
+export function emHorasDecimais(valor: unknown, padrao?: number): number | null {
+  if (valor === null || valor === undefined || valor === '') {
+    return padrao ?? null;
+  }
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : null;
+
+  const texto = String(valor).trim();
+  if (!texto) return padrao ?? null;
+
+  const relogio = texto.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (relogio) {
+    const horas = Number(relogio[1]);
+    const minutos = Number(relogio[2]);
+    if (horas > 24 || minutos > 59) return null;
+    return horas + minutos / 60;
+  }
+
+  // "9" e "18,5" também são hora — só "de manhã" que não é.
+  const numero = Number(texto.replace(',', '.'));
+  return Number.isFinite(numero) ? numero : null;
+}
+
 export function expedienteDoDia(
   configuracoes: any,
   dia: number,
@@ -149,11 +186,12 @@ export function expedienteDoDia(
   if (Array.isArray(horarios) && horarios.length) {
     const doDia = horarios.find((h: any) => Number(h?.dia) === dia);
     if (!doDia) return { aberto: false, abertura: 0, fechamento: 0 };
-    return {
-      aberto: doDia.aberto !== false,
-      abertura: Number(doDia.abertura ?? 0),
-      fechamento: Number(doDia.fechamento ?? 24),
-    };
+
+    const abertura = emHorasDecimais(doDia.abertura, 0);
+    const fechamento = emHorasDecimais(doDia.fechamento, 24);
+    if (abertura === null || fechamento === null) return null;
+
+    return { aberto: doDia.aberto !== false, abertura, fechamento };
   }
 
   const diasAbertos = (configuracoes as any).diasAbertos;
@@ -163,9 +201,9 @@ export function expedienteDoDia(
     }
   }
 
-  const abertura = Number((configuracoes as any).horaAbertura);
-  const fechamento = Number((configuracoes as any).horaFechamento);
-  if (!Number.isFinite(abertura) || !Number.isFinite(fechamento)) return null;
+  const abertura = emHorasDecimais((configuracoes as any).horaAbertura);
+  const fechamento = emHorasDecimais((configuracoes as any).horaFechamento);
+  if (abertura === null || fechamento === null) return null;
   return { aberto: true, abertura, fechamento };
 }
 
@@ -192,7 +230,15 @@ export function validarDentroDoExpediente(
 
   const fim = hora + duracaoMin / 60;
   if (hora < expediente.abertura || fim > expediente.fechamento) {
-    const h = (v: number) => `${String(Math.floor(v)).padStart(2, '0')}h`;
+    // Meia hora existe: com o formato antigo "18h" servia, mas quem fecha
+    // 18:30 lia "atende até 18h" e escolhia mais cedo do que precisava.
+    const h = (v: number) => {
+      const horas = Math.floor(v);
+      const minutos = Math.round((v - horas) * 60);
+      return minutos
+        ? `${String(horas).padStart(2, '0')}h${String(minutos).padStart(2, '0')}`
+        : `${String(horas).padStart(2, '0')}h`;
+    };
     return `Nesse dia a barbearia atende das ${h(expediente.abertura)} às ${h(
       expediente.fechamento,
     )}. Escolha um horário dentro desse período.`;

@@ -3,6 +3,7 @@ import {
   expedienteDoDia,
   validarDentroDoExpediente,
 } from './agendamento.validacao';
+import { horariosLivres } from '../whatsapp/conversa';
 
 /** 2026-08-02 é um domingo. Datas em UTC, convertidas para Brasília (UTC−3). */
 const domingo14hBrasilia = new Date('2026-08-02T17:00:00.000Z');
@@ -108,5 +109,126 @@ describe('validarDentroDoExpediente', () => {
   it('não trava barbearia sem configuração', () => {
     expect(validarDentroDoExpediente(domingo4hBrasilia, 30, null)).toBeNull();
     expect(validarDentroDoExpediente(domingo4hBrasilia, 30, {})).toBeNull();
+  });
+});
+
+/**
+ * O painel grava a hora com `<input type="time">`, que devolve STRING: "09:00".
+ * Os testes acima usam número (9) e por isso nunca pegaram o que estava
+ * quebrado em produção — `Number("09:00")` é NaN, e NaN não reclama: ele
+ * desliga as duas pontas caladamente.
+ *
+ * No robô, o cliente ouvia "não tenho horário livre nesse dia" para TODO dia e
+ * TODO serviço, porque o laço de horários livres não dava uma volta sequer.
+ * Do outro lado, `validarDentroDoExpediente` parava de barrar qualquer coisa:
+ * `3 < NaN` é false e `4 > NaN` é false, então a API aceitava agendamento às
+ * três da manhã numa barbearia que abre às nove.
+ */
+describe('hora que vem do painel como texto', () => {
+  const comoOPainelGrava = {
+    horarios: [
+      { dia: 0, aberto: false },
+      { dia: 1, aberto: true, abertura: '09:00', fechamento: '19:00' },
+      { dia: 2, aberto: true, abertura: '09:30', fechamento: '18:30' },
+    ],
+  };
+
+  it('lê "09:00" como 9', () => {
+    expect(expedienteDoDia(comoOPainelGrava, 1)).toEqual({
+      aberto: true,
+      abertura: 9,
+      fechamento: 19,
+    });
+  });
+
+  it('lê a meia hora como fração', () => {
+    expect(expedienteDoDia(comoOPainelGrava, 2)).toEqual({
+      aberto: true,
+      abertura: 9.5,
+      fechamento: 18.5,
+    });
+  });
+
+  it('volta a barrar a madrugada', () => {
+    // Segunda, 04:00 em Brasília, numa barbearia que abre às 09:00.
+    const madrugada = new Date('2026-08-03T07:00:00.000Z');
+    expect(validarDentroDoExpediente(madrugada, 30, comoOPainelGrava)).toMatch(/das 09h às 19h/);
+  });
+
+  it('volta a barrar o que estoura o fechamento', () => {
+    // Segunda, 18:45, com 30 minutos de serviço, fecha 19:00 — não cabe.
+    const tarde = new Date('2026-08-03T21:45:00.000Z');
+    expect(validarDentroDoExpediente(tarde, 30, comoOPainelGrava)).toBeTruthy();
+  });
+
+  it('deixa passar o que cabe', () => {
+    const dezDaManha = new Date('2026-08-03T13:00:00.000Z');
+    expect(validarDentroDoExpediente(dezDaManha, 30, comoOPainelGrava)).toBeNull();
+  });
+
+  // O formato antigo (uma hora para a semana toda) vem do mesmo input.
+  it('lê o formato antigo em texto também', () => {
+    const antigo = { diasAbertos: [1], horaAbertura: '08:00', horaFechamento: '17:00' };
+    expect(expedienteDoDia(antigo, 1)).toEqual({ aberto: true, abertura: 8, fechamento: 17 });
+  });
+
+  // Hora ilegível não pode virar "expediente das NaN às NaN".
+  it('devolve null quando a hora não dá para ler', () => {
+    const lixo = { horarios: [{ dia: 1, aberto: true, abertura: 'de manhã', fechamento: 'à noite' }] };
+    expect(expedienteDoDia(lixo, 1)).toBeNull();
+  });
+});
+
+/**
+ * A costura entre os dois módulos, que é onde o bug morava.
+ *
+ * `expedienteDoDia` tinha teste. `horariosLivres` tinha teste. Os dois passavam
+ * porque cada um era testado com número. Ninguém testava o caminho inteiro com
+ * o que o painel realmente grava — e era só ali que aparecia.
+ *
+ * O caso é o da Lá Tita, tirado de uma conversa de verdade: Patricia Pereira,
+ * Dia do Noivo (4 slots, 120 minutos), numa terça sem nenhum agendamento.
+ */
+describe('do que o painel grava até o horário que o cliente ouve', () => {
+  const laTita = {
+    horarios: [
+      { dia: 0, aberto: false },
+      { dia: 2, aberto: true, abertura: '09:00', fechamento: '18:00' },
+    ],
+  };
+
+  it('oferece horário para um serviço de duas horas num dia livre', () => {
+    const livres = horariosLivres({
+      expediente: expedienteDoDia(laTita, 2),
+      dia: '2026-08-11',
+      duracaoMin: 120,
+      ocupados: [],
+      agora: new Date('2026-08-07T15:23:00.000Z'),
+    });
+
+    // Das 09:00 às 16:00 cabe um atendimento de 2h que termina até as 18:00.
+    expect(livres.length).toBeGreaterThan(0);
+    expect(livres[0]).toBe('09:00');
+    expect(livres[livres.length - 1]).toBe('16:00');
+  });
+
+  it('continua respeitando o que já está ocupado', () => {
+    const livres = horariosLivres({
+      expediente: expedienteDoDia(laTita, 2),
+      dia: '2026-08-11',
+      duracaoMin: 120,
+      // Alguém já pegou das 10:00 às 12:00.
+      ocupados: [
+        {
+          inicio: new Date('2026-08-11T10:00:00-03:00'),
+          fim: new Date('2026-08-11T12:00:00-03:00'),
+        },
+      ],
+      agora: new Date('2026-08-07T15:23:00.000Z'),
+    });
+
+    expect(livres).not.toContain('09:00'); // terminaria 11:00, em cima do ocupado
+    expect(livres).not.toContain('11:00');
+    expect(livres).toContain('12:00');
   });
 });
