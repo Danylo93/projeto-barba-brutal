@@ -268,9 +268,11 @@ describe('cadastro do cliente no atendimento por WhatsApp', () => {
       { id: 4, status: 'confirmado' },
     ] as any);
 
-    await expect(
-      service.listar('token-da-tita', '7', '5511999990000'),
-    ).resolves.toEqual([
+    // Comparação por id: o que este teste protege é o FILTRO de status. A
+    // lista carrega mais campos (o `quando` já escrito, por exemplo), e
+    // comparar o objeto inteiro fazia este teste cair a cada campo novo.
+    const lista: any[] = await service.listar('token-da-tita', '7', '5511999990000');
+    expect(lista.map((a) => ({ id: a.id, status: a.status }))).toEqual([
       { id: 1, status: 'agendado' },
       { id: 4, status: 'confirmado' },
     ]);
