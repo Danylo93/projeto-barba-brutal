@@ -38,9 +38,9 @@ export interface RepositorioUsuario {
 export interface RepositorioAgendamento {
   salvar(agendamento: Agendamento): Promise<number>;
   buscarPorUsuario(usuarioId: number): Promise<Agendamento[]>;
-  buscarPorProfissional(profissionalId: number, data: Date, tenantId: number): Promise<Agendamento[]>;
+  buscarPorProfissional(profissionalId: number, data: Date | string, tenantId: number): Promise<Agendamento[]>;
   /** Bloqueios (folga/almoço/férias) que afetam o profissional no dia. */
-  buscarBloqueios?(profissionalId: number, data: Date, tenantId: number): Promise<{ inicio: Date; fim: Date }[]>;
+  buscarBloqueios?(profissionalId: number, data: Date | string, tenantId: number): Promise<{ inicio: Date; fim: Date }[]>;
 }
 
 // Interface para provedor de criptografia
@@ -52,7 +52,7 @@ export interface ProvedorCriptografia {
 export class ObterHorariosOcupados {
   constructor(private repo: RepositorioAgendamento) {}
 
-  async executar(profissionalId: number, data: Date, tenantId: number): Promise<string[]> {
+  async executar(profissionalId: number, data: Date | string, tenantId: number): Promise<string[]> {
     const agendamentos = await this.repo.buscarPorProfissional(profissionalId, data, tenantId);
     
     // Filtra agendamentos cancelados

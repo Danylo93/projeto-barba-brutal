@@ -26,6 +26,7 @@ import {
   horariosLivres,
   idsDeServicos,
   instanteEmBrasilia,
+  expedienteParaOCliente,
   montarCardapio,
   planoTemRobo,
   porqueNaoDaParaRemarcar,
@@ -454,13 +455,32 @@ export class WhatsappAgendaService {
   async catalogo(token: string, tenantTexto?: string, instance?: string) {
     const tenantId = await this.autenticar(token, tenantTexto, instance);
     const [tenant, servicos, profissionais] = await Promise.all([
-      this.prisma.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true, nome: true } }),
+      this.prisma.tenant.findFirst({
+        where: { id: tenantId, ativo: true },
+        select: { id: true, nome: true, endereco: true, telefone: true, dominio: true, configuracoes: true },
+      }),
       this.prisma.servico.findMany({ where: { tenantId, ativo: true }, select: { id: true, nome: true, preco: true, qtdeSlots: true } }),
       this.prisma.profissional.findMany({ where: { tenantId, ativo: true }, select: { id: true, nome: true, servicos: { select: { id: true } } } }),
     ]);
     if (!tenant) throw new NotFoundException('Barbearia não encontrada.');
 
-    return { tenant, ...montarCardapio(servicos, profissionais) };
+    const site = (process.env.FRONTEND_URL || '').split(',')[0].trim().replace(/\/+$/, '');
+
+    // "Que horas abre?" e "onde fica?" são metade das perguntas de um WhatsApp
+    // de barbearia. Sem estes campos o robô só sabia falar de agendamento e
+    // dizia que ia confirmar com alguém — para uma informação que está no
+    // cadastro da barbearia desde o primeiro dia.
+    return {
+      tenant: { id: tenant.id, nome: tenant.nome },
+      barbearia: {
+        nome: tenant.nome,
+        endereco: tenant.endereco || null,
+        telefone: tenant.telefone || null,
+        site: site && tenant.dominio ? `${site}/barbearia/${tenant.dominio}` : null,
+      },
+      expediente: expedienteParaOCliente(tenant.configuracoes),
+      ...montarCardapio(servicos, profissionais),
+    };
   }
 
   async listar(token: string, tenantTexto: string, telefone: string, instance?: string) {

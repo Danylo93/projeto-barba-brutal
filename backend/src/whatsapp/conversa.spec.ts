@@ -5,6 +5,7 @@ import {
   horariosLivres,
   idsDeServicos,
   instanteEmBrasilia,
+  expedienteParaOCliente,
   montarCardapio,
   noMesmoDia,
   planoTemRobo,
@@ -453,5 +454,49 @@ describe('idsDeServicos', () => {
   it('um pedaço ruim invalida a lista inteira', () => {
     expect(idsDeServicos('20,barba')).toBeNull();
     expect(idsDeServicos([20, 'nada'])).toBeNull();
+  });
+});
+
+describe('expedienteParaOCliente', () => {
+  const semana = (abertos: number[]) => ({
+    horarios: [0, 1, 2, 3, 4, 5, 6].map((dia) => ({
+      dia,
+      aberto: abertos.includes(dia),
+      abertura: '08:00',
+      fechamento: '21:00',
+    })),
+  });
+
+  it('devolve os sete dias, com o que abre e o que não abre', () => {
+    const dias = expedienteParaOCliente(semana([1, 2, 3, 4, 5, 6]));
+    expect(dias).toHaveLength(7);
+    expect(dias[0]).toEqual({ dia: 'domingo', aberto: false });
+    expect(dias[1]).toEqual({ dia: 'segunda', aberto: true, abre: '08:00', fecha: '21:00' });
+  });
+
+  it('lê a hora que o painel grava como texto', () => {
+    // O painel usa <input type="time">, que devolve "08:00" — não número.
+    const dias = expedienteParaOCliente(semana([6]));
+    expect(dias[6]).toEqual({ dia: 'sábado', aberto: true, abre: '08:00', fecha: '21:00' });
+  });
+
+  it('mostra meia hora, em vez de arredondar para a hora cheia', () => {
+    const meia = {
+      horarios: [{ dia: 3, aberto: true, abertura: '09:30', fechamento: '18:30' }],
+    };
+    const quarta = expedienteParaOCliente(meia).find((d) => d.dia === 'quarta');
+    expect(quarta).toEqual({ dia: 'quarta', aberto: true, abre: '09:30', fecha: '18:30' });
+  });
+
+  it('barbearia sem expediente configurado devolve lista vazia', () => {
+    // Nada configurado é diferente de fechado: o robô precisa saber que não
+    // sabe, para dizer que vai confirmar em vez de inventar um horário.
+    expect(expedienteParaOCliente(null)).toEqual([]);
+    expect(expedienteParaOCliente({})).toEqual([]);
+  });
+
+  it('hora ilegível não vira NaN nem horário inventado', () => {
+    const torto = { horarios: [{ dia: 1, aberto: true, abertura: 'de manhã', fechamento: '21:00' }] };
+    expect(expedienteParaOCliente(torto)).toEqual([]);
   });
 });
