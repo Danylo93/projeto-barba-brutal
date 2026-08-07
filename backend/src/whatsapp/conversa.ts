@@ -318,6 +318,12 @@ export interface ProfissionalDoCardapio {
  * `validarServicosDoAgendamento` lê a lista vazia, e o cardápio tem que
  * contar a mesma história que a validação, senão o robô nega o que a API
  * aceitaria.
+ *
+ * Serviço que NINGUÉM atende sai da lista principal. A Lá Tita tinha seis
+ * serviços no cardápio e uma profissional vinculada a dois deles: o robô
+ * anunciou os seis com preço e negou quatro em seguida, inclusive corte de
+ * cabelo. Prometer e negar é pior do que já dizer não — e prompt não segura
+ * isso de forma confiável, dado bem posto segura.
  */
 export function montarCardapio(
   servicos: ServicoDoCardapio[],
@@ -335,13 +341,23 @@ export function montarCardapio(
     };
   });
 
+  const comEquipe = servicos.map((servico) => ({
+    ...servico,
+    feitoPor: equipe
+      .filter((p) => p.atende.some((s) => s.id === servico.id))
+      .map((p) => p.nome),
+  }));
+
   return {
-    servicos: servicos.map((servico) => ({
-      ...servico,
-      feitoPor: equipe
-        .filter((p) => p.atende.some((s) => s.id === servico.id))
-        .map((p) => p.nome),
-    })),
+    // Só o que alguém consegue atender de verdade.
+    servicos: comEquipe.filter((s) => s.feitoPor.length > 0),
+    // Cadastrado no cardápio, mas sem ninguém vinculado. Fica numa chave
+    // separada, e não fora da resposta, para o robô RECONHECER o pedido e dar
+    // a resposta certa — "esse a gente não está atendendo agora" — em vez de
+    // tratar como serviço que não existe.
+    semProfissional: comEquipe
+      .filter((s) => s.feitoPor.length === 0)
+      .map((s) => ({ id: s.id, nome: s.nome })),
     profissionais: equipe,
   };
 }

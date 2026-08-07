@@ -338,13 +338,18 @@ describe('montarCardapio', () => {
   // O caso que aconteceu: o agente respondeu "dá sim" a um corte com quem só
   // faz barba, porque o cardápio pedia que ele cruzasse ids de cabeça.
   it('não põe o profissional em serviço que ele não atende', () => {
-    const { servicos: comEquipe } = montarCardapio(servicos, [
+    const cardapio = montarCardapio(servicos, [
       { id: 14, nome: 'Patricia Pereira', servicos: [{ id: 20 }, { id: 23 }] },
     ]);
 
-    const corte = comEquipe.find((s) => s.id === 19)!;
-    expect(corte.feitoPor).toEqual([]);
-    expect(comEquipe.find((s) => s.id === 20)!.feitoPor).toEqual(['Patricia Pereira']);
+    // A barba é dela, e o cardápio diz o nome de quem faz.
+    expect(cardapio.servicos.find((s) => s.id === 20)!.feitoPor).toEqual([
+      'Patricia Pereira',
+    ]);
+    // O corte não é: ninguém atende, então saiu da vitrine em vez de sair com
+    // `feitoPor` vazio e ser anunciado assim mesmo.
+    expect(cardapio.servicos.some((s) => s.id === 19)).toBe(false);
+    expect(cardapio.semProfissional).toContainEqual({ id: 19, nome: 'Corte de Cabelo' });
   });
 
   // Lista vazia é "sem restrição" para validarServicosDoAgendamento. Se o
@@ -357,7 +362,52 @@ describe('montarCardapio', () => {
   });
 
   it('mantém preço e o resto do serviço intactos', () => {
-    const { servicos: comEquipe } = montarCardapio(servicos, []);
-    expect(comEquipe[0]).toMatchObject({ id: 19, nome: 'Corte de Cabelo', preco: 45 });
+    const cardapio = montarCardapio(servicos, [{ id: 7, nome: 'Marcão', servicos: [] }]);
+    expect(cardapio.servicos[0]).toMatchObject({ id: 19, nome: 'Corte de Cabelo', preco: 45 });
+  });
+
+  /**
+   * Serviço que ninguém atende não vai para a vitrine.
+   *
+   * O caso é da Lá Tita, tirado de uma conversa real: seis serviços no
+   * cardápio, uma profissional vinculada a dois. O robô anunciou os seis com
+   * preço e negou quatro em seguida — inclusive corte de cabelo, que é o mais
+   * pedido de uma barbearia. Prometer e negar é pior do que já dizer não.
+   */
+  describe('serviço sem ninguém para atender', () => {
+    const soPatricia = [
+      { id: 14, nome: 'Patricia Pereira', servicos: [{ id: 20 }, { id: 23 }] },
+    ];
+
+    it('some da lista que o robô anuncia', () => {
+      const { servicos: anunciaveis } = montarCardapio(servicos, soPatricia);
+
+      expect(anunciaveis.map((s) => s.nome)).toEqual(['Barba', 'Dia do Noivo']);
+      expect(anunciaveis.map((s) => s.nome)).not.toContain('Corte de Cabelo');
+    });
+
+    // Sai da vitrine, mas não some da resposta: o robô precisa RECONHECER o
+    // pedido para dizer "esse a gente não está atendendo agora" em vez de
+    // tratar como serviço que não existe na barbearia.
+    it('continua listado à parte, para o robô reconhecer o pedido', () => {
+      const { semProfissional } = montarCardapio(servicos, soPatricia);
+
+      expect(semProfissional).toEqual([{ id: 19, nome: 'Corte de Cabelo' }]);
+    });
+
+    it('barbearia sem profissional nenhum não anuncia nada', () => {
+      const cardapio = montarCardapio(servicos, []);
+
+      expect(cardapio.servicos).toEqual([]);
+      expect(cardapio.semProfissional).toHaveLength(3);
+    });
+
+    // Vínculo vazio quer dizer "atende tudo" — nada pode cair no balde errado.
+    it('profissional sem vínculo mantém o cardápio inteiro na vitrine', () => {
+      const cardapio = montarCardapio(servicos, [{ id: 7, nome: 'Marcão', servicos: [] }]);
+
+      expect(cardapio.servicos).toHaveLength(3);
+      expect(cardapio.semProfissional).toEqual([]);
+    });
   });
 });
