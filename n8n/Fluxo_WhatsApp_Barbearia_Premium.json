@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Atendente de WhatsApp (planos Profissional e Premium)\n\nO cliente escreve no WhatsApp da barbearia, a Evolution chama este fluxo, e um\nagente de IA conversa: consulta o cardápio, procura horário livre, marca,\nremarca e cancela — tudo pela API, que é quem manda nas regras.\n\n### O que trocar antes de ativar\n\n1. **Credencial `Token do bot` (Header Auth)** — Name `x-whatsapp-token`,\n   Value igual ao `WHATSAPP_BOT_TOKEN` do Render. Vincule nas seis\n   ferramentas do agente.\n2. **Credencial `Evolution apikey` (Header Auth)** — Name `apikey`, Value a\n   apikey da sua Evolution. Vincule no nó **Responder no WhatsApp**.\n3. **Credencial do modelo** — OpenAI (ou troque o nó por outro provedor).\n4. No nó **Onde ficam as coisas**, ajuste `evolutionUrl` para a sua Evolution.\n5. Na Evolution, aponte o webhook `messages.upsert` para a URL de produção\n   deste fluxo.\n\nNada de variável de ambiente: as *Variables* do n8n são recurso pago, e\ncredencial é melhor de qualquer jeito — o valor não viaja no JSON exportado\nnem vai para o repositório.\n\n### Por que foi reescrito\n\nA versão anterior era um roteador de `intent` por expressão regular, e estava\nmorta há tempo: os `\\b` do código viraram caractere de backspace ao entrar no\nJSON, então NENHUMA regra casava e toda mensagem caía no texto de ajuda.\nNinguém conseguia marcar, cancelar nem remarcar por aqui. Além disso ela\nlia o id do agendamento como \"o primeiro número da frase\" (\"remarcar para as\n15:00\" virava agendamento nº 15), tinha a data `2026-08-06` escrita à mão no\ncódigo, e dizia \"reagendado com sucesso\" sem olhar a resposta da API — quando\na API recusava, a execução morria e o cliente não recebia nada.\n\n### A recusa é metade do atendimento\n\nTodas as ferramentas estão em **continueRegularOutput**: quando a API recusa,\no texto da recusa volta PARA o agente em vez de derrubar a execução. É assim\nque \"esse horário de hoje já passou — agora são 17:00\" chega ao cliente em vez\nde silêncio.",
+        "content": "## Atendente de WhatsApp (planos Profissional e Premium)\n\nO cliente escreve no WhatsApp da barbearia, a Evolution chama este fluxo, e um\nagente de IA conversa: consulta o cardápio, procura horário livre, marca,\nremarca e cancela — tudo pela API, que é quem manda nas regras.\n\n### O que trocar antes de ativar\n\n1. **Credencial `Token do bot` (Header Auth)** — Name `x-whatsapp-token`,\n   Value igual ao `WHATSAPP_BOT_TOKEN` do Render. Vincule nas seis\n   ferramentas do agente.\n2. **Credencial `Evolution apikey` (Header Auth)** — Name `apikey`, Value a\n   apikey da sua Evolution. Vincule no nó **Responder no WhatsApp**.\n3. **Credencial do modelo** — Anthropic (a chave sai de console.anthropic.com).\n4. No nó **Onde ficam as coisas**, ajuste `evolutionUrl` para a sua Evolution.\n5. Na Evolution, aponte o webhook `messages.upsert` para a URL de produção\n   deste fluxo.\n\nNada de variável de ambiente: as *Variables* do n8n são recurso pago, e\ncredencial é melhor de qualquer jeito — o valor não viaja no JSON exportado\nnem vai para o repositório.\n\n### Por que foi reescrito\n\nA versão anterior era um roteador de `intent` por expressão regular, e estava\nmorta há tempo: os `\\b` do código viraram caractere de backspace ao entrar no\nJSON, então NENHUMA regra casava e toda mensagem caía no texto de ajuda.\nNinguém conseguia marcar, cancelar nem remarcar por aqui. Além disso ela\nlia o id do agendamento como \"o primeiro número da frase\" (\"remarcar para as\n15:00\" virava agendamento nº 15), tinha a data `2026-08-06` escrita à mão no\ncódigo, e dizia \"reagendado com sucesso\" sem olhar a resposta da API — quando\na API recusava, a execução morria e o cliente não recebia nada.\n\n### A recusa é metade do atendimento\n\nTodas as ferramentas estão em **continueRegularOutput**: quando a API recusa,\no texto da recusa volta PARA o agente em vez de derrubar a execução. É assim\nque \"esse horário de hoje já passou — agora são 17:00\" chega ao cliente em vez\nde silêncio.",
         "height": 900,
         "width": 560
       },
@@ -129,18 +129,23 @@
     },
     {
       "parameters": {
-        "model": { "__rl": true, "mode": "list", "value": "gpt-4.1-mini" },
-        "options": { "temperature": 0.4 }
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-opus-5",
+          "cachedResultName": "Claude Opus 5"
+        },
+        "options": { "temperature": 0.4, "maxTokensToSample": 2048 }
       },
       "id": "modelo",
       "name": "Modelo",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.2,
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
       "position": [700, 420],
       "credentials": {
-        "openAiApi": { "id": "bb-openai", "name": "OpenAI" }
+        "anthropicApi": { "id": "bb-anthropic", "name": "Anthropic" }
       },
-      "notes": "Temperatura baixa: atendimento precisa ser previsível. Quem manda no conteúdo são as ferramentas."
+      "notes": "Temperatura baixa: atendimento precisa ser previsível. Quem manda no conteúdo são as ferramentas. Se `claude-opus-5` não aparecer na lista, troque o campo para \"By ID\" e digite o nome — o n8n lê o catálogo da Anthropic e uma versão antiga do nó pode ter a lista defasada."
     },
     {
       "parameters": {

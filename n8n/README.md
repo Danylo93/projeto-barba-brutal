@@ -242,7 +242,26 @@ horário que ele nunca pediu.
 3. Credencial **Segredo do webhook** (Header Auth) — qualquer valor longo e
    aleatório. Configure o mesmo header na Evolution. Sem isso, quem descobrir a
    URL do webhook se passa por qualquer cliente e cancela agendamento alheio.
-4. Credencial do **modelo** (OpenAI, ou troque o nó por outro provedor).
+4. Credencial do **modelo** — Anthropic. A chave sai de
+   [console.anthropic.com](https://console.anthropic.com) e vai na credencial
+   `Anthropic` do n8n, vinculada ao nó **Modelo**.
+
+   O fluxo vem com `claude-opus-5`. Se ele não aparecer na lista do nó, troque
+   o campo para **By ID** e digite o nome: o n8n lê o catálogo da Anthropic, e
+   um nó desatualizado pode ter a lista velha.
+
+   Trocar de modelo é mexer num campo só. O que muda:
+
+   | Modelo | Quando |
+   |---|---|
+   | `claude-opus-5` | o que está no arquivo — o mais capaz; é o que segura conversa torta sem perder o fio |
+   | `claude-sonnet-5` | mais barato, quase tão bom em conversa de agendamento; é a troca a fazer se o volume pesar |
+   | `claude-haiku-4-5` | o mais barato e rápido; serve para atendimento simples, erra mais em pedido confuso |
+
+   O atendimento é conversa curta com ferramenta fazendo o trabalho pesado — o
+   modelo decide o que chamar e escreve a resposta, não inventa regra. Comece
+   no Opus e desça se a conta incomodar; a diferença aparece justamente no
+   cliente que escreve "não vai dar pra sexta, tem alguma coisa antes?".
 5. No nó **Onde ficam as coisas**, ajuste `evolutionUrl`.
 6. Na Evolution, aponte o webhook `messages.upsert` para a URL de produção do
    fluxo.
