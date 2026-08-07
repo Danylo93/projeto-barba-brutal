@@ -222,9 +222,10 @@ fazer agora**. O backend devolve a frase pronta, cada caso com a sua:
 | barbeiro desligado | "Esse profissional não está mais atendendo aqui. Quer marcar com outro?" |
 | agendamento de outra pessoa | "Não encontrei esse agendamento no seu nome." |
 
-Todas as ferramentas do agente estão em `continueRegularOutput`: a recusa volta
-**para o agente** em vez de derrubar a execução. Sem isso a execução morre
-vermelha e o cliente não recebe nada — que era exatamente o que acontecia.
+Todas as ferramentas do agente estão em `neverError`: a recusa volta **para o
+agente** como corpo da resposta em vez de derrubar a execução. Sem isso a
+execução morre vermelha e o cliente não recebe nada — que era exatamente o que
+acontecia.
 
 ### Fuso
 
@@ -235,36 +236,51 @@ horário que ele nunca pediu.
 
 ### O que trocar antes de ativar
 
-1. Credencial **Token do bot** (Header Auth) — Name `x-whatsapp-token`, Value
-   igual ao `WHATSAPP_BOT_TOKEN` do Render. Vincule nas seis ferramentas.
-2. Credencial **Evolution apikey** (Header Auth) — Name `apikey`, Value a
-   apikey da sua Evolution. Vincule no nó **Responder no WhatsApp**.
-3. Credencial **Segredo do webhook** (Header Auth) — qualquer valor longo e
-   aleatório. Configure o mesmo header na Evolution. Sem isso, quem descobrir a
-   URL do webhook se passa por qualquer cliente e cancela agendamento alheio.
-4. Credencial do **modelo** — Anthropic. A chave sai de
+1. Credencial **Header Auth** — Name `x-whatsapp-token`, Value **exatamente
+   igual** ao `WHATSAPP_BOT_TOKEN` do Render. Uma só credencial faz os três
+   papéis: porteiro do webhook, as seis ferramentas e o envio da resposta.
+
+   Se o valor não bater com o do Render, a conversa vai até o fim e morre no
+   último passo: o backend responde `401 Token do WhatsApp inválido.` e o
+   cliente não recebe nada. Foi assim que ficou depois de tudo consertado.
+
+   Nada de credencial da Evolution aqui: quem fala com ela é o backend, que já
+   tem a URL, a apikey e a instância da barbearia. O nó **Responder no
+   WhatsApp** chama `POST /whatsapp/agenda/responder`, não a Evolution.
+2. Credencial do **modelo** — Anthropic. A chave sai de
    [console.anthropic.com](https://console.anthropic.com) e vai na credencial
    `Anthropic` do n8n, vinculada ao nó **Modelo**.
 
-   O fluxo vem com `claude-opus-5`. Se ele não aparecer na lista do nó, troque
-   o campo para **By ID** e digite o nome: o n8n lê o catálogo da Anthropic, e
-   um nó desatualizado pode ter a lista velha.
+   O fluxo vem com `claude-haiku-4-5`. Se o modelo que você quiser não
+   aparecer na lista do nó, troque o campo para **By ID** e digite o nome: o
+   n8n lê o catálogo da Anthropic, e um nó desatualizado pode ter a lista
+   velha.
 
    Trocar de modelo é mexer num campo só. O que muda:
 
    | Modelo | Quando |
    |---|---|
-   | `claude-opus-5` | o que está no arquivo — o mais capaz; é o que segura conversa torta sem perder o fio |
-   | `claude-sonnet-5` | mais barato, quase tão bom em conversa de agendamento; é a troca a fazer se o volume pesar |
-   | `claude-haiku-4-5` | o mais barato e rápido; serve para atendimento simples, erra mais em pedido confuso |
+   | `claude-haiku-4-5` | o que está no arquivo — o mais barato e rápido, suficiente para agendamento |
+   | `claude-sonnet-5` | melhor em pedido confuso; a troca a fazer se o Haiku começar a se atrapalhar |
+   | `claude-opus-5` | o mais capaz; segura conversa torta sem perder o fio, e é o mais caro |
 
    O atendimento é conversa curta com ferramenta fazendo o trabalho pesado — o
-   modelo decide o que chamar e escreve a resposta, não inventa regra. Comece
-   no Opus e desça se a conta incomodar; a diferença aparece justamente no
-   cliente que escreve "não vai dar pra sexta, tem alguma coisa antes?".
-5. No nó **Onde ficam as coisas**, ajuste `evolutionUrl`.
-6. Na Evolution, aponte o webhook `messages.upsert` para a URL de produção do
-   fluxo.
+   modelo decide o que chamar e escreve a resposta, não inventa regra. Por isso
+   o padrão é o Haiku. Suba quando aparecer o cliente que escreve "não vai dar
+   pra sexta, tem alguma coisa antes?" e a resposta vier torta.
+
+   Uma coisa o Haiku faz e o prompt teve que proibir com todas as letras:
+   responder sobre serviço e preço **de cabeça**, sem chamar o `cardapio`.
+   Numa execução real ele inventou "corte, barba e acabamento" sem consultar
+   nada. O bloco *VOCÊ NÃO SABE NADA DESTA BARBEARIA DE CABEÇA* existe por
+   causa disso — se você trocar o prompt, não tire.
+3. Na Evolution, aponte o webhook `messages.upsert` para a URL de produção do
+   fluxo — ou, melhor, deixe o dono apertar **conectar** no painel: o backend
+   registra o webhook com o header certo sozinho.
+4. **Publique.** No n8n novo, salvar não ativa: o rascunho fica salvo e a
+   produção continua rodando a versão publicada antiga. Foi assim que um fluxo
+   já corrigido seguiu servindo a versão quebrada por horas, com o editor
+   mostrando o código certo.
 
 ### Por que a versão anterior foi jogada fora
 
@@ -285,8 +301,41 @@ sobrava erro em lugar nenhum. Junto com isso:
 - e os três `$env.*` não funcionam sem as *Variables* pagas do n8n.
 
 O teste `backend/src/whatsapp/fluxos-n8n.spec.ts` roda junto com o resto e
-recusa esses cinco padrões — caractere de controle escondido, data fixa,
-credencial faltando, `$env.`, ferramenta que morre na recusa.
+recusa esses padrões — caractere de controle escondido, data fixa, credencial
+faltando, `$env.`, endereço de exemplo, ferramenta que morre na recusa e o tipo
+de ferramenta que não roda (abaixo).
+
+### E o que ainda faltava depois disso
+
+Mesmo com o fluxo reescrito, nenhum cliente era atendido. Três motivos, todos
+mudos:
+
+1. **O rascunho nunca virou versão ativa.** As correções estavam salvas e o
+   editor mostrava o código certo, mas a produção rodava a versão publicada
+   anterior — a do agente na typeVersion errada.
+2. **As seis ferramentas eram `@n8n/n8n-nodes-langchain.toolHttpRequest`.**
+   Esse tipo só tem `supplyData`; o motor executa ferramenta pelo caminho
+   normal de nó, que exige `execute`. Toda chamada morria com *"has a
+   supplyData method but no execute method"* — e como a ferramenta estava em
+   `continueRegularOutput`, esse texto de erro voltava para o modelo **como se
+   fosse a resposta da API**. Ele respondia por cima: um cliente ouviu que não
+   tinha agendamento nenhum enquanto tinha. Agora são
+   `n8n-nodes-base.httpRequestTool`.
+3. **O nó de resposta usava a credencial da Evolution.** Ele fala com o nosso
+   backend, que quer `x-whatsapp-token`; ia com o nome da credencial no lugar
+   do nome do header e morria em `ERR_INVALID_HTTP_TOKEN`.
+
+### Por que não há mais nó de Code
+
+Code node do n8n não roda no processo principal: vai para o **task runner**.
+Quando o runner caiu na VPS, o atendimento inteiro ficou pendurado até estourar
+— inclusive o caminho do áudio, que nem passa pelo agente. O que os três Code
+faziam hoje é feito por `Set` e `If`, que rodam no processo principal e não
+dependem de runner nenhum.
+
+Com isso o fluxo perdeu a única expressão regular perigosa que restava: onde
+havia `/\D/g` (o `\b` primo desse foi quem matou a versão de intenção), agora
+há `/[^0-9]/g`, que atravessa JSON sem escape.
 
 ---
 
