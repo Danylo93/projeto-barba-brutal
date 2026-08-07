@@ -1,18 +1,32 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Building2, CheckCircle2, DollarSign, CalendarDays, LogIn } from 'lucide-react'
+import {
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  CreditCard,
+  LogIn,
+  Radio,
+  ShieldCheck,
+  Signal,
+} from 'lucide-react'
 import useSessao from '@/data/hooks/useSessao'
 import useUsuario from '@/data/hooks/useUsuario'
 import AuthShell from '@/components/auth/AuthShell'
-import {
-  PainelShell,
-  PainelHeader,
-  PainelMain,
-  Card,
-  StatCard,
-} from '@/components/painel/Painel'
+import { PainelShell, PainelHeader, PainelMain } from '@/components/painel/Painel'
 import PainelNav from '@/components/painel/PainelNav'
+import {
+  BarraComparativa,
+  Esqueleto,
+  Heroi,
+  Inicial,
+  Pilula,
+  Secao,
+  Tile,
+  Vazio,
+  emReais,
+} from '@/components/painel/AdminUI'
 import { useToast } from '@/hooks/use-toast'
 import { API_BASE } from '@/lib/api-base'
 
@@ -57,19 +71,38 @@ interface Pagamento {
 
 const URL_BASE = API_BASE
 const inputClasses =
-  'w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-colors'
+  'w-full rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-white placeholder-zinc-600 transition-colors focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400/40'
 
-function Badge({ ativo }: { ativo: boolean }) {
-  return (
-    <span
-      className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
-        ativo ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'
-      }`}
-    >
-      {ativo ? 'Ativo' : 'Inativo'}
-    </span>
-  )
+/**
+ * A API devolve os rótulos do Mercado Pago em inglês e em SCREAMING_CASE. Sem
+ * tradução, o admin lia "rejected" e "CREDIT_CARD" no meio de uma tela toda em
+ * português — e status desconhecido vira o texto cru, que é melhor do que
+ * esconder um estado que ninguém previu.
+ */
+function statusEmPortugues(status: string): string {
+  const traducao: Record<string, string> = {
+    approved: 'Aprovado',
+    pending: 'Aguardando',
+    in_process: 'Em análise',
+    rejected: 'Recusado',
+    cancelled: 'Cancelado',
+    refunded: 'Devolvido',
+  }
+  return traducao[status] ?? status
 }
+
+function metodoEmPortugues(metodo: string): string {
+  const traducao: Record<string, string> = {
+    pix: 'Pix',
+    credit_card: 'Cartão de crédito',
+    debit_card: 'Cartão de débito',
+    boleto: 'Boleto',
+  }
+  return traducao[String(metodo).toLowerCase()] ?? String(metodo).replace(/_/g, ' ')
+}
+
+/** Cabeçalho de coluna, no mesmo tom em todas as tabelas. */
+const th = 'px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500'
 
 export default function AdminPage() {
   const { token, criarSessao } = useSessao()
@@ -243,18 +276,24 @@ export default function AdminPage() {
     }
   }
 
-  // Gate de login do admin (mesmo visual das telas de auth)
+  // Gate de login do admin. É a porta do painel que enxerga TODAS as
+  // barbearias — a tela diz isso antes de pedir a senha.
   if (!isAdmin) {
     return (
       <AuthShell>
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-7">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white">Painel do Administrador</h1>
-            <p className="text-sm text-zinc-400 mt-1">Acesso restrito ao administrador do sistema</p>
+            <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/25 bg-yellow-400/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-yellow-300">
+              <ShieldCheck size={13} /> Área restrita
+            </span>
+            <h1 className="mt-4 text-2xl font-black tracking-tight text-white">Console do SaaS</h1>
+            <p className="mt-1.5 text-sm leading-relaxed text-zinc-400">
+              Daqui se enxerga toda a base: barbearias, assinaturas e pagamentos.
+            </p>
           </div>
           <form onSubmit={handleAdminLogin} className="flex flex-col gap-4">
             {loginError && (
-              <div className="bg-red-950/60 border border-red-800 text-red-300 text-sm px-4 py-3 rounded-lg">
+              <div className="rounded-xl border border-red-800/70 bg-red-950/50 px-4 py-3 text-sm text-red-300">
                 {loginError}
               </div>
             )}
@@ -277,7 +316,7 @@ export default function AdminPage() {
             <button
               type="submit"
               disabled={loginLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-yellow-400 text-zinc-900 font-bold hover:bg-yellow-300 disabled:opacity-60 transition-colors"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 font-black text-zinc-950 shadow-[0_0_24px_rgba(250,204,21,0.18)] transition-all hover:bg-yellow-300 hover:shadow-[0_0_32px_rgba(250,204,21,0.28)] active:scale-[0.99] disabled:opacity-60"
             >
               <LogIn size={18} /> {loginLoading ? 'Entrando...' : 'Entrar'}
             </button>
@@ -289,262 +328,386 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto"></div>
-          <p className="mt-4 text-zinc-400">Carregando dashboard...</p>
-        </div>
-      </div>
+      <PainelShell>
+        <PainelNav />
+        <PainelHeader titulo="Console do SaaS" descricao="Carregando a base..." />
+        <PainelMain>
+          <div className="grid gap-5 lg:grid-cols-3">
+            <Esqueleto className="h-52 lg:col-span-1" />
+            <div className="grid gap-5 sm:grid-cols-2 lg:col-span-2">
+              <Esqueleto className="h-32" />
+              <Esqueleto className="h-32" />
+              <Esqueleto className="h-32" />
+              <Esqueleto className="h-32" />
+            </div>
+          </div>
+          <div className="mt-5 grid gap-5 lg:grid-cols-5">
+            <Esqueleto className="h-72 lg:col-span-3" />
+            <Esqueleto className="h-72 lg:col-span-2" />
+          </div>
+          <Esqueleto className="mt-5 h-80" />
+        </PainelMain>
+      </PainelShell>
     )
   }
 
   if (!stats) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">Erro ao carregar dashboard</h2>
-          <p className="text-zinc-400 mb-4">Não foi possível carregar as estatísticas do sistema.</p>
-          <button
-            onClick={fetchDashboardStats}
-            className="bg-yellow-400 text-zinc-900 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-300 transition-colors"
-          >
-            Tentar Novamente
-          </button>
-        </div>
-      </div>
+      <PainelShell>
+        <PainelNav />
+        <PainelMain>
+          <div className="mx-auto max-w-md rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-8 text-center">
+            <h2 className="text-xl font-black text-white">Não deu para carregar a base</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              O servidor não respondeu com as estatísticas. Pode ter sido uma oscilação — tente de novo.
+            </p>
+            <button
+              onClick={fetchDashboardStats}
+              className="mt-6 rounded-xl bg-yellow-400 px-5 py-2.5 font-black text-zinc-950 transition-colors hover:bg-yellow-300"
+            >
+              Tentar de novo
+            </button>
+          </div>
+        </PainelMain>
+      </PainelShell>
     )
   }
+
+  const assinaturas = stats.planosStats.reduce((total, plano) => total + plano.assinantes, 0)
+  const maiorPlano = Math.max(1, ...stats.planosStats.map((plano) => plano.assinantes))
+  const planosOrdenados = [...stats.planosStats].sort((a, b) => b.assinantes - a.assinantes)
+  const pendentes = pagamentos.filter((p) => p.status !== 'approved').length
+  const percentualAtivas =
+    stats.totalTenants > 0 ? Math.round((stats.activeTenants / stats.totalTenants) * 100) : 0
+  const semCanal = tenants.filter((t) => !(t.configuracoes?.evolutionInstance ?? '').trim()).length
 
   return (
     <PainelShell>
       <PainelNav />
       <PainelHeader
-        titulo="Painel do Administrador"
-        descricao="Visão geral do sistema SaaS Barbearia Brutal"
+        titulo="Console do SaaS"
+        descricao="Toda a base do Barbearia Brutal em uma tela"
         acao={
-          <a
-            href="/"
-            className="inline-flex items-center gap-2 text-sm text-zinc-300 border border-zinc-700 px-4 py-2 rounded-lg hover:bg-zinc-800 transition-colors"
-          >
-            Voltar ao site
-          </a>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-300">
+              <Radio size={13} className="animate-pulse" /> Sistema no ar
+            </span>
+            <a
+              href="/"
+              className="inline-flex items-center rounded-xl border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-300 transition-colors hover:border-zinc-700 hover:bg-zinc-900"
+            >
+              Voltar ao site
+            </a>
+          </div>
         }
       />
 
       <PainelMain>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard rotulo="Total de Barbearias" valor={stats.totalTenants} icone={<Building2 size={22} />} />
-          <StatCard rotulo="Ativas" valor={stats.activeTenants} icone={<CheckCircle2 size={22} />} cor="text-green-400" />
-          <StatCard
-            rotulo="Receita Total"
-            valor={`R$ ${stats.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-            icone={<DollarSign size={22} />}
+        <div className="grid gap-5 lg:grid-cols-3">
+          <Heroi
+            rotulo="Receita total"
+            prefixo="R$"
+            valor={stats.totalRevenue.toLocaleString('pt-BR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+            apoio={
+              <div className="flex flex-wrap gap-x-8 gap-y-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Assinaturas</p>
+                  <p className="mt-0.5 text-lg font-black text-white">{assinaturas}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Base ativa</p>
+                  <p className="mt-0.5 text-lg font-black text-white">{percentualAtivas}%</p>
+                </div>
+              </div>
+            }
           />
-          <StatCard
-            rotulo="Agendamentos"
-            valor={stats.totalAgendamentos.toLocaleString('pt-BR')}
-            icone={<CalendarDays size={22} />}
-            cor="text-blue-400"
-          />
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:col-span-2">
+            <Tile
+              rotulo="Barbearias"
+              valor={String(stats.totalTenants)}
+              contexto={`${stats.inactiveTenants} suspensa${stats.inactiveTenants === 1 ? '' : 's'}`}
+              icone={<Building2 size={18} />}
+            />
+            <Tile
+              rotulo="Ativas"
+              valor={String(stats.activeTenants)}
+              contexto={`de ${stats.totalTenants} barbearias`}
+              icone={<CheckCircle2 size={18} />}
+              destaque
+            />
+            <Tile
+              rotulo="Agendamentos"
+              valor={stats.totalAgendamentos.toLocaleString('pt-BR')}
+              contexto="desde o começo"
+              icone={<CalendarDays size={18} />}
+            />
+            <Tile
+              rotulo="Canais de WhatsApp"
+              valor={String(tenants.length - semCanal)}
+              contexto={
+                semCanal > 0
+                  ? `${semCanal} sem instance vinculada`
+                  : 'todas as barbearias vinculadas'
+              }
+              icone={<Signal size={18} />}
+            />
+          </div>
         </div>
 
-        {/* Gestão de barbearias */}
-        <Card className="p-6 mb-8">
-          <h3 className="text-lg font-semibold text-white mb-4">Gerenciar Barbearias</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b border-zinc-800">
-                <tr className="text-left text-xs font-semibold text-zinc-400 uppercase">
-                  <th className="px-4 py-3">Barbearia</th>
-                  <th className="px-4 py-3">Plano</th>
-                  <th className="px-4 py-3">Usuários</th>
-                  <th className="px-4 py-3">Agendamentos</th>
-                  <th className="px-4 py-3">Instance (Evolution)</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800">
-                {tenants.map((tenant) => (
-                  <tr key={tenant.id} className="hover:bg-zinc-800/40">
-                    <td className="px-4 py-3 text-sm">
-                      <p className="font-medium text-white">{tenant.nome}</p>
-                      <p className="text-zinc-500">{tenant.email}</p>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-zinc-300">
-                      {tenant.assinatura ? (
-                        <>
-                          <p>{tenant.assinatura.plano.nome}</p>
-                          <p className="text-xs text-zinc-500">
-                            {tenant.assinatura.status === 'active' ? 'ativa' : tenant.assinatura.status}
-                          </p>
-                        </>
-                      ) : (
-                        <span className="text-zinc-600">Sem plano</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-zinc-300">{tenant._count.usuarios}</td>
-                    <td className="px-4 py-3 text-sm text-zinc-300">{tenant._count.agendamentos}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={instances[tenant.id] ?? ''}
-                          onChange={(e) =>
-                            setInstances((prev) => ({ ...prev, [tenant.id]: e.target.value }))
-                          }
-                          placeholder="sem canal"
-                          className="w-40 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-xs text-white placeholder-zinc-600 focus:border-yellow-400 focus:outline-none"
-                        />
-                        {(instances[tenant.id] ?? '') !== (tenant.configuracoes?.evolutionInstance ?? '') && (
-                          <button
-                            onClick={() => salvarInstance(tenant)}
-                            disabled={salvandoInstance === tenant.id}
-                            className="rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-semibold text-yellow-300 transition-colors hover:bg-yellow-400/20 disabled:opacity-50"
-                          >
-                            {salvandoInstance === tenant.id ? '...' : 'Salvar'}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <Badge ativo={tenant.ativo} />
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => alternarStatusTenant(tenant)}
-                        disabled={alterandoId === tenant.id}
-                        className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 ${
-                          tenant.ativo
-                            ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                            : 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
-                        }`}
-                      >
-                        {alterandoId === tenant.id ? '...' : tenant.ativo ? 'Desativar' : 'Ativar'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <div className="mt-5 grid gap-5 lg:grid-cols-5">
+          <Secao
+            titulo="Distribuição por plano"
+            descricao="Assinantes em cada plano, e o que cada um traz"
+            contagem={`${assinaturas} assinantes`}
+            className="lg:col-span-3"
+          >
+            <div className="divide-y divide-zinc-800/70 px-5 py-2 sm:px-6">
+              {planosOrdenados.length === 0 ? (
+                <Vazio>Nenhum plano cadastrado ainda.</Vazio>
+              ) : (
+                planosOrdenados.map((plano) => (
+                  <BarraComparativa
+                    key={plano.id}
+                    rotulo={plano.nome}
+                    valor={plano.assinantes}
+                    maximo={maiorPlano}
+                    valorEscrito={`${plano.assinantes} ${plano.assinantes === 1 ? 'assinante' : 'assinantes'}`}
+                    apoio={`${emReais(plano.preco)}/mês · ${emReais(plano.receita)} no total`}
+                  />
+                ))
+              )}
+            </div>
+          </Secao>
 
-        {/* Pagamentos (Pix / Mercado Pago) */}
-        <Card className="p-6 mb-8">
-          <h3 className="text-lg font-semibold text-white mb-4">Pagamentos</h3>
-          {pagamentos.length === 0 ? (
-            <p className="text-sm text-zinc-500">Nenhum pagamento registrado ainda.</p>
-          ) : (
+          <Secao
+            titulo="Chegaram por último"
+            contagem={`${stats.recentTenants.length}`}
+            className="lg:col-span-2"
+          >
+            <div className="divide-y divide-zinc-800/70">
+              {stats.recentTenants.length === 0 ? (
+                <Vazio>Nenhuma barbearia cadastrada ainda.</Vazio>
+              ) : (
+                stats.recentTenants.map((tenant) => (
+                  <div key={tenant.id} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
+                    <Inicial nome={tenant.nome} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-white">{tenant.nome}</p>
+                      <p className="truncate text-xs text-zinc-500">
+                        {tenant._count.usuarios} usuários · {tenant._count.agendamentos} agendamentos
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <Pilula estado={tenant.ativo ? 'boa' : 'ruim'}>
+                        {tenant.ativo ? 'Ativa' : 'Suspensa'}
+                      </Pilula>
+                      {tenant.assinatura && (
+                        <p className="mt-1.5 text-[11px] text-zinc-500">{tenant.assinatura.plano.nome}</p>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Secao>
+        </div>
+
+        <div className="mt-5">
+          <Secao
+            titulo="Barbearias"
+            descricao="A instance da Evolution é criada por nós — o dono só conecta o número."
+            contagem={`${tenants.length}`}
+          >
+            <p className="px-5 pt-4 text-xs text-zinc-600 lg:hidden">
+              Arraste a tabela para o lado para ver o resto.
+            </p>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b border-zinc-800">
-                  <tr className="text-left text-xs font-semibold text-zinc-400 uppercase">
-                    <th className="px-4 py-3">Barbearia</th>
-                    <th className="px-4 py-3">Plano</th>
-                    <th className="px-4 py-3">Valor</th>
-                    <th className="px-4 py-3">Método</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Data</th>
-                    <th className="px-4 py-3">Ações</th>
+              <table className="w-full min-w-[1000px]">
+                <thead>
+                  <tr className="border-b border-zinc-800/70">
+                    <th className={th}>Barbearia</th>
+                    <th className={th}>Plano</th>
+                    <th className={`${th} text-right`}>Usuários</th>
+                    <th className={`${th} text-right`}>Agendamentos</th>
+                    <th className={th}>Instance da Evolution</th>
+                    <th className={th}>Status</th>
+                    <th className={`${th} text-right`}>Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {pagamentos.map((p) => (
-                    <tr key={p.id} className="hover:bg-zinc-800/40">
-                      <td className="px-4 py-3 text-sm">
-                        <p className="text-white">{p.barbearia}</p>
-                        <p className="text-zinc-500 text-xs">{p.email}</p>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-zinc-300">{p.plano}</td>
-                      <td className="px-4 py-3 text-sm text-white">
-                        R$ {p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-zinc-300 uppercase">{p.metodo}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span
-                          className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
-                            p.status === 'approved'
-                              ? 'bg-green-500/15 text-green-400'
-                              : p.status === 'pending'
-                                ? 'bg-yellow-500/15 text-yellow-400'
-                                : 'bg-red-500/15 text-red-400'
-                          }`}
-                        >
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-zinc-400">
-                        {new Date(p.createdAt).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {p.status !== 'approved' && (
+                <tbody className="divide-y divide-zinc-800/60">
+                  {tenants.map((tenant) => {
+                    const digitada = instances[tenant.id] ?? ''
+                    const salva = tenant.configuracoes?.evolutionInstance ?? ''
+                    const mudou = digitada !== salva
+
+                    return (
+                      <tr key={tenant.id} className="transition-colors hover:bg-zinc-800/30">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <Inicial nome={tenant.nome} />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-white">{tenant.nome}</p>
+                              <p className="truncate text-xs text-zinc-500">{tenant.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {tenant.assinatura ? (
+                            <>
+                              <p className="text-sm font-semibold text-zinc-200">
+                                {tenant.assinatura.plano.nome}
+                              </p>
+                              <p className="text-xs text-zinc-500">
+                                {tenant.assinatura.status === 'active' ? 'ativa' : tenant.assinatura.status}
+                              </p>
+                            </>
+                          ) : (
+                            <span className="text-sm text-zinc-600">Sem plano</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-sm text-zinc-300 tabular-nums">
+                          {tenant._count.usuarios}
+                        </td>
+                        <td className="px-5 py-3.5 text-right text-sm text-zinc-300 tabular-nums">
+                          {tenant._count.agendamentos}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={digitada}
+                              onChange={(e) =>
+                                setInstances((prev) => ({ ...prev, [tenant.id]: e.target.value }))
+                              }
+                              placeholder="sem canal"
+                              aria-label={`Instance da Evolution de ${tenant.nome}`}
+                              className={`w-44 rounded-lg border bg-zinc-950/60 px-3 py-1.5 font-mono text-xs text-white placeholder-zinc-600 transition-colors focus:outline-none focus:ring-1 focus:ring-yellow-400/40 ${
+                                mudou ? 'border-yellow-400/60' : 'border-zinc-800 focus:border-yellow-400'
+                              }`}
+                            />
+                            {mudou && (
+                              <button
+                                onClick={() => salvarInstance(tenant)}
+                                disabled={salvandoInstance === tenant.id}
+                                className="shrink-0 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-black text-zinc-950 transition-colors hover:bg-yellow-300 disabled:opacity-50"
+                              >
+                                {salvandoInstance === tenant.id ? 'Salvando' : 'Salvar'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <Pilula estado={tenant.ativo ? 'boa' : 'ruim'}>
+                            {tenant.ativo ? 'Ativa' : 'Suspensa'}
+                          </Pilula>
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
                           <button
-                            onClick={() => confirmarPagamento(p.id)}
-                            disabled={confirmandoId === p.id}
-                            className="px-3 py-1 rounded-md text-xs font-semibold bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                            onClick={() => alternarStatusTenant(tenant)}
+                            disabled={alterandoId === tenant.id}
+                            className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-50 ${
+                              tenant.ativo
+                                ? 'border-zinc-800 text-zinc-300 hover:border-red-400/40 hover:bg-red-400/10 hover:text-red-300'
+                                : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20'
+                            }`}
                           >
-                            {confirmandoId === p.id ? '...' : 'Confirmar'}
+                            {alterandoId === tenant.id ? '...' : tenant.ativo ? 'Suspender' : 'Reativar'}
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
+              {tenants.length === 0 && <Vazio>Nenhuma barbearia cadastrada ainda.</Vazio>}
             </div>
-          )}
-        </Card>
+          </Secao>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Estatísticas por Plano</h3>
-            <div className="space-y-3">
-              {stats.planosStats.map((plano) => (
-                <div
-                  key={plano.id}
-                  className="flex items-center justify-between p-4 border border-zinc-800 rounded-lg"
-                >
-                  <div>
-                    <h4 className="font-medium text-white">{plano.nome}</h4>
-                    <p className="text-sm text-zinc-500">R$ {plano.preco.toFixed(2)}/mês</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-white">{plano.assinantes} assinantes</p>
-                    <p className="text-sm text-yellow-400">
-                      R$ {plano.receita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
+        <div className="mt-5">
+          <Secao
+            titulo="Pagamentos"
+            descricao="Pix e Mercado Pago. Confirmar aqui ativa a assinatura na hora."
+            contagem={`${pagamentos.length}`}
+            acao={
+              pendentes > 0 ? (
+                <Pilula estado="atencao">
+                  {pendentes} {pendentes === 1 ? 'pendente' : 'pendentes'}
+                </Pilula>
+              ) : undefined
+            }
+          >
+            {pagamentos.length === 0 ? (
+              <Vazio>Nenhum pagamento registrado ainda.</Vazio>
+            ) : (
+              <>
+                <p className="px-5 pt-4 text-xs text-zinc-600 lg:hidden">
+                  Arraste a tabela para o lado para ver o resto.
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[860px]">
+                  <thead>
+                    <tr className="border-b border-zinc-800/70">
+                      <th className={th}>Barbearia</th>
+                      <th className={th}>Plano</th>
+                      <th className={`${th} text-right`}>Valor</th>
+                      <th className={th}>Método</th>
+                      <th className={th}>Status</th>
+                      <th className={th}>Data</th>
+                      <th className={`${th} text-right`}>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/60">
+                    {pagamentos.map((p) => (
+                      <tr key={p.id} className="transition-colors hover:bg-zinc-800/30">
+                        <td className="px-5 py-3.5">
+                          <p className="text-sm font-bold text-white">{p.barbearia}</p>
+                          <p className="text-xs text-zinc-500">{p.email}</p>
+                        </td>
+                        <td className="px-5 py-3.5 text-sm text-zinc-300">{p.plano}</td>
+                        <td className="px-5 py-3.5 text-right text-sm font-bold text-white tabular-nums">
+                          {emReais(p.valor)}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-zinc-400">
+                            <CreditCard size={13} /> {metodoEmPortugues(p.metodo)}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <Pilula
+                            estado={
+                              p.status === 'approved' ? 'boa' : p.status === 'pending' ? 'atencao' : 'ruim'
+                            }
+                          >
+                            {statusEmPortugues(p.status)}
+                          </Pilula>
+                        </td>
+                        <td className="px-5 py-3.5 text-sm text-zinc-400 tabular-nums">
+                          {new Date(p.createdAt).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          {p.status !== 'approved' && (
+                            <button
+                              onClick={() => confirmarPagamento(p.id)}
+                              disabled={confirmandoId === p.id}
+                              className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-300 transition-colors hover:bg-emerald-400/20 disabled:opacity-50"
+                            >
+                              {confirmandoId === p.id ? '...' : 'Confirmar'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Barbearias Recentes</h3>
-            <div className="space-y-3">
-              {stats.recentTenants.map((tenant) => (
-                <div
-                  key={tenant.id}
-                  className="flex items-center justify-between p-4 border border-zinc-800 rounded-lg"
-                >
-                  <div>
-                    <h4 className="font-medium text-white">{tenant.nome}</h4>
-                    <p className="text-sm text-zinc-500">{tenant.email}</p>
-                    <p className="text-xs text-zinc-600">
-                      {tenant._count.usuarios} usuários • {tenant._count.agendamentos} agendamentos
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <Badge ativo={tenant.ativo} />
-                    {tenant.assinatura && (
-                      <p className="text-xs text-zinc-500 mt-1">{tenant.assinatura.plano.nome}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
+              </>
+            )}
+          </Secao>
         </div>
       </PainelMain>
     </PainelShell>
