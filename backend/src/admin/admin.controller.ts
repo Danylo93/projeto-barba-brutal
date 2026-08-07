@@ -1,12 +1,18 @@
 import { Controller, Get, Post, Put, Body, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
+import { TenantService } from '../tenant/tenant.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminAuthGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly tenantService: TenantService,
+    private readonly whatsapp: WhatsappService,
+  ) {}
 
   @Get('dashboard')
   getDashboardStats() {
@@ -35,6 +41,30 @@ export class AdminController {
     @Body() data: { ativo: boolean },
   ) {
     return this.adminService.updateTenantStatus(id, data.ativo);
+  }
+
+  /**
+   * A instance da Evolution de uma barbearia.
+   *
+   * Fica aqui, e não no painel do dono, porque quem cria a instance no
+   * servidor da Evolution é o admin do SaaS. O dono não teria como inventar
+   * um nome que existisse — só conseguiria digitar um que não conecta nunca,
+   * ou o de outra barbearia.
+   */
+  @Put('tenants/:id/whatsapp')
+  definirInstance(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: { instance?: string },
+  ) {
+    return this.tenantService.definirInstanceDaEvolution(id, data?.instance ?? '');
+  }
+
+  /** O número dessa instance está online? Para o admin conferir na hora. */
+  @Get('tenants/:id/whatsapp')
+  async conexaoDaBarbearia(@Param('id', ParseIntPipe) id: number) {
+    const tenant = await this.tenantService.findById(id);
+    const instance = String(((tenant?.configuracoes as any) ?? {}).evolutionInstance ?? '').trim();
+    return this.whatsapp.obterConexao(instance);
   }
 
   @Get('revenue')

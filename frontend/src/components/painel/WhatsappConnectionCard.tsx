@@ -5,7 +5,6 @@ import {
     CheckCircle2,
     CircleAlert,
     Copy,
-    ExternalLink,
     Loader2,
     QrCode,
     RefreshCw,
@@ -41,9 +40,15 @@ interface WebhookAtendente {
     mensagem: string
 }
 
+/**
+ * A instance não é editável aqui de propósito.
+ *
+ * Quem cria a instance no servidor da Evolution é o admin do SaaS — o dono da
+ * barbearia não teria como inventar um nome que existisse. Quando o campo era
+ * dele, só dava para digitar um nome que nunca conecta ou o de outra
+ * barbearia. Aqui ele vê o nome que recebeu e se o número está no ar.
+ */
 interface WhatsappConnectionCardProps {
-    instance: string
-    onInstanceChange: (value: string) => void
     refreshKey: number
 }
 
@@ -58,8 +63,6 @@ const visualDoStatus: Record<StatusConexao, { texto: string; classe: string }> =
 }
 
 export default function WhatsappConnectionCard({
-    instance,
-    onInstanceChange,
     refreshKey,
 }: WhatsappConnectionCardProps) {
     const { httpGet, httpPost } = useAPI()
@@ -165,7 +168,7 @@ export default function WhatsappConnectionCard({
 
     const status = conexao?.status ?? 'sem_instance'
     const visual = visualDoStatus[status]
-    const nomeAlterado = instance.trim() !== (conexao?.instance ?? '')
+    const instance = conexao?.instance ?? ''
     const precisaCriar = status === 'sem_instance' || status === 'nao_encontrada'
 
     return (
@@ -193,18 +196,11 @@ export default function WhatsappConnectionCard({
 
             <div className="space-y-6 p-6 sm:p-8">
                 <div>
-                    <label className="mb-2 block text-sm font-semibold text-zinc-200" htmlFor="evolution-instance">
-                        Nome da instance na Evolution
-                    </label>
+                    <p className="mb-2 text-sm font-semibold text-zinc-200">Instance desta barbearia</p>
                     <div className="flex flex-col gap-3 sm:flex-row">
-                        <input
-                            id="evolution-instance"
-                            type="text"
-                            placeholder="ex.: barbearia-centro-01"
-                            value={instance}
-                            onChange={(event) => onInstanceChange(event.target.value)}
-                            className="min-w-0 flex-1 rounded-xl border border-zinc-800 bg-black/40 px-4 py-3 font-mono text-sm text-white outline-none transition-colors placeholder:text-zinc-600 focus:border-emerald-400"
-                        />
+                        <p className="min-w-0 flex-1 truncate rounded-xl border border-zinc-800 bg-black/40 px-4 py-3 font-mono text-sm text-zinc-300">
+                            {instance || <span className="font-sans text-zinc-500">Ainda não vinculada</span>}
+                        </p>
                         <button
                             type="button"
                             onClick={() => void carregarConexao(false)}
@@ -215,9 +211,9 @@ export default function WhatsappConnectionCard({
                             Atualizar status
                         </button>
                     </div>
-                    {nomeAlterado && (
-                        <p className="mt-2 text-xs font-medium text-amber-300">Salve as configurações para consultar esta instance.</p>
-                    )}
+                    <p className="mt-2 text-xs text-zinc-500">
+                        Quem cria e vincula a instance é o time do Barbearia Brutal. Você conecta o número lendo o QR Code.
+                    </p>
                 </div>
 
                 {loading && !conexao && (
@@ -227,42 +223,20 @@ export default function WhatsappConnectionCard({
                 )}
 
                 {!loading && precisaCriar && (
-                    <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-                        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-5">
-                            <div className="flex items-center gap-3 text-amber-200">
-                                <CircleAlert size={21} />
-                                <h3 className="font-black">
-                                    {status === 'nao_encontrada' ? 'Esta instance não existe na Evolution' : 'Crie uma instance para esta barbearia'}
-                                </h3>
-                            </div>
-                            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                                A instance é o identificador que impede mensagens e agendas de barbearias diferentes de se misturarem.
-                            </p>
-                            {conexao?.mensagem && <p className="mt-3 text-sm text-amber-100/80">{conexao.mensagem}</p>}
+                    <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-6">
+                        <div className="flex items-center gap-3 text-amber-200">
+                            <CircleAlert size={21} />
+                            <h3 className="font-black">Canal ainda não liberado</h3>
                         </div>
-
-                        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-                            <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Como configurar</p>
-                            <ol className="mt-4 space-y-3 text-sm text-zinc-300">
-                                <li className="flex gap-3"><span className="font-black text-emerald-300">01</span><span>Entre no Evolution Manager administrado pelo SaaS.</span></li>
-                                <li className="flex gap-3"><span className="font-black text-emerald-300">02</span><span>Crie uma nova instance com um nome exclusivo para esta barbearia.</span></li>
-                                <li className="flex gap-3"><span className="font-black text-emerald-300">03</span><span>Cole exatamente o mesmo nome no campo acima e salve.</span></li>
-                                <li className="flex gap-3"><span className="font-black text-emerald-300">04</span><span>Volte a esta aba: o QR Code aparecerá aqui automaticamente.</span></li>
-                            </ol>
-                            {conexao?.managerUrl && (
-                                <a
-                                    href={conexao.managerUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-emerald-300 transition hover:text-emerald-200"
-                                >
-                                    Abrir Evolution Manager <ExternalLink size={15} />
-                                </a>
-                            )}
-                            <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-                                Se a barbearia não administra a Evolution, envie o nome escolhido ao suporte do SaaS. Nunca compartilhe a chave global.
-                            </p>
-                        </div>
+                        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
+                            O atendimento por WhatsApp precisa de um canal exclusivo desta barbearia — é ele que
+                            impede que as conversas e as agendas de barbearias diferentes se misturem. Nossa
+                            equipe prepara isso para você; assim que estiver pronto, o QR Code aparece aqui e
+                            você conecta o número em um minuto.
+                        </p>
+                        <p className="mt-4 text-sm font-bold text-amber-100">
+                            Fale com o suporte do Barbearia Brutal para liberar.
+                        </p>
                     </div>
                 )}
 
@@ -309,7 +283,7 @@ export default function WhatsappConnectionCard({
                     </div>
                 )}
 
-                {!loading && (status === 'desconectada' || status === 'conectando') && !nomeAlterado && (
+                {!loading && (status === 'desconectada' || status === 'conectando') && (
                     <div className="grid gap-6 lg:grid-cols-[280px_1fr] lg:items-center">
                         <div className="flex min-h-[280px] items-center justify-center rounded-3xl border border-zinc-700 bg-white p-4 shadow-[0_0_40px_rgba(34,197,94,0.12)]">
                             {loadingQr ? (

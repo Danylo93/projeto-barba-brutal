@@ -40,6 +40,7 @@ interface TenantAdmin {
   email: string
   ativo: boolean
   assinatura?: { status: string; plano: { nome: string; preco: number } }
+  configuracoes?: { evolutionInstance?: string } | null
   _count: { usuarios: number; agendamentos: number }
 }
 
@@ -73,7 +74,7 @@ function Badge({ ativo }: { ativo: boolean }) {
 export default function AdminPage() {
   const { token, criarSessao } = useSessao()
   const { usuario } = useUsuario()
-  const { error: toastError } = useToast()
+  const { success: toastSuccess, error: toastError } = useToast()
   const isAdmin = usuario?.tipo === 'admin'
 
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -81,6 +82,11 @@ export default function AdminPage() {
   const [tenants, setTenants] = useState<TenantAdmin[]>([])
   const [alterandoId, setAlterandoId] = useState<number | null>(null)
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
+  // A instance da Evolution é criada por nós, no servidor — por isso quem a
+  // digita é o admin. Na mão do dono da barbearia só dava para escrever um
+  // nome que nunca conecta, ou o de outra barbearia.
+  const [instances, setInstances] = useState<Record<number, string>>({})
+  const [salvandoInstance, setSalvandoInstance] = useState<number | null>(null)
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null)
 
   const [email, setEmail] = useState('')
@@ -134,10 +140,47 @@ export default function AdminPage() {
       })
       if (response.ok) {
         const data = await response.json()
-        setTenants(data.tenants || [])
+        const lista: TenantAdmin[] = data.tenants || []
+        setTenants(lista)
+        setInstances(
+          Object.fromEntries(lista.map((t) => [t.id, t.configuracoes?.evolutionInstance ?? ''])),
+        )
       }
     } catch {
       /* silencioso */
+    }
+  }
+
+  const salvarInstance = async (tenant: TenantAdmin) => {
+    const instance = (instances[tenant.id] ?? '').trim()
+    try {
+      setSalvandoInstance(tenant.id)
+      const response = await fetch(`${URL_BASE}/admin/tenants/${tenant.id}/whatsapp`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ instance }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(data?.message || 'Não foi possível salvar a instance.')
+      }
+      setTenants((prev) =>
+        prev.map((t) =>
+          t.id === tenant.id
+            ? { ...t, configuracoes: { ...(t.configuracoes ?? {}), evolutionInstance: instance } }
+            : t,
+        ),
+      )
+      toastSuccess(
+        instance ? 'Instance vinculada' : 'Instance removida',
+        instance
+          ? `${tenant.nome} agora atende pela instance ${instance}.`
+          : `${tenant.nome} ficou sem canal de WhatsApp.`,
+      )
+    } catch (erro) {
+      toastError('Instance não salva', erro instanceof Error ? erro.message : 'Erro desconhecido')
+    } finally {
+      setSalvandoInstance(null)
     }
   }
 
@@ -316,6 +359,7 @@ export default function AdminPage() {
                   <th className="px-4 py-3">Plano</th>
                   <th className="px-4 py-3">Usuários</th>
                   <th className="px-4 py-3">Agendamentos</th>
+                  <th className="px-4 py-3">Instance (Evolution)</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Ações</th>
                 </tr>
@@ -341,6 +385,28 @@ export default function AdminPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-zinc-300">{tenant._count.usuarios}</td>
                     <td className="px-4 py-3 text-sm text-zinc-300">{tenant._count.agendamentos}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={instances[tenant.id] ?? ''}
+                          onChange={(e) =>
+                            setInstances((prev) => ({ ...prev, [tenant.id]: e.target.value }))
+                          }
+                          placeholder="sem canal"
+                          className="w-40 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-xs text-white placeholder-zinc-600 focus:border-yellow-400 focus:outline-none"
+                        />
+                        {(instances[tenant.id] ?? '') !== (tenant.configuracoes?.evolutionInstance ?? '') && (
+                          <button
+                            onClick={() => salvarInstance(tenant)}
+                            disabled={salvandoInstance === tenant.id}
+                            className="rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-semibold text-yellow-300 transition-colors hover:bg-yellow-400/20 disabled:opacity-50"
+                          >
+                            {salvandoInstance === tenant.id ? '...' : 'Salvar'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       <Badge ativo={tenant.ativo} />
                     </td>

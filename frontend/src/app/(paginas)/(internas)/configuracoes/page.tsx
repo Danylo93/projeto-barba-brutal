@@ -55,7 +55,6 @@ export default function ConfiguracoesPage() {
     // Integrações
     const [webhookUrl, setWebhookUrl] = useState('')
     const [evolutionToken, setEvolutionToken] = useState('')
-    const [evolutionInstance, setEvolutionInstance] = useState('')
     const [whatsappRefreshKey, setWhatsappRefreshKey] = useState(0)
 
     useEffect(() => {
@@ -72,7 +71,6 @@ export default function ConfiguracoesPage() {
             if (response?.corSecundaria) setCorSecundaria(response.corSecundaria)
             if (conf?.webhookUrl) setWebhookUrl(conf.webhookUrl)
             if (conf?.evolutionToken) setEvolutionToken(conf.evolutionToken)
-            if (conf?.evolutionInstance) setEvolutionInstance(conf.evolutionInstance)
             // Deriva o horário de cada dia (aceita formato novo e o antigo).
             setHorarios(DIAS_SEMANA.map((d) => horarioDoDia(conf, d.id)))
         } catch (err) {
@@ -109,14 +107,6 @@ export default function ConfiguracoesPage() {
             return
         }
 
-        const instanciaLimpa = evolutionInstance.trim()
-        if (instanciaLimpa && !/^[a-zA-Z0-9._:-]{3,80}$/.test(instanciaLimpa)) {
-            const msg = 'Instance da Evolution API inválida. Use só letras, números, ponto, traço, underline ou dois-pontos.'
-            setError(msg)
-            toastError('Instance inválida', msg)
-            return
-        }
-
         try {
             setSaving(true)
             setError('')
@@ -127,7 +117,6 @@ export default function ConfiguracoesPage() {
                 horarios,
                 webhookUrl,
                 evolutionToken,
-                evolutionInstance: instanciaLimpa,
                 // Mantém as chaves antigas por compatibilidade com leitores legados.
                 diasAbertos,
                 horaAbertura: (horarios.find((h) => h.aberto) ?? horarios[1]).abertura,
@@ -141,7 +130,6 @@ export default function ConfiguracoesPage() {
             }
 
             setSucesso(true)
-            setEvolutionInstance(instanciaLimpa)
             setWhatsappRefreshKey((valor) => valor + 1)
             toastSuccess('Configurações salvas', 'As configurações da barbearia foram atualizadas.')
             setTimeout(() => setSucesso(false), 3000)
@@ -364,11 +352,7 @@ export default function ConfiguracoesPage() {
 
                 {abaAtual === 'integracoes' && !plano.isBasico && (
                     <div className="flex flex-col gap-8 animate-slide-up">
-                        <WhatsappConnectionCard
-                            instance={evolutionInstance}
-                            onInstanceChange={setEvolutionInstance}
-                            refreshKey={whatsappRefreshKey}
-                        />
+                        <WhatsappConnectionCard refreshKey={whatsappRefreshKey} />
 
                         <div className="bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-6 sm:p-8">
                             <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">

@@ -487,6 +487,117 @@ export class TenantService {
     return limpo;
   }
 
+  /** A instance guardada hoje para esta barbearia, ou string vazia. */
+  private async instanceGuardada(id: number): Promise<string> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id },
+      select: { configuracoes: true },
+    });
+    return String(((tenant?.configuracoes as any) ?? {}).evolutionInstance ?? '').trim();
+  }
+
+  /**
+   * A instance da Evolution é campo do admin do SaaS.
+   *
+   * Quem cria a instance no servidor da Evolution é o admin — o dono da
+   * barbearia não tem como inventar uma que exista. Deixar o campo na mão
+   * dele só abria duas portas: digitar um nome que não existe (e o WhatsApp
+   * dele nunca conectar, sem ninguém entender por quê) ou digitar o nome da
+   * instance de OUTRA barbearia.
+   *
+   * O `PUT /tenants/me/configuracoes` grava o JSON de configurações inteiro.
+   * Por isso não basta ignorar o campo: se o dono salvar o horário de
+   * funcionamento e o payload não trouxer a instance, ela some do banco e o
+   * atendimento morre calado. Aqui ela é sempre reposta a partir do que está
+   * guardado.
+   */
+  private async cuidarDaInstance(
+    id: number,
+    configuracoes: any,
+    comoAdmin: boolean,
+  ): Promise<any> {
+    const conf = { ...configuracoes };
+
+    if (!comoAdmin) {
+      const guardada = await this.instanceGuardada(id);
+      if (guardada) conf.evolutionInstance = guardada;
+      else delete conf.evolutionInstance;
+      return conf;
+    }
+
+    if (!('evolutionInstance' in conf)) return conf;
+
+    const instancia = String(conf.evolutionInstance ?? '').trim();
+    await this.garantirInstanceLivre(id, instancia);
+    if (instancia) conf.evolutionInstance = instancia;
+    else delete conf.evolutionInstance;
+    return conf;
+  }
+
+  /**
+   * O nome existe e ainda não é de outra barbearia.
+   *
+   * A instance é o que diz de quem é a conversa que chega do WhatsApp. Duas
+   * barbearias com o mesmo nome significa uma lendo e cancelando os
+   * agendamentos da outra.
+   */
+  private async garantirInstanceLivre(id: number, instancia: string) {
+    if (!instancia) return;
+
+    if (!/^[a-zA-Z0-9._:-]{3,80}$/.test(instancia)) {
+      throw new BadRequestException('Instance da Evolution API inválida.');
+    }
+
+    // Barbearia suspensa também segura o nome. Antes a busca filtrava por
+    // `ativo: true`: bastava uma barbearia estar desativada para o nome dela
+    // ser dado a outra — e no dia em que voltasse, as duas dividiriam a mesma
+    // caixa de entrada. Para reaproveitar, o admin tira a instance da antiga
+    // primeiro.
+    const existente = await this.prisma.tenant.findFirst({
+      where: {
+        id: { not: id },
+        configuracoes: {
+          path: ['evolutionInstance'],
+          equals: instancia,
+        } as any,
+      },
+      select: { id: true, nome: true, ativo: true },
+    });
+    if (existente) {
+      throw new BadRequestException(
+        existente.ativo
+          ? `Esta instance já é da barbearia ${existente.nome}.`
+          : `Esta instance ainda está vinculada à barbearia ${existente.nome}, que está suspensa. Tire a instance dela antes de reaproveitar o nome.`,
+      );
+    }
+  }
+
+  /**
+   * Define (ou tira) a instance de uma barbearia. Só o admin do SaaS chega
+   * aqui — é ele quem cria a instance na Evolution.
+   */
+  async definirInstanceDaEvolution(id: number, valor: string) {
+    const instancia = String(valor ?? '').trim();
+    await this.garantirInstanceLivre(id, instancia);
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id },
+      select: { configuracoes: true },
+    });
+    if (!tenant) throw new NotFoundException('Barbearia não encontrada.');
+
+    const conf = { ...((tenant.configuracoes as any) ?? {}) };
+    if (instancia) conf.evolutionInstance = instancia;
+    else delete conf.evolutionInstance;
+
+    const salvo = await this.prisma.tenant.update({
+      where: { id },
+      data: { configuracoes: conf },
+      select: { id: true, nome: true, configuracoes: true },
+    });
+    return { id: salvo.id, nome: salvo.nome, instance: instancia || null };
+  }
+
   async update(id: number, data: any, comoAdmin = false) {
     const limpo = this.apenas(
       data,
@@ -494,28 +605,17 @@ export class TenantService {
     );
 
     if (limpo.configuracoes !== undefined) {
-      const conf = limpo.configuracoes;
-      if (conf && typeof conf === 'object' && 'evolutionInstance' in conf) {
-        const instancia = String((conf as any).evolutionInstance ?? '').trim();
-        if (instancia && !/^[a-zA-Z0-9._:-]{3,80}$/.test(instancia)) {
-          throw new BadRequestException('Instance da Evolution API inválida.');
-        }
-        if (instancia) {
-          const existente = await this.prisma.tenant.findFirst({
-            where: {
-              id: { not: id },
-              ativo: true,
-              configuracoes: {
-                path: ['evolutionInstance'],
-                equals: instancia,
-              } as any,
-            },
-            select: { id: true },
-          });
-          if (existente) {
-            throw new BadRequestException('Esta instance da Evolution API já está sendo usada por outra barbearia.');
-          }
-        }
+      // `configuracoes: null` gravaria null por cima de tudo — e levaria a
+      // instance junto, desligando o WhatsApp da barbearia sem que ninguém
+      // tenha pedido isso. Só objeto entra aqui.
+      if (!limpo.configuracoes || typeof limpo.configuracoes !== 'object') {
+        delete limpo.configuracoes;
+      } else {
+        limpo.configuracoes = await this.cuidarDaInstance(
+          id,
+          limpo.configuracoes,
+          comoAdmin,
+        );
       }
     }
 
