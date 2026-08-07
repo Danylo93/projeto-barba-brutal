@@ -23,6 +23,8 @@ export interface PlanoAssinatura {
   dataFim: string | null
   expirado: boolean
   bloqueado: boolean
+  /** Já teve plano e ele não vale mais — diferente de nunca ter escolhido. */
+  planoExpirado: boolean
 }
 
 export function chaveDoPlano(nome: unknown) {
@@ -109,6 +111,11 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
   // Sem assinatura nenhuma também é plano inativo — e é o caso mais comum de
   // todos logo depois do cadastro.
   const bloqueado = ehTenant && !erro && (!assinaturaAtiva || suspensa)
+  // JÁ TEVE plano e ele não vale mais: teste que acabou, assinatura vencida,
+  // cancelada ou com pagamento pendente. É diferente de nunca ter escolhido —
+  // quem já usou o produto inteiro e não comprou recebe o convite em toda
+  // tela; quem está montando a barbearia agora, só uma vez por sessão.
+  const planoExpirado = ehTenant && !erro && !!assinatura && !assinaturaAtiva
 
   return useMemo(
     () => ({
@@ -129,7 +136,8 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
       dataFim,
       expirado,
       bloqueado,
+      planoExpirado,
     }),
-    [assinatura, assinaturaAtiva, bloqueado, carregando, chave, dataFim, emTeste, erro, expirado, nome, status],
+    [assinatura, assinaturaAtiva, bloqueado, carregando, chave, dataFim, emTeste, erro, expirado, nome, planoExpirado, status],
   )
 }

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ArrowRight, Crown, Sparkles, X } from 'lucide-react'
 import usePlanoAssinatura from '@/hooks/usePlanoAssinatura'
-import { deveAbrirOConvite, deveMostrarAFaixa } from '@/lib/plano-inativo'
+import { deveAbrirOConvite, deveMostrarAFaixa, textoDoConvite } from '@/lib/plano-inativo'
 
 /** Uma vez por sessão. Fechou a aba, o convite volta — ele não é para esquecer. */
 const CHAVE_DISPENSA = 'barbabrutal:convite-plano-dispensado'
@@ -41,13 +41,24 @@ export default function AvisoPlanoInativo(props: { children: React.ReactNode }) 
     setDispensado(true)
   }, [])
 
+  // Plano vencido dispensa por TELA, não pela sessão: foi o pedido explícito —
+  // quem já usou o teste inteiro e não comprou continua sendo lembrada em cada
+  // lugar que acessar, até a compra. Ela fecha e trabalha; na próxima tela o
+  // convite volta.
+  useEffect(() => {
+    if (plano.planoExpirado) setDispensado(false)
+  }, [pathname, plano.planoExpirado])
+
   const estado = {
     inativa: plano.bloqueado,
+    planoExpirado: plano.planoExpirado,
     carregando: plano.carregando || !montado,
     erro: plano.erro,
     rota: pathname,
     dispensadoNaSessao: dispensado,
   }
+
+  const texto = textoDoConvite(plano.planoExpirado)
 
   const abrirModal = deveAbrirOConvite(estado)
   const mostrarFaixa = deveMostrarAFaixa(estado)
@@ -68,7 +79,9 @@ export default function AvisoPlanoInativo(props: { children: React.ReactNode }) 
         <div className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-yellow-400/25 bg-yellow-400/10 px-4 py-2 text-center text-sm text-yellow-200">
           <span className="inline-flex items-center gap-2">
             <span aria-hidden="true" className="h-2 w-2 rounded-full bg-yellow-400" />
-            Seu plano está inativo. Alguns recursos ficam limitados.
+            {plano.planoExpirado
+              ? 'Seu plano venceu. Alguns recursos ficam limitados.'
+              : 'Seu plano está inativo. Alguns recursos ficam limitados.'}
           </span>
           <Link
             href="/planos"
@@ -106,15 +119,13 @@ export default function AvisoPlanoInativo(props: { children: React.ReactNode }) 
               <Crown size={30} />
             </div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-yellow-400/20 bg-yellow-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[.16em] text-yellow-300">
-              <Sparkles size={14} /> Plano inativo
+              <Sparkles size={14} /> {texto.etiqueta}
             </div>
             <h2 id="titulo-convite-plano" className="text-2xl font-black text-white sm:text-3xl">
-              Escolha um plano e destrave tudo
+              {texto.titulo}
             </h2>
             <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-300 sm:text-base">
-              Sua barbearia continua funcionando — agenda, clientes e serviços estão
-              todos aí. Com um plano ativo você libera o atendente no WhatsApp, a
-              equipe sem limite e os relatórios completos.
+              {texto.corpo}
             </p>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
