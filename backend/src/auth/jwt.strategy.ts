@@ -29,6 +29,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         },
       });
 
+      // Suspensão vale para o token também, não só para o login: sem isto, o
+      // dono que já estivesse logado quando o admin suspendeu continuaria
+      // trabalhando até o token vencer — e suspender deixaria de ter efeito
+      // imediato, que é justamente o que se espera de uma alavanca do admin.
+      //
+      // Assinatura vencida é outra coisa e NÃO cai aqui: quem decide o que a
+      // conta sem plano pode fazer é o SubscriptionGuard, que rebaixa para o
+      // plano de entrada em vez de barrar.
       if (!tenant || !tenant.ativo) {
         throw new UnauthorizedException('Tenant não encontrado ou inativo');
       }

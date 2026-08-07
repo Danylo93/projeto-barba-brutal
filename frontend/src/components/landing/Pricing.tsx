@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Check, Star } from 'lucide-react'
 import Link from 'next/link'
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 
 const plans = [
   {
@@ -104,7 +105,7 @@ export function Pricing() {
 
         <div className="mt-12 text-center">
           <p className="mb-4 text-zinc-400">
-            Todos os planos incluem <span className="font-semibold text-yellow-400">30 dias grátis</span> · pagamento via Pix
+            Todos os planos incluem <span className="font-semibold text-yellow-400">{PRAZO_TESTE_GRATIS} grátis</span> · pagamento via Pix
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm text-zinc-500">
             <span>✓ Sem taxa de instalação</span>

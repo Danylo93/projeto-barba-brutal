@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 
 const perguntas = [
   {
-    q: 'Como funciona o teste de 30 dias?',
-    a: 'Você cria a conta, escolhe um plano e usa tudo liberado por 30 dias. Só paga (via Pix) se decidir continuar depois do teste.',
+    q: `Como funciona o teste de ${PRAZO_TESTE_GRATIS}?`,
+    a: `Você cria a conta, escolhe um plano e usa tudo liberado por ${PRAZO_TESTE_GRATIS}. Só paga (via Pix) se decidir continuar depois do teste.`,
   },
   {
     q: 'Quantos barbeiros posso cadastrar?',

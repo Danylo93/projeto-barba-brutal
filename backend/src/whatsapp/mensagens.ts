@@ -6,6 +6,8 @@
  * sem precisar abrir código de infraestrutura.
  */
 
+import { DIAS_TESTE_GRATIS } from '../assinatura/teste-gratis';
+
 const dinheiro = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -158,7 +160,7 @@ export function mensagemPlanoContratado(dados: {
       `Valor: ${dinheiro(preco)}/mês`,
       `Teste grátis até *${dia(fimDoTeste)}* — sem cartão, sem cobrança.`,
       ``,
-      `Durante os 30 dias, todos os recursos Premium ficam liberados. O melhor primeiro passo é cadastrar seus serviços e sua equipe: aí sua agenda já começa a receber cliente.`,
+      `Durante os ${DIAS_TESTE_GRATIS} dias, todos os recursos Premium ficam liberados. O melhor primeiro passo é cadastrar seus serviços e sua equipe: aí sua agenda já começa a receber cliente.`,
       ``,
       `Qualquer dúvida, é só responder aqui.`,
     ].join('\n');

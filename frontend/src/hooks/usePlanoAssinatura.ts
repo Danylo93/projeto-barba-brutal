@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import useAPI from '@/data/hooks/useAPI'
 import useSessao from '@/data/hooks/useSessao'
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 
 export type NomePlano = 'Básico' | 'Gratuito' | 'Profissional' | 'Premium' | string
 
@@ -22,6 +23,8 @@ export interface PlanoAssinatura {
   dataFim: string | null
   expirado: boolean
   bloqueado: boolean
+  /** Já teve plano e ele não vale mais — diferente de nunca ter escolhido. */
+  planoExpirado: boolean
 }
 
 export function chaveDoPlano(nome: unknown) {
@@ -100,14 +103,21 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
   const ehTenant = usuario?.tipo === 'tenant' && !!usuario?.tenantId
   // Sem assinatura nenhuma também é plano inativo — e é o caso mais comum de
   // todos logo depois do cadastro.
+  // Suspensão não entra nesta conta: barbearia suspensa é barrada no login e
+  // no token, então ela nunca chega a esta tela. Aqui é só assinatura.
   const bloqueado = ehTenant && !erro && !assinaturaAtiva
+  // JÁ TEVE plano e ele não vale mais: teste que acabou, assinatura vencida,
+  // cancelada ou com pagamento pendente. É diferente de nunca ter escolhido —
+  // quem já usou o produto inteiro e não comprou recebe o convite em toda
+  // tela; quem está montando a barbearia agora, só uma vez por sessão.
+  const planoExpirado = ehTenant && !erro && !!assinatura && !assinaturaAtiva
 
   return useMemo(
     () => ({
       id: assinatura?.id ?? null,
       nome,
       descricao: emTeste
-        ? 'Acesso Premium liberado durante os 30 dias de teste grátis.'
+        ? `Acesso Premium liberado durante os ${PRAZO_TESTE_GRATIS} de teste grátis.`
         : assinatura?.plano?.descricao ?? null,
       ativo: assinaturaAtiva,
       carregando,
@@ -121,7 +131,8 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
       dataFim,
       expirado,
       bloqueado,
+      planoExpirado,
     }),
-    [assinatura, assinaturaAtiva, bloqueado, carregando, chave, dataFim, emTeste, erro, expirado, nome, status],
+    [assinatura, assinaturaAtiva, bloqueado, carregando, chave, dataFim, emTeste, erro, expirado, nome, planoExpirado, status],
   )
 }

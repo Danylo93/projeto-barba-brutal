@@ -4,9 +4,10 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 
 const garantias = [
-  { titulo: '30 dias grátis', sub: 'Teste tudo antes de assinar' },
+  { titulo: `${PRAZO_TESTE_GRATIS} grátis`, sub: 'Teste tudo antes de assinar' },
   { titulo: 'Pagamento via Pix', sub: 'Direto no painel' },
   { titulo: 'Cancele quando quiser', sub: 'Sem multa nem fidelidade' },
 ];
@@ -48,7 +49,7 @@ export function CTA() {
               shadow-[0_0_40px_rgba(250,204,21,0.25)] hover:shadow-[0_0_60px_rgba(250,204,21,0.35)]"
           >
             <Link href="/register">
-              Começar grátis por 30 dias
+              Começar grátis por {PRAZO_TESTE_GRATIS}
               <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </Button>

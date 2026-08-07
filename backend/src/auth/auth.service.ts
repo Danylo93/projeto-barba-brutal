@@ -221,7 +221,17 @@ export class AuthService {
       },
     });
 
-    if (!tenant || !tenant.ativo) {
+    // A senha é conferida ANTES de qualquer outra recusa, e por dois motivos.
+    //
+    // O primeiro é não mentir: barbearia suspensa recebia "Credenciais
+    // inválidas", e o dono ficava digitando a senha certa achando que tinha
+    // esquecido. Suspensão barra — é a alavanca do admin do SaaS —, mas quem
+    // prova ser o dono merece saber o motivo e para quem falar.
+    //
+    // O segundo é não entregar informação a quem não sabe a senha: a frase que
+    // conta o estado da barbearia só aparece depois que a senha confere. Para
+    // quem chuta, tudo continua sendo "credenciais inválidas".
+    if (!tenant) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
@@ -230,15 +240,19 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    // O dono precisa conseguir entrar depois do vencimento para ver o bloqueio,
-    // escolher outro plano e reativar a conta. Aqui validamos a identidade; as
-    // rotas funcionais continuam protegidas pelas regras da assinatura.
-    const assinatura = tenant.assinatura
-    if (!assinatura) {
-      throw new BadRequestException(
-        'Sua barbearia não possui um plano ativo. Por favor, adquira um plano para continuar.',
-      )
+    if (!tenant.ativo) {
+      throw new UnauthorizedException(
+        'Esta barbearia está suspensa. Fale com o suporte do Barbearia Brutal para reativar.',
+      );
     }
+
+    // Assinatura vencida ou ainda não escolhida NÃO barra o login: é o começo
+    // de voltar a pagar. Quem se cadastra e fecha a aba antes de escolher o
+    // plano precisa conseguir entrar de novo — sem isto, a conta recém-criada
+    // fica inacessível para sempre. O que a pessoa pode FAZER lá dentro é com
+    // o SubscriptionGuard, que rebaixa para o plano de entrada e deixa a tela
+    // oferecer o plano.
+    const assinatura = tenant.assinatura;
     const sid = novaSessao();
     await this.prisma.tenant.update({
       where: { id: tenant.id },

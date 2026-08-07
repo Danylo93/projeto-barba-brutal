@@ -10,6 +10,8 @@
  */
 
 /** Tópicos de webhook que a API de assinaturas envia. */
+import { DIAS_TESTE_GRATIS } from './teste-gratis';
+
 export type TopicoAssinatura =
   | 'subscription_preapproval'
   | 'subscription_authorized_payment'
@@ -36,9 +38,10 @@ export function corpoDoPlano(plano: PlanoLocal, backUrl: string) {
     auto_recurring: {
       frequency: 1,
       frequency_type: 'months' as const,
-      // 30 dias de teste antes da primeira cobrança: é o que a landing promete.
+      // O teste antes da primeira cobrança é o mesmo que a landing promete —
+      // por isso sai da constante, e não de um número digitado aqui.
       free_trial: {
-        frequency: 30,
+        frequency: DIAS_TESTE_GRATIS,
         frequency_type: 'days' as const,
       },
       transaction_amount: Number(plano.preco.toFixed(2)),

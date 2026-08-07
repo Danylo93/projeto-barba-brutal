@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Plano } from '@/types'
 import { useToast } from '@/hooks/use-toast'
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -93,7 +94,7 @@ function CheckoutForm({ plano, tenantId }: { plano: Plano; tenantId: number }) {
 
       <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
         <p className="text-blue-600 text-sm">
-          <strong>Período de teste:</strong> Você terá 30 dias gratuitos com acesso Premium.
+          <strong>Período de teste:</strong> Você terá {PRAZO_TESTE_GRATIS} gratuitos com acesso Premium.
           Após esse período, será cobrado automaticamente.
         </p>
       </div>

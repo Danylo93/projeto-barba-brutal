@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { CalendarClock, ShieldCheck, Unlock } from 'lucide-react';
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 
 /*
  * Esta seção substituiu depoimentos inventados (nomes e barbearias que não
@@ -23,7 +24,7 @@ const promessas = [
   },
   {
     icon: ShieldCheck,
-    titulo: 'Teste de 30 dias',
+    titulo: `Teste de ${PRAZO_TESTE_GRATIS}`,
     texto:
       'Você usa o sistema completo por um mês inteiro antes de decidir se continua.',
     cor: 'from-emerald-400 to-teal-500',

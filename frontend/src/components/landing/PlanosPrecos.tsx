@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 
 const planos = [
     {
@@ -123,7 +124,7 @@ export default function PlanosPrecos() {
 
                 <div className="text-center mt-12">
                     <p className="text-slate-600 mb-4">
-                        Todos os planos incluem 30 dias de teste com acesso Premium
+                        Todos os planos incluem {PRAZO_TESTE_GRATIS} de teste com acesso Premium
                     </p>
                     <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-500">
                         <span>✓ Sem taxa de instalação</span>
