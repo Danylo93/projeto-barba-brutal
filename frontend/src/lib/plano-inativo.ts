@@ -17,7 +17,7 @@
  */
 
 /** Telas onde o convite não aparece: a pessoa já está lá para resolver isso. */
-const ROTAS_DE_RESOLUCAO = ['/planos', '/assinatura'];
+const ROTAS_DE_RESOLUCAO = ['/planos', '/assinatura', '/checkout', '/subscription'];
 
 export interface EstadoDoConvite {
   /** A assinatura está inativa, vencida ou não existe? Quem decide é a API. */
@@ -55,14 +55,30 @@ function naoCabeConvite(estado: EstadoDoConvite): boolean {
 /**
  * Mostrar o modal agora?
  *
- * Com plano vencido ele volta em cada tela, ignorando o "agora não" — é o
- * pedido explícito: quem já usou o teste inteiro e não comprou continua sendo
- * lembrado até comprar. Sem plano nenhum ainda, só a primeira vez da sessão.
+ * Fechar SEMPRE fecha. A primeira versão disto respondia `true` direto quando
+ * o plano estava vencido, para o convite "não sumir de vista" — e o efeito foi
+ * um modal que não obedecia ao X nem ao "Agora não": a pessoa clicava, ele
+ * continuava lá, e o painel virava uma parede com botão de enfeite. Era
+ * exatamente o bloqueio que estas telas existem para não ser.
+ *
+ * O que muda com o plano vencido é o ALCANCE da dispensa, não se ela vale —
+ * e isso é a `dispensaSobreviveANavegacao` logo abaixo.
  */
 export function deveAbrirOConvite(estado: EstadoDoConvite): boolean {
   if (naoCabeConvite(estado)) return false;
-  if (estado.planoExpirado) return true;
   return !estado.dispensadoNaSessao;
+}
+
+/**
+ * O "agora não" vale até quando?
+ *
+ * Com plano vencido, só até a pessoa mudar de tela: ela fecha, faz o que
+ * precisa ali, e na tela seguinte o convite volta. Quem ainda nem escolheu
+ * plano fecha uma vez e não é mais incomodado na sessão — está montando a
+ * barbearia, e modal a cada clique atrapalha o trabalho que a faz querer ficar.
+ */
+export function dispensaSobreviveANavegacao(planoExpirado: boolean): boolean {
+  return !planoExpirado;
 }
 
 /** A faixa fica enquanto o plano estiver inativo, mesmo depois do "agora não". */
