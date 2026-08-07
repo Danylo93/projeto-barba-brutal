@@ -1,6 +1,7 @@
 import {
   deveAbrirOConvite,
   deveMostrarAFaixa,
+  dispensaSobreviveANavegacao,
   estaEmRotaDeResolucao,
   textoDoConvite,
 } from './plano-inativo';
@@ -41,6 +42,7 @@ describe('quem ainda não escolheu plano', () => {
     // Está montando a barbearia. Modal a cada clique atrapalha justamente o
     // trabalho que faz ela querer ficar.
     expect(deveAbrirOConvite({ ...NOVATA, dispensadoNaSessao: true })).toBe(false);
+    expect(dispensaSobreviveANavegacao(false)).toBe(true);
   });
 });
 
@@ -49,10 +51,17 @@ describe('quem já teve plano e ele venceu', () => {
     expect(deveAbrirOConvite(VENCIDA)).toBe(true);
   });
 
-  it('o convite volta mesmo depois de ela ter fechado', () => {
-    // O pedido explícito: já viu o produto inteiro e escolheu não pagar, então
-    // continua sendo lembrada em cada tela até comprar.
-    expect(deveAbrirOConvite({ ...VENCIDA, dispensadoNaSessao: true })).toBe(true);
+  it('fechar fecha — o X e o "Agora não" têm que funcionar', () => {
+    // A primeira versão desta regra respondia `true` direto quando o plano
+    // estava vencido, para o convite "não sumir de vista". O efeito foi um
+    // modal que ignorava o X e o "Agora não": a pessoa clicava e ele
+    // continuava lá. Virava a parede que estas telas existem para não ser.
+    expect(deveAbrirOConvite({ ...VENCIDA, dispensadoNaSessao: true })).toBe(false);
+  });
+
+  it('mas a dispensa dela não sobrevive à navegação', () => {
+    // É assim que o convite volta na tela seguinte sem prender a atual.
+    expect(dispensaSobreviveANavegacao(true)).toBe(false);
   });
 
   it('mas continua fora das telas onde ela vai comprar', () => {

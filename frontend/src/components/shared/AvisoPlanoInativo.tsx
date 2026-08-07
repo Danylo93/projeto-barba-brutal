@@ -5,7 +5,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ArrowRight, Crown, Sparkles, X } from 'lucide-react'
 import usePlanoAssinatura from '@/hooks/usePlanoAssinatura'
-import { deveAbrirOConvite, deveMostrarAFaixa, textoDoConvite } from '@/lib/plano-inativo'
+import {
+  deveAbrirOConvite,
+  deveMostrarAFaixa,
+  dispensaSobreviveANavegacao,
+  textoDoConvite,
+} from '@/lib/plano-inativo'
 
 /** Uma vez por sessão. Fechou a aba, o convite volta — ele não é para esquecer. */
 const CHAVE_DISPENSA = 'barbabrutal:convite-plano-dispensado'
@@ -36,18 +41,22 @@ export default function AvisoPlanoInativo(props: { children: React.ReactNode }) 
     setMontado(true)
   }, [])
 
-  const dispensar = useCallback(() => {
-    window.sessionStorage.setItem(CHAVE_DISPENSA, '1')
-    setDispensado(true)
-  }, [])
+  const duraASessao = dispensaSobreviveANavegacao(plano.planoExpirado)
 
-  // Plano vencido dispensa por TELA, não pela sessão: foi o pedido explícito —
-  // quem já usou o teste inteiro e não comprou continua sendo lembrada em cada
-  // lugar que acessar, até a compra. Ela fecha e trabalha; na próxima tela o
-  // convite volta.
+  const dispensar = useCallback(() => {
+    // Fechar fecha, sempre. Com plano vencido a dispensa não vai para o
+    // sessionStorage: ela morre na próxima navegação, e é o efeito abaixo que
+    // traz o convite de volta.
+    if (duraASessao) window.sessionStorage.setItem(CHAVE_DISPENSA, '1')
+    setDispensado(true)
+  }, [duraASessao])
+
+  // Plano vencido: o convite volta a cada tela. Quem já usou o teste inteiro e
+  // não comprou continua sendo lembrada em qualquer lugar que acessar, até a
+  // compra — mas sem nunca ficar presa na tela em que está.
   useEffect(() => {
-    if (plano.planoExpirado) setDispensado(false)
-  }, [pathname, plano.planoExpirado])
+    if (!duraASessao) setDispensado(false)
+  }, [pathname, duraASessao])
 
   const estado = {
     inativa: plano.bloqueado,
