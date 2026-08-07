@@ -10,6 +10,7 @@
 import Link from 'next/link'
 import FilmeScroll, { CenaFilme } from '@/components/filme/FilmeScroll'
 import { ArrowRight, ArrowDown } from 'lucide-react'
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 
 const CENAS: CenaFilme[] = [
     {
@@ -64,7 +65,7 @@ export default function HomeFilme() {
                     href="/register"
                     className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-6 py-3 text-sm font-bold text-zinc-900 shadow-[0_0_40px_rgba(250,204,21,0.35)] transition-transform hover:scale-105 active:scale-95"
                 >
-                    Começar grátis por 30 dias
+                    Começar grátis por {PRAZO_TESTE_GRATIS}
                     <ArrowRight size={18} />
                 </Link>
             }
@@ -92,7 +93,7 @@ function HeroSaas() {
                     href="/register"
                     className="group inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-4 text-lg font-bold text-zinc-900 shadow-[0_0_40px_rgba(250,204,21,0.25)] transition-all hover:bg-yellow-300 hover:shadow-[0_0_60px_rgba(250,204,21,0.35)] active:scale-[0.98]"
                 >
-                    Começar grátis por 30 dias
+                    Começar grátis por {PRAZO_TESTE_GRATIS}
                     <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Link>
             </div>

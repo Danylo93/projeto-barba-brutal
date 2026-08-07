@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import useAPI from '@/data/hooks/useAPI'
 import useSessao from '@/data/hooks/useSessao'
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 
 export type NomePlano = 'Básico' | 'Gratuito' | 'Profissional' | 'Premium' | string
 
@@ -107,7 +108,7 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
       id: assinatura?.id ?? null,
       nome,
       descricao: emTeste
-        ? 'Acesso Premium liberado durante os 30 dias de teste grátis.'
+        ? `Acesso Premium liberado durante os ${PRAZO_TESTE_GRATIS} de teste grátis.`
         : assinatura?.plano?.descricao ?? null,
       ativo: assinaturaAtiva,
       carregando,

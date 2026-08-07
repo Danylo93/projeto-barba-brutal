@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 import {
   ArrowRight,
   CalendarClock,
@@ -240,7 +241,7 @@ export function Hero() {
                 shadow-[0_0_40px_rgba(250,204,21,0.25)] hover:shadow-[0_0_60px_rgba(250,204,21,0.35)]"
             >
               <Link href="/register">
-                Começar grátis por 30 dias
+                Começar grátis por {PRAZO_TESTE_GRATIS}
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>

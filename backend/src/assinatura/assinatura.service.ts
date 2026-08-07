@@ -54,7 +54,7 @@ export class AssinaturaService {
 
   /**
    * Troca/adesão de plano feita pelo próprio tenant (barbeiro-admin).
-   * Sem assinatura ativa e sem teste usado, inicia um TESTE de 30 dias.
+   * Sem assinatura ativa e sem teste usado, inicia o TESTE grátis.
    * Com assinatura ativa, faz a troca do plano e calcula a diferença
    * proporcional do restante do ciclo para orientar a cobrança.
    */
@@ -92,7 +92,7 @@ export class AssinaturaService {
 
     // Teste grátis é UMA vez por barbearia, e a marca fica no tenant para
     // sobreviver a cancelamento. Sem isso bastava cancelar e escolher um
-    // plano de novo para ganhar mais 30 dias — todo mês, de graça, e ainda
+    // plano de novo para ganhar mais um teste — todo mês, de graça, e ainda
     // dava para pular do Básico para o Premium.
     const barbearia = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -100,7 +100,7 @@ export class AssinaturaService {
     });
     const jaUsouTeste = !!barbearia?.testeGratisUsadoEm;
 
-    // Sem assinatura vigente e sem teste gasto → inicia teste de 30 dias.
+    // Sem assinatura vigente e sem teste gasto → inicia o teste grátis.
     if (!emVigor && !jaUsouTeste) {
       const dataFim = new Date();
       dataFim.setDate(dataFim.getDate() + DIAS_TESTE_GRATIS);
@@ -903,7 +903,7 @@ export class AssinaturaService {
       throw new NotFoundException('Plano não encontrado ou inativo');
     }
 
-    // A primeira cobrança cai só quando o teste de 30 dias termina. Se a
+    // A primeira cobrança cai só quando o teste grátis termina. Se a
     // barbearia já está em teste, respeita a data que ela já tem.
     const assinaturaAtual = await this.prisma.assinatura.findUnique({
       where: { tenantId },

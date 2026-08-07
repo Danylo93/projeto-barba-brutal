@@ -3,8 +3,8 @@ import { DIAS_TESTE_GRATIS, testeGratisVigente } from './teste-gratis';
 describe('teste grátis', () => {
   const agora = new Date('2026-08-07T12:00:00.000Z');
 
-  it('dura 30 dias', () => {
-    expect(DIAS_TESTE_GRATIS).toBe(30);
+  it('dura 14 dias', () => {
+    expect(DIAS_TESTE_GRATIS).toBe(14);
   });
 
   it('reconhece qualquer assinatura trialing ainda vigente', () => {

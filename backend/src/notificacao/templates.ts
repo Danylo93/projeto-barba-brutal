@@ -10,6 +10,8 @@
  * quando o cliente bloqueia imagens.
  */
 
+import { DIAS_TESTE_GRATIS } from '../assinatura/teste-gratis';
+
 export interface Email {
   assunto: string;
   html: string;
@@ -170,10 +172,10 @@ export function emailPlanoContratado(dados: {
 
   if (emTeste) {
     return {
-      assunto: 'Teste liberado — acesso Premium por 30 dias',
+      assunto: `Teste liberado — acesso Premium por ${DIAS_TESTE_GRATIS} dias`,
       html: moldura(
         `<p style="margin:0 0 14px;">Fechado, <strong>${esc(nomeBarbearia)}</strong>! 💈</p>
-         <p style="margin:0;">Seu teste está valendo com <strong>acesso Premium</strong> por 30 dias — sem cartão, sem cobrança até lá.</p>
+         <p style="margin:0;">Seu teste está valendo com <strong>acesso Premium</strong> por ${DIAS_TESTE_GRATIS} dias — sem cartão, sem cobrança até lá.</p>
          ${linhas}
          <p style="margin:0 0 4px;"><strong>O melhor primeiro passo:</strong></p>
          <p style="margin:0 0 14px;color:${APAGADO};">
@@ -269,19 +271,19 @@ export function emailBoasVindas(dados: {
     assunto: 'Sua barbearia está cadastrada',
     html: moldura(
       `<p style="margin:0 0 14px;">Bem-vindo, <strong>${esc(nomeBarbearia)}</strong>! 💈</p>
-       <p style="margin:0 0 14px;">Sua conta está criada. Falta um passo para liberar o sistema: escolher o plano e começar o teste de 30 dias.</p>
+       <p style="margin:0 0 14px;">Sua conta está criada. Falta um passo para liberar o sistema: escolher o plano e começar o teste de ${DIAS_TESTE_GRATIS} dias.</p>
        ${botao('Escolher meu plano', urlPlanos)}
        <p style="margin:0;color:${APAGADO};font-size:13px;">
-         São 30 dias grátis, sem cartão. Você só decide sobre pagamento no fim do teste.
+         São ${DIAS_TESTE_GRATIS} dias grátis, sem cartão. Você só decide sobre pagamento no fim do teste.
        </p>`,
     ),
     texto: [
       `Bem-vindo, ${nomeBarbearia}!`,
       '',
-      'Sua conta está criada. Falta escolher o plano para liberar o sistema e começar o teste de 30 dias.',
+      `Sua conta está criada. Falta escolher o plano para liberar o sistema e começar o teste de ${DIAS_TESTE_GRATIS} dias.`,
       urlPlanos,
       '',
-      'São 30 dias grátis, sem cartão.',
+      `São ${DIAS_TESTE_GRATIS} dias grátis, sem cartão.`,
     ].join('\n'),
   };
 }

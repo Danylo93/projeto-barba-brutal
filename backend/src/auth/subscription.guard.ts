@@ -60,7 +60,7 @@ export class SubscriptionGuard implements CanActivate {
     request.assinaturaInativa = !emDia;
 
     if (emDia) {
-      // Durante os 30 dias de teste, qualquer plano escolhido recebe os
+      // Durante o teste grátis, qualquer plano escolhido recebe os
       // limites e recursos do Premium. O plano escolhido continua salvo
       // porque é ele que será cobrado se o dono seguir depois do teste.
       request.plano = testeGratisVigente(assinatura, agora)

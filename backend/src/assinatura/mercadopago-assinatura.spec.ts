@@ -7,6 +7,7 @@ import {
   referenciaExterna,
   traduzirStatus,
 } from './mercadopago-assinatura';
+import { DIAS_TESTE_GRATIS } from './teste-gratis';
 
 const plano = {
   id: 2,
@@ -31,9 +32,13 @@ describe('corpoDoPlano', () => {
     );
   });
 
-  it('mantém os 30 dias de teste que a landing promete', () => {
+  it('o teste antes da primeira cobrança é o mesmo que a landing promete', () => {
+    // Amarrado à constante de propósito. Com o número digitado aqui, mudar o
+    // prazo do teste passava neste teste e deixava a cobrança do Mercado Pago
+    // cair num dia diferente do que a landing prometeu — o cliente descobriria
+    // pela fatura.
     expect(corpo.auto_recurring.free_trial).toEqual({
-      frequency: 30,
+      frequency: DIAS_TESTE_GRATIS,
       frequency_type: 'days',
     });
   });
@@ -155,7 +160,7 @@ describe('traduzirStatus', () => {
 describe('pagamentoRenovaPlano', () => {
   // O furo que isto trava: o webhook chamava `ativarAssinaturaPaga` para
   // QUALQUER pagamento aprovado. Quem pagava R$ 59,90 pelo domínio próprio
-  // ganhava 30 dias de plano de graça — até R$ 159,90 no Premium — e nada na
+  // ganhava um mês de plano de graça — até R$ 159,90 no Premium — e nada na
   // tela indicava isso. A trava existia só no "já paguei — verificar".
   it('mensalidade do plano renova', () => {
     expect(pagamentoRenovaPlano({ metodo: 'pix' })).toBe(true);
