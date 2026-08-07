@@ -1,13 +1,18 @@
 {
   "name": "Barbearia Brutal — atendente de WhatsApp",
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "nodes": [
     {
       "id": "962133b5-5ac3-4c92-9c22-4f8b7b994645",
       "name": "Como funciona",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-700, -80],
+      "position": [
+        -700,
+        -80
+      ],
       "parameters": {
         "color": 4,
         "width": 620,
@@ -20,7 +25,10 @@
       "name": "Webhook da Evolution",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 224],
+      "position": [
+        0,
+        224
+      ],
       "webhookId": "e1664a69-1b5d-4081-855e-5755c2c02c0e",
       "parameters": {
         "httpMethod": "POST",
@@ -28,7 +36,12 @@
         "authentication": "headerAuth",
         "options": {}
       },
-      "credentials": { "httpHeaderAuth": { "id": "K9YAkrGt9ke6O8mF", "name": "Header Auth" } },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth"
+        }
+      },
       "notes": "Com Header Auth ligado, só quem sabe o segredo consegue falar com este fluxo. Sem isso, qualquer um que descubra a URL se passa por qualquer cliente e cancela agendamento alheio."
     },
     {
@@ -36,35 +49,57 @@
       "name": "É conversa de cliente?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [220, 224],
+      "position": [
+        220,
+        224
+      ],
       "parameters": {
         "conditions": {
           "combinator": "and",
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
           "conditions": [
             {
               "id": "evento",
               "leftValue": "={{ ($json.body || {}).event || 'messages.upsert' }}",
               "rightValue": "messages.upsert",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             },
             {
               "id": "nao-e-minha",
               "leftValue": "={{ !((($json.body || {}).data || {}).key || {}).fromMe }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             },
             {
               "id": "nao-e-grupo",
               "leftValue": "={{ (((($json.body || {}).data || {}).key || {}).remoteJid || '') }}",
               "rightValue": "@g.us",
-              "operator": { "type": "string", "operation": "notContains" }
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
             },
             {
               "id": "tem-numero",
               "leftValue": "={{ (((($json.body || {}).data || {}).key || {}).remoteJid || '').split('@')[0].replace(/[^0-9]/g, '') }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ]
         },
@@ -77,7 +112,10 @@
       "name": "Onde ficam as coisas",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [448, 224],
+      "position": [
+        448,
+        224
+      ],
       "parameters": {
         "mode": "manual",
         "includeOtherFields": false,
@@ -136,17 +174,29 @@
       "name": "Veio texto?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [672, 224],
+      "position": [
+        672,
+        224
+      ],
       "parameters": {
         "conditions": {
           "combinator": "and",
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
           "conditions": [
             {
               "id": "tem-texto",
               "leftValue": "={{ $json.mensagem }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ]
         },
@@ -158,7 +208,10 @@
       "name": "Anthropic Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.5,
-      "position": [896, 336],
+      "position": [
+        896,
+        336
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -168,14 +221,22 @@
         },
         "options": {}
       },
-      "credentials": { "anthropicApi": { "id": "NHpvL7cfBIhgpg21", "name": "Anthropic account" } }
+      "credentials": {
+        "anthropicApi": {
+          "id": "NHpvL7cfBIhgpg21",
+          "name": "Anthropic account"
+        }
+      }
     },
     {
       "id": "2ea4d776-ce8c-4bff-9b6e-c2c53dfba381",
       "name": "Memória da conversa",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
-      "position": [1024, 336],
+      "position": [
+        1024,
+        336
+      ],
       "parameters": {
         "sessionIdType": "customKey",
         "sessionKey": "={{ $('Onde ficam as coisas').item.json.instance }}:{{ $('Onde ficam as coisas').item.json.telefone }}",
@@ -188,7 +249,10 @@
       "name": "cardapio",
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.4,
-      "position": [1152, 336],
+      "position": [
+        1152,
+        336
+      ],
       "parameters": {
         "descriptionType": "manual",
         "toolDescription": "Lista os serviços (com preço e duração) e os profissionais da barbearia. Use antes de falar de preço, de serviço ou de sugerir um barbeiro.",
@@ -206,16 +270,31 @@
             }
           ]
         },
-        "options": { "response": { "response": { "neverError": true, "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
       },
-      "credentials": { "httpHeaderAuth": { "id": "K9YAkrGt9ke6O8mF", "name": "Header Auth" } }
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth"
+        }
+      }
     },
     {
       "id": "d6f5c510-109c-4ae8-9343-f61611fbe9cb",
       "name": "horarios_livres",
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.4,
-      "position": [1280, 336],
+      "position": [
+        1280,
+        336
+      ],
       "parameters": {
         "descriptionType": "manual",
         "toolDescription": "Horários livres de um profissional num dia, já descontando atendimentos, folgas e o expediente da barbearia. Use SEMPRE antes de oferecer horário.",
@@ -245,16 +324,31 @@
             }
           ]
         },
-        "options": { "response": { "response": { "neverError": true, "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
       },
-      "credentials": { "httpHeaderAuth": { "id": "K9YAkrGt9ke6O8mF", "name": "Header Auth" } }
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth"
+        }
+      }
     },
     {
       "id": "80503ab7-b723-4122-9835-e4e1d184966d",
       "name": "meus_agendamentos",
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.4,
-      "position": [1408, 336],
+      "position": [
+        1408,
+        336
+      ],
       "parameters": {
         "descriptionType": "manual",
         "toolDescription": "Os agendamentos futuros de quem está falando. Use para descobrir o id antes de remarcar ou cancelar.",
@@ -276,16 +370,31 @@
             }
           ]
         },
-        "options": { "response": { "response": { "neverError": true, "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
       },
-      "credentials": { "httpHeaderAuth": { "id": "K9YAkrGt9ke6O8mF", "name": "Header Auth" } }
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth"
+        }
+      }
     },
     {
       "id": "0b0fd25c-2b29-4bf9-973d-ecc134898b88",
       "name": "marcar",
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.4,
-      "position": [1536, 336],
+      "position": [
+        1536,
+        336
+      ],
       "parameters": {
         "descriptionType": "manual",
         "toolDescription": "Marca um horário novo. Só chame quando souber serviço, profissional e horário. Se a barbearia recusar, o motivo vem em português — repasse.",
@@ -330,16 +439,31 @@
             }
           ]
         },
-        "options": { "response": { "response": { "neverError": true, "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
       },
-      "credentials": { "httpHeaderAuth": { "id": "K9YAkrGt9ke6O8mF", "name": "Header Auth" } }
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth"
+        }
+      }
     },
     {
       "id": "1d365d67-100e-4cbd-94bf-559f5ca6f72e",
       "name": "remarcar",
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.4,
-      "position": [1664, 336],
+      "position": [
+        1664,
+        336
+      ],
       "parameters": {
         "descriptionType": "manual",
         "toolDescription": "Muda um agendamento de horário. Quando não dá, a resposta explica o motivo em português — horário que já passou, dia fechado, horário ocupado, folga do barbeiro. Repasse o motivo e ofereça outro horário.",
@@ -372,9 +496,21 @@
             }
           ]
         },
-        "options": { "response": { "response": { "neverError": true, "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
       },
-      "credentials": { "httpHeaderAuth": { "id": "K9YAkrGt9ke6O8mF", "name": "Header Auth" } },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth"
+        }
+      },
       "notes": "O id vem de meus_agendamentos, nunca do primeiro número da frase. Uma versão antiga lia \"remarcar para as 15:00\" como agendamento nº 15."
     },
     {
@@ -382,7 +518,10 @@
       "name": "cancelar",
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.4,
-      "position": [1792, 336],
+      "position": [
+        1792,
+        336
+      ],
       "parameters": {
         "descriptionType": "manual",
         "toolDescription": "Cancela um agendamento. Confirme com a pessoa antes de chamar — cancelamento não tem volta.",
@@ -411,16 +550,31 @@
             }
           ]
         },
-        "options": { "response": { "response": { "neverError": true, "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
       },
-      "credentials": { "httpHeaderAuth": { "id": "K9YAkrGt9ke6O8mF", "name": "Header Auth" } }
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth"
+        }
+      }
     },
     {
       "id": "e8e81d2c-ca57-4563-8b98-cc8cab92c21f",
       "name": "Atendente",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
-      "position": [1280, 112],
+      "position": [
+        1280,
+        112
+      ],
       "onError": "continueRegularOutput",
       "parameters": {
         "promptType": "define",
@@ -428,7 +582,7 @@
         "options": {
           "maxIterations": 12,
           "enableStreaming": false,
-          "systemMessage": "=Você é a pessoa que atende o WhatsApp de uma barbearia no Brasil. Não é um robô e não fala como um: fala como um atendente simpático, direto e sem frescura.\n\nCOMO FALAR\n- Português do Brasil, informal e educado. Frases curtas. Uma ideia por mensagem.\n- Nada de \"prezado cliente\", \"protocolo\", \"solicitação\" ou lista numerada de menu.\n- Nunca diga que é uma IA, um assistente virtual ou um bot. Se perguntarem, diga que é do atendimento da barbearia.\n- Nada de emoji em excesso: no máximo um, e só quando couber.\n- Se souber o nome da pessoa, use uma vez no começo, não em toda mensagem.\n\nO QUE VOCÊ SABE\n- Agora em Brasília: {{ $json.agoraEmBrasilia }}. Hoje é {{ $json.hoje }}.\n- Telefone de quem está falando: {{ $json.telefone }}\n- Nome no WhatsApp: {{ $json.nome }}\n- Instância desta barbearia (use em TODA ferramenta): {{ $json.instance }}\n\nVOCÊ NÃO SABE NADA DESTA BARBEARIA DE CABEÇA\n- Você não conhece os serviços, os preços, os profissionais nem os horários daqui. Cada barbearia tem os seus.\n- Antes de dizer QUALQUER serviço, preço, nome de barbeiro ou horário, chame a ferramenta. Sem exceção, nem para \"corte\" e \"barba\".\n- Se a ferramenta devolver erro, texto estranho ou nada, NÃO responda como se soubesse e NÃO diga que a pessoa não tem agendamento: diga que deu um problema no sistema agora e que você já vai verificar. Inventar é pior do que admitir a falha.\n\nCOMO USAR AS FERRAMENTAS\n- Toda ferramenta precisa do parâmetro instance com o valor acima.\n- Datas sempre no formato AAAA-MM-DD HH:MM, no horário de Brasília. Converta você mesmo \"amanhã\", \"sexta\", \"depois de amanhã\" a partir da data de hoje.\n- Antes de oferecer horário, consulte horarios_livres. Nunca chute. Se a pessoa pedir um horário específico, pode tentar direto — se a API recusar, ela te diz o porquê.\n- Antes de marcar, você precisa de: serviço, profissional e horário. Pergunte o que faltar, uma coisa por vez.\n- Para remarcar ou cancelar você precisa do id do agendamento. Se a pessoa não disser, chame meus_agendamentos e ofereça o que ela tem marcado.\n\nQUANDO A API RECUSA\n- A recusa vem em português, já pronta para o cliente ler. Repasse o sentido dela com suas palavras, sem inventar motivo diferente e sem esconder o problema.\n- Depois da recusa, ofereça o próximo passo: consulte horarios_livres e diga o que tem de verdade.\n- Se a recusa falar em plano, assinatura ou token, NÃO repasse: diga que teve um problema no sistema e que alguém da barbearia vai retornar.\n\nREGRAS QUE NÃO SE QUEBRAM\n- Nunca confirme um agendamento sem a ferramenta ter respondido com sucesso.\n- Nunca fale de agendamento de outra pessoa.\n- Se pedirem algo fora de agendamento (reclamação, negociação de preço, assunto pessoal), diga que vai passar para a barbearia e encerre com educação.\n\nResponda SEMPRE só com o texto da mensagem de WhatsApp — sem aspas em volta, sem markdown, sem assinatura."
+          "systemMessage": "=Você é a pessoa que atende o WhatsApp de uma barbearia no Brasil. Não é um robô e não fala como um: fala como um atendente simpático, direto e sem frescura.\n\nCOMO FALAR\n- Português do Brasil, informal e educado. Frases curtas. Uma ideia por mensagem.\n- Nada de \"prezado cliente\", \"protocolo\", \"solicitação\" ou lista numerada de menu.\n- Nunca diga que é uma IA, um assistente virtual ou um bot. Se perguntarem, diga que é do atendimento da barbearia.\n- Nada de emoji em excesso: no máximo um, e só quando couber.\n- Se souber o nome da pessoa, use uma vez no começo, não em toda mensagem.\nCOMO ESCREVER NO WHATSAPP\n- WhatsApp NÃO entende markdown. Escrever **Corte** faz o cliente ler os asteriscos: **Corte**. Nunca use ** nem ## nem [link](url).\n- Negrito no WhatsApp é *um asterisco só* de cada lado — e mesmo isso, use pouco.\n- Preço se escreve no meio da frase, como gente fala: \"corte é 45, barba 35, e o combo dos dois sai 70\". Só faça lista, com hífen, se forem mais de quatro itens.\n\nO QUE VOCÊ SABE\n- Agora em Brasília: {{ $json.agoraEmBrasilia }}. Hoje é {{ $json.hoje }}.\n- Telefone de quem está falando: {{ $json.telefone }}\n- Nome no WhatsApp: {{ $json.nome }}\n- Instância desta barbearia (use em TODA ferramenta): {{ $json.instance }}\n\nVOCÊ NÃO SABE NADA DESTA BARBEARIA DE CABEÇA\n- Você não conhece os serviços, os preços, os profissionais nem os horários daqui. Cada barbearia tem os seus.\n- Antes de dizer QUALQUER serviço, preço, nome de barbeiro ou horário, chame a ferramenta. Sem exceção, nem para \"corte\" e \"barba\".\n- Se a ferramenta devolver erro, texto estranho ou nada, NÃO responda como se soubesse e NÃO diga que a pessoa não tem agendamento: diga que deu um problema no sistema agora e que você já vai verificar. Inventar é pior do que admitir a falha.\nCADA PROFISSIONAL FAZ SÓ O QUE ESTÁ NA LISTA DELE\n- No cardápio, cada profissional vem com os serviços que ele atende, pelo nome. Quem não tem o serviço na lista não faz aquilo, e a API vai recusar.\n- Se a pessoa pedir um serviço que ninguém aqui faz, diga isso na hora e ofereça o que tem — não mande ela escolher horário para depois levar um não.\n- Se só um profissional faz o que ela quer, já diga o nome dele em vez de perguntar com quem ela prefere.\n\nCOMO USAR AS FERRAMENTAS\n- Toda ferramenta precisa do parâmetro instance com o valor acima.\n- Datas sempre no formato AAAA-MM-DD HH:MM, no horário de Brasília. Converta você mesmo \"amanhã\", \"sexta\", \"depois de amanhã\" a partir da data de hoje.\n- Antes de oferecer horário, consulte horarios_livres. Nunca chute. Se a pessoa pedir um horário específico, pode tentar direto — se a API recusar, ela te diz o porquê.\n- Antes de marcar, você precisa de: serviço, profissional e horário. Pergunte o que faltar, uma coisa por vez.\n- Para remarcar ou cancelar você precisa do id do agendamento. Se a pessoa não disser, chame meus_agendamentos e ofereça o que ela tem marcado.\n\nQUANDO A API RECUSA\n- A recusa vem em português, já pronta para o cliente ler. Repasse o sentido dela com suas palavras, sem inventar motivo diferente e sem esconder o problema.\n- Depois da recusa, ofereça o próximo passo: consulte horarios_livres e diga o que tem de verdade.\n- Se a recusa falar em plano, assinatura ou token, NÃO repasse: diga que teve um problema no sistema e que alguém da barbearia vai retornar.\n\nREGRAS QUE NÃO SE QUEBRAM\n- Nunca confirme um agendamento sem a ferramenta ter respondido com sucesso.\n- Nunca fale de agendamento de outra pessoa.\n- Se pedirem algo fora de agendamento (reclamação, negociação de preço, assunto pessoal), diga que vai passar para a barbearia e encerre com educação.\n\nResponda SEMPRE só com o texto da mensagem de WhatsApp — sem aspas em volta, sem markdown, sem assinatura."
         }
       },
       "notes": "Em continueRegularOutput: se o modelo cair, o fluxo segue e o nó seguinte manda a mensagem de desculpa. Cliente sem resposta nenhuma é o pior desfecho."
@@ -438,7 +592,10 @@
       "name": "Montar a resposta",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1760, 208],
+      "position": [
+        1760,
+        208
+      ],
       "parameters": {
         "mode": "manual",
         "includeOtherFields": false,
@@ -473,7 +630,10 @@
       "name": "Pedir por escrito",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1760, 400],
+      "position": [
+        1760,
+        400
+      ],
       "parameters": {
         "mode": "manual",
         "includeOtherFields": false,
@@ -508,7 +668,10 @@
       "name": "Responder no WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2224, 224],
+      "position": [
+        2224,
+        224
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://barba-brutal-api.onrender.com/whatsapp/agenda/responder",
@@ -516,39 +679,201 @@
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
         "specifyQuery": "keypair",
-        "queryParameters": { "parameters": [{ "name": "instance", "value": "={{ $json.instance }}" }] },
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "instance",
+              "value": "={{ $json.instance }}"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ telefone: $json.numero, texto: $json.texto }) }}",
         "options": {}
       },
-      "credentials": { "httpHeaderAuth": { "id": "K9YAkrGt9ke6O8mF", "name": "Header Auth" } },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K9YAkrGt9ke6O8mF",
+          "name": "Header Auth"
+        }
+      },
       "notes": "Quem fala com a Evolution é o backend, que já tem URL, apikey e a instância da barbearia. Aqui vai o token do bot (x-whatsapp-token), NÃO a apikey da Evolution."
     }
   ],
   "connections": {
-    "Webhook da Evolution": { "main": [[{ "node": "É conversa de cliente?", "type": "main", "index": 0 }]] },
-    "É conversa de cliente?": { "main": [[{ "node": "Onde ficam as coisas", "type": "main", "index": 0 }]] },
-    "Onde ficam as coisas": { "main": [[{ "node": "Veio texto?", "type": "main", "index": 0 }]] },
+    "Webhook da Evolution": {
+      "main": [
+        [
+          {
+            "node": "É conversa de cliente?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É conversa de cliente?": {
+      "main": [
+        [
+          {
+            "node": "Onde ficam as coisas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Onde ficam as coisas": {
+      "main": [
+        [
+          {
+            "node": "Veio texto?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Veio texto?": {
       "main": [
-        [{ "node": "Atendente", "type": "main", "index": 0 }],
-        [{ "node": "Pedir por escrito", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Atendente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pedir por escrito",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Anthropic Chat Model": {
-      "ai_languageModel": [[{ "node": "Atendente", "type": "ai_languageModel", "index": 0 }]]
+      "ai_languageModel": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Memória da conversa": { "ai_memory": [[{ "node": "Atendente", "type": "ai_memory", "index": 0 }]] },
-    "cardapio": { "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]] },
-    "horarios_livres": { "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]] },
-    "meus_agendamentos": { "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]] },
-    "marcar": { "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]] },
-    "remarcar": { "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]] },
-    "cancelar": { "ai_tool": [[{ "node": "Atendente", "type": "ai_tool", "index": 0 }]] },
-    "Atendente": { "main": [[{ "node": "Montar a resposta", "type": "main", "index": 0 }]] },
-    "Montar a resposta": { "main": [[{ "node": "Responder no WhatsApp", "type": "main", "index": 0 }]] },
-    "Pedir por escrito": { "main": [[{ "node": "Responder no WhatsApp", "type": "main", "index": 0 }]] }
+    "Memória da conversa": {
+      "ai_memory": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cardapio": {
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "horarios_livres": {
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "meus_agendamentos": {
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "marcar": {
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "remarcar": {
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cancelar": {
+      "ai_tool": [
+        [
+          {
+            "node": "Atendente",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atendente": {
+      "main": [
+        [
+          {
+            "node": "Montar a resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar a resposta": {
+      "main": [
+        [
+          {
+            "node": "Responder no WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir por escrito": {
+      "main": [
+        [
+          {
+            "node": "Responder no WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   }
 }

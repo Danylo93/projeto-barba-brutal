@@ -289,3 +289,59 @@ export function planoTemRobo(plano: { nome?: string | null; features?: string[] 
     String(f).toLowerCase().includes('whatsapp'),
   );
 }
+
+/** Um serviço do cardápio, como o robô precisa ler. */
+export interface ServicoDoCardapio {
+  id: number;
+  nome: string;
+  [extra: string]: unknown;
+}
+
+/** Um profissional e os ids dos serviços vinculados a ele. */
+export interface ProfissionalDoCardapio {
+  id: number;
+  nome: string;
+  servicos: { id: number }[];
+}
+
+/**
+ * O cardápio com os nomes já cruzados.
+ *
+ * O agente recebia só ids: o profissional vinha com `servicos: [{id: 20}]` e
+ * tinha que casar isso com a lista de serviços de cabeça. Numa conversa real
+ * ele não casou — respondeu "dá sim" a um corte de cabelo com quem só faz
+ * barba. O cliente escolheria o horário e só então levaria a recusa da API.
+ *
+ * Prompt não conserta isso de forma confiável; dado bem posto, sim.
+ *
+ * Profissional sem vínculo nenhum atende TUDO — é como
+ * `validarServicosDoAgendamento` lê a lista vazia, e o cardápio tem que
+ * contar a mesma história que a validação, senão o robô nega o que a API
+ * aceitaria.
+ */
+export function montarCardapio(
+  servicos: ServicoDoCardapio[],
+  profissionais: ProfissionalDoCardapio[],
+) {
+  const equipe = profissionais.map((profissional) => {
+    const vinculados = profissional.servicos.map((s) => s.id);
+    const atende = vinculados.length
+      ? servicos.filter((s) => vinculados.includes(s.id))
+      : servicos;
+    return {
+      id: profissional.id,
+      nome: profissional.nome,
+      atende: atende.map((s) => ({ id: s.id, nome: s.nome })),
+    };
+  });
+
+  return {
+    servicos: servicos.map((servico) => ({
+      ...servico,
+      feitoPor: equipe
+        .filter((p) => p.atende.some((s) => s.id === servico.id))
+        .map((p) => p.nome),
+    })),
+    profissionais: equipe,
+  };
+}

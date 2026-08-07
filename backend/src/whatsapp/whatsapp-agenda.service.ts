@@ -25,6 +25,7 @@ import {
   diaEmBrasilia,
   horariosLivres,
   instanteEmBrasilia,
+  montarCardapio,
   planoTemRobo,
   porqueNaoDaParaRemarcar,
 } from './conversa';
@@ -248,6 +249,20 @@ export class WhatsappAgendaService {
     return usuario;
   }
 
+  /**
+   * O que a barbearia oferece e quem faz o quê.
+   *
+   * Cada profissional sai com o **nome** dos serviços que atende, e cada
+   * serviço com o nome de quem o faz. Antes saíam só ids soltos, e o agente
+   * tinha que cruzar id com id de cabeça: numa conversa real ele não cruzou,
+   * respondeu "dá sim" a um corte com quem só faz barba, e a recusa da API só
+   * apareceria depois de o cliente escolher o horário. Prometer e negar é pior
+   * do que já dizer não.
+   *
+   * Profissional sem vínculo nenhum atende tudo — é assim que
+   * `validarServicosDoAgendamento` lê a lista vazia, e o cardápio precisa
+   * dizer a mesma coisa que a validação.
+   */
   async catalogo(token: string, tenantTexto?: string, instance?: string) {
     const tenantId = await this.autenticar(token, tenantTexto, instance);
     const [tenant, servicos, profissionais] = await Promise.all([
@@ -256,7 +271,8 @@ export class WhatsappAgendaService {
       this.prisma.profissional.findMany({ where: { tenantId, ativo: true }, select: { id: true, nome: true, servicos: { select: { id: true } } } }),
     ]);
     if (!tenant) throw new NotFoundException('Barbearia não encontrada.');
-    return { tenant, servicos, profissionais };
+
+    return { tenant, ...montarCardapio(servicos, profissionais) };
   }
 
   async listar(token: string, tenantTexto: string, telefone: string, instance?: string) {

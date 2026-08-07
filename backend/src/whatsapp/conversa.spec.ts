@@ -4,6 +4,7 @@ import {
   horaEmBrasilia,
   horariosLivres,
   instanteEmBrasilia,
+  montarCardapio,
   noMesmoDia,
   planoTemRobo,
   porqueNaoDaParaRemarcar,
@@ -316,5 +317,47 @@ describe('o robô é dos planos pagos', () => {
   // Para o dono do SaaS liberar num plano sob medida sem mexer em código.
   it('a feature escrita à mão libera', () => {
     expect(planoTemRobo({ nome: 'Sob medida', features: ['Robô de WhatsApp'] })).toBe(true);
+  });
+});
+
+describe('montarCardapio', () => {
+  const servicos = [
+    { id: 19, nome: 'Corte de Cabelo', preco: 45 },
+    { id: 20, nome: 'Barba', preco: 35 },
+    { id: 23, nome: 'Dia do Noivo', preco: 180 },
+  ];
+
+  it('diz o nome do que cada profissional faz, não só o id', () => {
+    const { profissionais } = montarCardapio(servicos, [
+      { id: 14, nome: 'Patricia Pereira', servicos: [{ id: 20 }, { id: 23 }] },
+    ]);
+
+    expect(profissionais[0].atende.map((s) => s.nome)).toEqual(['Barba', 'Dia do Noivo']);
+  });
+
+  // O caso que aconteceu: o agente respondeu "dá sim" a um corte com quem só
+  // faz barba, porque o cardápio pedia que ele cruzasse ids de cabeça.
+  it('não põe o profissional em serviço que ele não atende', () => {
+    const { servicos: comEquipe } = montarCardapio(servicos, [
+      { id: 14, nome: 'Patricia Pereira', servicos: [{ id: 20 }, { id: 23 }] },
+    ]);
+
+    const corte = comEquipe.find((s) => s.id === 19)!;
+    expect(corte.feitoPor).toEqual([]);
+    expect(comEquipe.find((s) => s.id === 20)!.feitoPor).toEqual(['Patricia Pereira']);
+  });
+
+  // Lista vazia é "sem restrição" para validarServicosDoAgendamento. Se o
+  // cardápio dissesse "não faz nada", o robô negaria o que a API aceita.
+  it('profissional sem vínculo nenhum atende tudo', () => {
+    const cardapio = montarCardapio(servicos, [{ id: 7, nome: 'Marcão', servicos: [] }]);
+
+    expect(cardapio.profissionais[0].atende).toHaveLength(3);
+    expect(cardapio.servicos.every((s) => s.feitoPor.includes('Marcão'))).toBe(true);
+  });
+
+  it('mantém preço e o resto do serviço intactos', () => {
+    const { servicos: comEquipe } = montarCardapio(servicos, []);
+    expect(comEquipe[0]).toMatchObject({ id: 19, nome: 'Corte de Cabelo', preco: 45 });
   });
 });
