@@ -35,7 +35,6 @@ export default function TermosDeUso() {
                         'Agendamento online, com controle de horários, profissionais e serviços.',
                         'Cadastro de clientes e histórico de atendimento.',
                         'Relatórios de faturamento e comissão por profissional.',
-                        'Clube de assinatura pago por Pix direto na conta da barbearia.',
                         'Confirmação e lembrete de agendamento por WhatsApp e e-mail.',
                     ]}
                 />
@@ -61,12 +60,6 @@ export default function TermosDeUso() {
                 <p>
                     A assinatura pode ser cancelada a qualquer momento e vale até o fim do período já
                     pago. Não há multa por cancelamento.
-                </p>
-                <p>
-                    O <strong className="text-zinc-200">clube de assinatura</strong> que a barbearia
-                    oferece aos clientes dela é contrato entre os dois: o Pix vai direto para a conta
-                    da barbearia, e o Barbearia Brutal apenas gera o código e registra a confirmação.
-                    Cobrança, reembolso e cumprimento dos benefícios são da barbearia.
                 </p>
             </Secao>
 

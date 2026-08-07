@@ -121,10 +121,6 @@ export default function PoliticaDePrivacidade() {
                         'Autoridades públicas, quando houver ordem legal ou judicial.',
                     ]}
                 />
-                <p>
-                    O pagamento do clube de assinatura é feito por Pix direto na conta da barbearia:
-                    o dinheiro não passa por nós e não recebemos seus dados bancários.
-                </p>
             </Secao>
 
             <Secao titulo="5. Transferência internacional">

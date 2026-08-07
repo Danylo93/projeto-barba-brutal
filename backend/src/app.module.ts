@@ -12,7 +12,6 @@ import { ProfissionalModule } from './profissional/profissional.module';
 import { HealthModule } from './health/health.module';
 import { LembreteModule } from './lembrete/lembrete.module';
 import { BloqueioModule } from './bloqueio/bloqueio.module';
-import { ClubeModule } from './clube/clube.module';
 import { LgpdModule } from './lgpd/lgpd.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { WhatsappAgendaModule } from './whatsapp/whatsapp-agenda.module';
@@ -35,7 +34,6 @@ import { TenantedThrottlerGuard } from './common/tenanted-throttler.guard';
     HealthModule,
     LembreteModule,
     BloqueioModule,
-    ClubeModule,
     LgpdModule,
     WhatsappModule,
     WhatsappAgendaModule,

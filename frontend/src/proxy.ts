@@ -45,7 +45,6 @@ const CAMINHOS_DO_SISTEMA = [
   '/api-key',
   '/assinatura',
   '/clientes',
-  '/clube',
   '/configuracoes',
   '/financas',
   '/marketing',

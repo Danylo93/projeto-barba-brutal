@@ -23,7 +23,6 @@ const NADA_A_VER_COM_O_TESTE = [
   'terms/page.tsx',
   'privacy/page.tsx',
   'status/page.tsx',
-  'clube/page.tsx',
 ];
 
 function arquivosDeCodigo(pasta: string, achados: string[] = []): string[] {

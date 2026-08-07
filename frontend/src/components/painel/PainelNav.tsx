@@ -107,9 +107,6 @@ export default function PainelNav() {
             { href: '/servicos', rotulo: 'Serviços' },
             { href: '/financas', rotulo: 'Financeiro' },
         ]
-        if (isPlanoProfissional) {
-            links.push({ href: '/clube', rotulo: 'Clube' })
-        }
         if (isPlanoPremium) {
             links.push({ href: '/marketing', rotulo: 'Marketing' })
         }
@@ -130,7 +127,6 @@ export default function PainelNav() {
         links = [
             { href: '/agendamento', rotulo: 'Agendar' },
             { href: '/agendamentos', rotulo: 'Meus Agendamentos' },
-            { href: '/clube', rotulo: 'Clube' },
         ]
         conta = [{ href: '/meus-dados', rotulo: 'Meus dados (LGPD)' }]
     }
