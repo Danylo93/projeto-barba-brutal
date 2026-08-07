@@ -221,7 +221,20 @@ export class AuthService {
       },
     });
 
-    if (!tenant || !tenant.ativo) {
+    // Identidade primeiro, permissão depois — e "Credenciais inválidas" só
+    // para o que É credencial inválida.
+    //
+    // Antes, barbearia suspensa pelo admin caía aqui com essa mesma frase: o
+    // dono ficava digitando a senha certa achando que tinha esquecido, e não
+    // havia caminho nenhum de volta. E logo abaixo, quem ainda não tinha
+    // escolhido plano levava um 400 — ou seja, quem se cadastrava pelo anúncio
+    // e fechava a aba antes de escolher o plano perdia a conta que acabara de
+    // criar.
+    //
+    // Entrar é o começo de voltar a pagar. O que a pessoa pode FAZER lá dentro
+    // é com o SubscriptionGuard, que rebaixa para o plano de entrada e deixa a
+    // tela oferecer o plano.
+    if (!tenant) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
@@ -230,15 +243,7 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    // O dono precisa conseguir entrar depois do vencimento para ver o bloqueio,
-    // escolher outro plano e reativar a conta. Aqui validamos a identidade; as
-    // rotas funcionais continuam protegidas pelas regras da assinatura.
-    const assinatura = tenant.assinatura
-    if (!assinatura) {
-      throw new BadRequestException(
-        'Sua barbearia não possui um plano ativo. Por favor, adquira um plano para continuar.',
-      )
-    }
+    const assinatura = tenant.assinatura;
     const sid = novaSessao();
     await this.prisma.tenant.update({
       where: { id: tenant.id },
