@@ -29,18 +29,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         },
       });
 
-      // Barbearia suspensa NÃO invalida o token.
+      // Suspensão vale para o token também, não só para o login: sem isto, o
+      // dono que já estivesse logado quando o admin suspendeu continuaria
+      // trabalhando até o token vencer — e suspender deixaria de ter efeito
+      // imediato, que é justamente o que se espera de uma alavanca do admin.
       //
-      // Com o `ativo` exigido aqui, o dono até conseguia logar e era jogado
-      // para fora na primeira tela: toda requisição seguinte voltava 401, e a
-      // tela o mandava de volta para o login. Ele nunca via o motivo nem o
-      // caminho para resolver.
-      //
-      // Quem decide o que a conta parada pode fazer é o SubscriptionGuard, que
-      // rebaixa para o plano de entrada. Aqui é só "este token é de alguém que
-      // existe e a sessão dele ainda vale".
-      if (!tenant) {
-        throw new UnauthorizedException('Tenant não encontrado');
+      // Assinatura vencida é outra coisa e NÃO cai aqui: quem decide o que a
+      // conta sem plano pode fazer é o SubscriptionGuard, que rebaixa para o
+      // plano de entrada em vez de barrar.
+      if (!tenant || !tenant.ativo) {
+        throw new UnauthorizedException('Tenant não encontrado ou inativo');
       }
       // Uma sessão por conta: o login mais recente vence, o anterior cai aqui.
       if (!sessaoValida(sid, tenant.sessaoId)) {

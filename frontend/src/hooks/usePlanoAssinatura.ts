@@ -41,7 +41,6 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
   const [carregando, setCarregando] = useState(true)
   const [assinatura, setAssinatura] = useState<any>(null)
   const [erro, setErro] = useState(false)
-  const [suspensa, setSuspensa] = useState(false)
   const [agora, setAgora] = useState(() => Date.now())
 
   useEffect(() => {
@@ -64,11 +63,6 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
         if (ativo) {
           const recebida = data?.assinatura ?? null
           setAssinatura(recebida)
-          // Barbearia suspensa pelo admin do SaaS. Sem ler isto, uma barbearia
-          // suspensa COM plano Premium em dia entrava e não via convite
-          // nenhum: pelo plano estava tudo certo, e ela ficava sem entender
-          // por que metade das coisas não respondia.
-          setSuspensa(data?.ativo === false)
           // Barbearia SEM assinatura não é erro de leitura: é o estado normal
           // de quem acabou de se cadastrar e ainda não escolheu plano — que é
           // exatamente quem chega por anúncio. Marcando isso como erro, o
@@ -79,7 +73,6 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
       } catch {
         if (ativo) {
           setAssinatura(null)
-          setSuspensa(false)
           setErro(true)
         }
       } finally {
@@ -110,7 +103,9 @@ export default function usePlanoAssinatura(): PlanoAssinatura {
   const ehTenant = usuario?.tipo === 'tenant' && !!usuario?.tenantId
   // Sem assinatura nenhuma também é plano inativo — e é o caso mais comum de
   // todos logo depois do cadastro.
-  const bloqueado = ehTenant && !erro && (!assinaturaAtiva || suspensa)
+  // Suspensão não entra nesta conta: barbearia suspensa é barrada no login e
+  // no token, então ela nunca chega a esta tela. Aqui é só assinatura.
+  const bloqueado = ehTenant && !erro && !assinaturaAtiva
   // JÁ TEVE plano e ele não vale mais: teste que acabou, assinatura vencida,
   // cancelada ou com pagamento pendente. É diferente de nunca ter escolhido —
   // quem já usou o produto inteiro e não comprou recebe o convite em toda

@@ -221,19 +221,16 @@ export class AuthService {
       },
     });
 
-    // Identidade primeiro, permissão depois — e "Credenciais inválidas" só
-    // para o que É credencial inválida.
+    // A senha é conferida ANTES de qualquer outra recusa, e por dois motivos.
     //
-    // Antes, barbearia suspensa pelo admin caía aqui com essa mesma frase: o
-    // dono ficava digitando a senha certa achando que tinha esquecido, e não
-    // havia caminho nenhum de volta. E logo abaixo, quem ainda não tinha
-    // escolhido plano levava um 400 — ou seja, quem se cadastrava pelo anúncio
-    // e fechava a aba antes de escolher o plano perdia a conta que acabara de
-    // criar.
+    // O primeiro é não mentir: barbearia suspensa recebia "Credenciais
+    // inválidas", e o dono ficava digitando a senha certa achando que tinha
+    // esquecido. Suspensão barra — é a alavanca do admin do SaaS —, mas quem
+    // prova ser o dono merece saber o motivo e para quem falar.
     //
-    // Entrar é o começo de voltar a pagar. O que a pessoa pode FAZER lá dentro
-    // é com o SubscriptionGuard, que rebaixa para o plano de entrada e deixa a
-    // tela oferecer o plano.
+    // O segundo é não entregar informação a quem não sabe a senha: a frase que
+    // conta o estado da barbearia só aparece depois que a senha confere. Para
+    // quem chuta, tudo continua sendo "credenciais inválidas".
     if (!tenant) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
@@ -243,6 +240,18 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    if (!tenant.ativo) {
+      throw new UnauthorizedException(
+        'Esta barbearia está suspensa. Fale com o suporte do Barbearia Brutal para reativar.',
+      );
+    }
+
+    // Assinatura vencida ou ainda não escolhida NÃO barra o login: é o começo
+    // de voltar a pagar. Quem se cadastra e fecha a aba antes de escolher o
+    // plano precisa conseguir entrar de novo — sem isto, a conta recém-criada
+    // fica inacessível para sempre. O que a pessoa pode FAZER lá dentro é com
+    // o SubscriptionGuard, que rebaixa para o plano de entrada e deixa a tela
+    // oferecer o plano.
     const assinatura = tenant.assinatura;
     const sid = novaSessao();
     await this.prisma.tenant.update({
