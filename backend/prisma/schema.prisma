@@ -114,6 +114,10 @@ model Tenant {
   movimentosEstoque   MovimentoEstoque[]
   series              SerieAgendamento[]
 
+  // Índice GIN, criado pela migração dos endereços antigos: é o que faz a
+  // página pública achar a barbearia por um slug que ela já teve. Declarado
+  // aqui para o schema parar de divergir do banco.
+  @@index([dominiosAntigos], type: Gin, map: "tenant_dominios_antigos_idx")
   @@map("tenant")
 }
 
@@ -322,6 +326,12 @@ model Agendamento {
   @@index([sinalStatus, sinalExpiraEm])
   @@index([serieId])
   @@index([tenantId, status, data])
+  // Os três índices abaixo já existem no banco desde as migrações das
+  // automações de WhatsApp. O `map` repete o nome que a migração usou, senão
+  // o Prisma acha que precisa dropar e recriar cada um deles.
+  @@index([data, lembreteEnviadoEm], map: "agendamento_lembrete_idx")
+  @@index([createdAt, confirmacaoEnviadaEm], map: "agendamento_confirmacao_idx")
+  @@index([tenantId, status, data, retornoEnviadoEm], map: "agendamento_retorno_idx")
   @@map("agendamento")
 }
 
@@ -602,6 +612,9 @@ model RecuperacaoSenha {
   usadoEm     DateTime?
   createdAt   DateTime  @default(now())
 
-  @@index([titularTipo, titularId])
+  // O `map` existe porque a migração criou o índice com este nome, e o
+  // Prisma geraria outro. Sem ele, todo `migrate diff` acusa deriva e a
+  // próxima migração tenta renomear um índice que está certo.
+  @@index([titularTipo, titularId], map: "recuperacao_senha_titular_idx")
   @@map("recuperacao_senha")
 }
