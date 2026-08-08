@@ -41,6 +41,47 @@ export function comoOClienteLe(data: Date): string {
   return `${dia} às ${horaEmBrasilia(data)}`;
 }
 
+/**
+ * O sinal, já escrito do jeito que o robô fala.
+ *
+ * Existe pelo mesmo motivo do `quando`: o campo cru `sinalExpiraEm` termina em
+ * Z, e ler a hora dali já fez o cliente ser avisado três horas errado uma vez.
+ * Com o sinal o estrago é maior — passar do prazo devolve o horário para a
+ * agenda, então uma hora errada aqui custa o agendamento inteiro.
+ *
+ * Devolve `null` quando não há sinal a pagar, para o agente não ter o que
+ * dizer sobre Pix em barbearia que não cobra sinal.
+ */
+export function sinalParaOCliente(
+  agendamento: {
+    sinalValor?: number | null;
+    sinalStatus?: string | null;
+    sinalExpiraEm?: Date | string | null;
+    sinalPixCopiaECola?: string | null;
+  } | null,
+  agora = new Date(),
+): { valor: number; ateQuando: string; minutos: number; pixCopiaECola: string | null } | null {
+  if (!agendamento) return null;
+  if (agendamento.sinalStatus !== 'pendente') return null;
+
+  const valor = Number(agendamento.sinalValor);
+  if (!Number.isFinite(valor) || valor <= 0) return null;
+
+  const prazo = agendamento.sinalExpiraEm ? new Date(agendamento.sinalExpiraEm) : null;
+  if (!prazo || Number.isNaN(prazo.getTime())) return null;
+
+  // Arredonda para cima: faltando 89 segundos, "1 minuto" faz o cliente achar
+  // que ainda dá tempo de tomar um café.
+  const minutos = Math.max(0, Math.ceil((prazo.getTime() - agora.getTime()) / 60_000));
+
+  return {
+    valor,
+    ateQuando: comoOClienteLe(prazo),
+    minutos,
+    pixCopiaECola: agendamento.sinalPixCopiaECola ?? null,
+  };
+}
+
 /** Só a hora, "15:00", no fuso da barbearia. */
 export function horaEmBrasilia(data: Date): string {
   return new Intl.DateTimeFormat('pt-BR', {
@@ -296,9 +337,18 @@ export function planoTemRobo(
 
   // A feature escrita à mão também vale: o dono do SaaS pode liberar o robô
   // para um plano sob medida sem mexer em código.
-  return (plano.features ?? []).some((f) =>
-    String(f).toLowerCase().includes('whatsapp'),
-  );
+  //
+  // Precisa dizer ROBÔ e WhatsApp na mesma linha. Só "whatsapp" era frouxo
+  // demais e custou dinheiro de verdade: o Básico ganhou a feature "Lembrete
+  // automático no WhatsApp" e, com ela, o robô inteiro de graça — some o
+  // motivo de pagar R$ 69,90 em vez de R$ 49,90.
+  return (plano.features ?? []).some((f) => {
+    const texto = String(f)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '');
+    return texto.includes('robo') && texto.includes('whatsapp');
+  });
 }
 
 /** Um serviço do cardápio, como o robô precisa ler. */

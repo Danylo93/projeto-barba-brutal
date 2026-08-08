@@ -13,6 +13,30 @@ Cinco fluxos, um trabalho cada:
 Os quatro primeiros falam; o quinto conversa. Este README cobre os cinco, e o
 atendente tem uma seção própria mais abaixo.
 
+## Os dois agentes do WhatsApp comercial
+
+Além dos cinco acima — que são da barbearia falando com o cliente dela —
+existe o WhatsApp do próprio SaaS, que fala com dono de barbearia. Ali são
+dois agentes, com objetivos opostos:
+
+| Agente | Fala com | Objetivo | Prompt |
+|---|---|---|---|
+| **Barry** | quem ainda não é cliente | levar ao teste grátis | `prompts/barry-vendas.md` |
+| **Cacau** | quem já é cliente | resolver e sair do caminho | `prompts/cacau-suporte.md` |
+
+O fluxo vive no n8n; os prompts ficam versionados aqui porque são texto que
+cliente lê, e porque preço e endereço saem daqui — errar um deles custa venda.
+
+**Preço e limite não se digitam nos prompts.** A fonte é
+`backend/src/plano/catalogo.ts`, e `backend/src/plano/prompts-em-dia.spec.ts`
+reprova o build quando os dois discordam. O teste existe porque já discordaram:
+o Barry passou semanas vendendo Profissional a R$ 99,90 depois de o preço virar
+R$ 69,90 — cobrando mais do que o site cobra, para gente que desistia antes de
+abrir o link.
+
+O roteamento é pelo telefone: número que já pertence a um tenant vai para a
+Cacau, o resto vai para o Barry.
+
 Os quatro automáticos têm dois nós de trabalho: um relógio e uma chamada HTTP. **Quem busca,
 monta a mensagem, envia pela Evolution e marca o que saiu é o backend.**
 
@@ -237,6 +261,35 @@ O cliente diz "15h" pensando em Brasília. O servidor no Render está em UTC.
 Data sem fuso agora é lida como horário de Brasília: antes as 15h viravam
 meio-dia, com a API respondendo `200` e o cliente recebendo a confirmação de um
 horário que ele nunca pediu.
+
+### O sinal
+
+Na barbearia que cobra sinal, o horário fica **reservado, não garantido**: o
+Pix tem prazo, e passado o prazo a vaga volta para a agenda sozinha.
+
+O agente não decide nada disso nem sabe quais barbearias cobram. Quem diz é a
+API: `marcar` e `meus_agendamentos` devolvem um campo `sinal` já mastigado —
+
+```json
+"sinal": {
+  "valor": 20,
+  "ateQuando": "15/08 às 15:00",
+  "minutos": 30,
+  "pixCopiaECola": "00020126..."
+}
+```
+
+Ele vem **nulo** quando não há nada a pagar (barbearia sem sinal, sinal já
+pago, dispensado ou expirado), e é assim que o agente sabe que não deve falar
+de Pix.
+
+O prazo sai daqui já escrito, pelo mesmo motivo do `quando`: o campo cru
+`sinalExpiraEm` termina em `Z`. Ler a hora dali é como o cliente já foi
+avisado de um horário três horas errado uma vez — e com o sinal o estrago é
+maior, porque errar o prazo custa o agendamento inteiro.
+
+O agente **nunca confirma que o Pix caiu**. Ele não vê o extrato; quem baixa
+o sinal é a barbearia, pelo painel.
 
 ### O que trocar antes de ativar
 

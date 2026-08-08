@@ -30,6 +30,7 @@ import {
   montarCardapio,
   planoTemRobo,
   porqueNaoDaParaRemarcar,
+  sinalParaOCliente,
 } from './conversa';
 import {
   duracaoEmMinutos,
@@ -508,6 +509,10 @@ export class WhatsappAgendaService {
           ...(agendamento as any),
           quando:
             quando && !Number.isNaN(quando.getTime()) ? comoOClienteLe(quando) : null,
+          // Quem marcou e ainda não pagou o sinal precisa reencontrar o Pix
+          // aqui — é a única porta que ele tem depois que a mensagem do
+          // agendamento sumiu no meio da conversa.
+          sinal: sinalParaOCliente(agendamento as any),
         };
       });
   }
@@ -555,7 +560,14 @@ export class WhatsappAgendaService {
         `Falha ao avisar o cliente do agendamento ${id}: ${erro?.message ?? erro}`,
       ),
     );
-    return { ...(criado as any), quando: comoOClienteLe(quando) };
+    // O sinal vai mastigado junto. Sem isto o robô responde "marcado!" e o
+    // horário morre sozinho no fim do prazo, sem o cliente nunca ter visto o
+    // Pix — a barbearia perde a vaga e o cliente perde a viagem.
+    return {
+      ...(criado as any),
+      quando: comoOClienteLe(quando),
+      sinal: sinalParaOCliente(criado as any),
+    };
   }
 
   private async doCliente(tenantId: number, idTexto: string, telefone: string) {

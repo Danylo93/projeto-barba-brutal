@@ -110,6 +110,42 @@ describe('o plano anual não pode entregar menos que o mensal', () => {
     expect(planoTemRobo({ nome: 'Básico', grupo: 'basico', features: [] })).toBe(false);
     expect(planoTemRobo({ nome: 'Básico Anual', grupo: 'basico', features: [] })).toBe(false);
   });
+});
+
+/**
+ * Estes testes montam o plano a partir do CATÁLOGO, com as features de
+ * verdade. Os de cima passam `features: []`, e foi por isso que a regressão
+ * passou batido: o Básico ganhou "Lembrete automático no WhatsApp" e a regra
+ * do robô, que só procurava "whatsapp", liberou o robô inteiro no plano de
+ * R$ 49,90 — em produção, não em teoria.
+ */
+describe('o robô, com as features que o plano realmente tem', () => {
+  const doCatalogo = (grupo: string, sufixo = '') => {
+    const plano = CATALOGO.find((p) => p.grupo === grupo)!;
+    return { nome: `${plano.nome}${sufixo}`, grupo: plano.grupo, features: plano.features };
+  };
+
+  it.each(['', ' Anual'])('o Básico%s não tem robô', (sufixo) => {
+    expect(planoTemRobo(doCatalogo('basico', sufixo))).toBe(false);
+  });
+
+  it.each(['profissional', 'premium'])('o %s tem', (grupo) => {
+    expect(planoTemRobo(doCatalogo(grupo))).toBe(true);
+  });
+
+  it('a linha antiga, sem grupo, ainda decide pelo nome', () => {
+    // Barbearia cadastrada antes do `grupo` existir. Se isto quebrar, ela
+    // acorda sem robô sem ninguém ter mexido no plano dela.
+    const { nome, features } = doCatalogo('profissional');
+    expect(planoTemRobo({ nome, grupo: null, features })).toBe(true);
+    expect(planoTemRobo({ nome: 'Básico', grupo: null, features: doCatalogo('basico').features })).toBe(false);
+  });
+
+  it('o plano sob medida libera escrevendo robô e WhatsApp na mesma linha', () => {
+    expect(planoTemRobo({ nome: 'Sob medida', features: ['Robô de WhatsApp'] })).toBe(true);
+    expect(planoTemRobo({ nome: 'Sob medida', features: ['Robo de whatsapp'] })).toBe(true);
+    expect(planoTemRobo({ nome: 'Sob medida', features: ['Lembrete no WhatsApp'] })).toBe(false);
+  });
 
   it('o nome montado é o que a regra tem que aguentar', () => {
     expect(nomeDoPlano('Profissional', 'anual')).toBe('Profissional Anual');
