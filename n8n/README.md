@@ -27,15 +27,18 @@ dois agentes, com objetivos opostos:
 O fluxo vive no n8n; os prompts ficam versionados aqui porque são texto que
 cliente lê, e porque preço e endereço saem daqui — errar um deles custa venda.
 
+O fluxo em si é `Barbearia Brutal — comercial (Barry e Cacau).json`. O
+roteamento é por setor: o agente **Gerente Setor** lê a conversa e grava
+`SUPORTE` ou `VENDAS` no Supabase; o `Switch` manda para a Cacau, para o Barry,
+e — quando não há setor — para o Barry, que é o destino certo de quem chegou
+agora.
+
 **Preço e limite não se digitam nos prompts.** A fonte é
 `backend/src/plano/catalogo.ts`, e `backend/src/plano/prompts-em-dia.spec.ts`
 reprova o build quando os dois discordam. O teste existe porque já discordaram:
 o Barry passou semanas vendendo Profissional a R$ 99,90 depois de o preço virar
 R$ 69,90 — cobrando mais do que o site cobra, para gente que desistia antes de
 abrir o link.
-
-O roteamento é pelo telefone: número que já pertence a um tenant vai para a
-Cacau, o resto vai para o Barry.
 
 Os quatro automáticos têm dois nós de trabalho: um relógio e uma chamada HTTP. **Quem busca,
 monta a mensagem, envia pela Evolution e marca o que saiu é o backend.**

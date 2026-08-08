@@ -47,6 +47,39 @@ function comoOTextoEscreve(valor: number): string {
   return valor.toFixed(2).replace('.', ',');
 }
 
+/**
+ * Os mesmos dois prompts, agora lidos de dentro do fluxo do n8n.
+ *
+ * Os arquivos `.md` acima são a fonte que a gente edita; o que ATENDE o
+ * cliente é o `systemMessage` colado no nó. Conferir só o markdown deixa
+ * passar o caso mais provável de todos: alguém atualiza o arquivo, esquece de
+ * colar no n8n, e o robô segue vendendo pelo preço velho com o repositório
+ * dizendo que está tudo certo.
+ */
+const FLUXO_COMERCIAL = join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'n8n',
+  'Barbearia Brutal — comercial (Barry e Cacau).json',
+);
+
+function promptDoNo(nomeDoNo: string): string {
+  const fluxo = JSON.parse(readFileSync(FLUXO_COMERCIAL, 'utf8'));
+  const no = (fluxo.nodes ?? []).find((n: any) => n.name === nomeDoNo);
+  if (!no) throw new Error(`o fluxo comercial não tem o nó ${nomeDoNo}`);
+  const texto = no.parameters?.options?.systemMessage;
+  if (!texto) throw new Error(`o nó ${nomeDoNo} está sem systemMessage`);
+  // O `=` da frente é do n8n, marcando o campo como expressão.
+  return String(texto).replace(/^=/, '');
+}
+
+const noFluxo: Record<string, string> = {
+  Barry: promptDoNo('Barry').replace(/\s+/g, ' '),
+  Cacau: promptDoNo('Cacau').replace(/\s+/g, ' '),
+};
+
 describe('o prompt do Barry cobra o preço do catálogo', () => {
   it.each(CATALOGO.map((p) => [p.nome, p.precoMensal] as const))(
     'o mensal do %s aparece como R$ %s',
@@ -137,6 +170,73 @@ describe('nem tudo que está no catálogo existe de verdade', () => {
         expect(`${nome}: ${linha.trim()}`).toMatch(/^\w+: N[ãa]o promete CUPOM/);
       }
     }
+  });
+});
+
+describe('o que está colado no n8n conta a mesma história', () => {
+  it('o Barry do fluxo cobra o preço mensal do catálogo', () => {
+    for (const plano of CATALOGO) {
+      expect(noFluxo.Barry).toContain(`R$ ${comoOTextoEscreve(plano.precoMensal)}`);
+    }
+  });
+
+  it('o Barry do fluxo cobra o anual do catálogo', () => {
+    for (const plano of CATALOGO) {
+      const anual = Math.round(precoAnual(plano.precoMensal));
+      expect(noFluxo.Barry).toMatch(new RegExp(`R\\$ ${anual}\\b`));
+    }
+  });
+
+  it.each(['Barry', 'Cacau'])('o %s do fluxo não carrega preço aposentado', (quem) => {
+    // R$ 99,90 é o Premium de hoje, então só o 159,90 é sempre proibido.
+    const vivos = CATALOGO.map((p) => `R$ ${comoOTextoEscreve(p.precoMensal)}`);
+    for (const antigo of ['R$ 159,90']) {
+      if (vivos.includes(antigo)) continue;
+      expect(noFluxo[quem]).not.toContain(antigo);
+    }
+  });
+
+  it.each(['Barry', 'Cacau'])('o %s do fluxo não promete teto de barbeiros', (quem) => {
+    // "até 5 barbeiros" era o texto do fluxo antigo, e o teto não existe mais.
+    expect(noFluxo[quem]).not.toMatch(/at[ée] \d+ (barbeiros|profissionais)/i);
+  });
+
+  it('o fluxo não põe o robô no Premium sozinho', () => {
+    // O prompt antigo dizia "Premium possui Robô de WhatsApp com IA", o que
+    // faz o Barry esconder do cliente que o Profissional, mais barato, também
+    // tem — e faz a venda parecer mais cara do que precisa ser.
+    expect(noFluxo.Barry).toMatch(/Profissional e no Premium/i);
+  });
+
+  it.each(['Barry', 'Cacau'])('o %s do fluxo não promete cupom', (quem) => {
+    const linhas = promptDoNo(quem)
+      .split('\n')
+      .filter((linha) => /cupom|cupons/i.test(linha));
+    for (const linha of linhas) {
+      expect(linha.trim()).toMatch(/^N[ãa]o promete CUPOM/);
+    }
+  });
+
+  it('o endereço certo está nos dois, e o inexistente nunca como link', () => {
+    // O `.com.br` não existe, mas PODE aparecer — o prompt do Barry tem uma
+    // linha inteira ensinando a não usá-lo. O que não pode é ele aparecer
+    // escrito como link, que é a forma que o agente copiaria para o cliente.
+    for (const quem of ['Barry', 'Cacau']) {
+      expect(noFluxo[quem]).toContain('https://barbeariabrutal.com');
+      expect(noFluxo[quem]).not.toMatch(/https?:\/\/(www\.)?barbeariabrutal\.com\.br/);
+    }
+  });
+
+  it('o roteador manda para SUPORTE e VENDAS, do jeito que o Switch compara', () => {
+    // O Switch compara `setor` com as strings exatas SUPORTE e VENDAS. O
+    // prompt anterior classificava por "segunda via de boleto" e "mentoria
+    // particular" — critério de outro negócio, herdado do template. Conversa
+    // de barbearia não casava com nenhum dos dois, então a Cacau nunca
+    // recebia ninguém e o Barry atendia até quem estava com a conta quebrada.
+    const gerente = promptDoNo('Gerente Setor');
+    expect(gerente).toContain('SUPORTE');
+    expect(gerente).toContain('VENDAS');
+    expect(gerente).not.toMatch(/boleto|mentoria/i);
   });
 });
 

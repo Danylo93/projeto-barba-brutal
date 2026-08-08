@@ -133,17 +133,21 @@ começar:
 
 ## Como o fluxo decide entre os dois
 
-O roteamento é a única coisa que o n8n precisa saber antes de chamar um dos
-dois agentes. A regra é o telefone:
+Quem decide é o agente **Gerente Setor**, que lê a conversa e grava `SUPORTE`
+ou `VENDAS` num campo do Supabase. O nó `Switch` compara esse campo com as duas
+strings, em maiúsculas, e manda para a Cacau ou para o Barry. Sem setor
+gravado, vai para o **Barry** — que é o destino certo de quem chegou agora.
 
-1. O número que chegou já pertence a um tenant cadastrado? → **Cacau**.
-2. Não pertence? → **Barry**.
+Escrevi antes, sem ter visto o fluxo, que o roteamento era pelo telefone. Não
+é. Consultar `tenant.telefone` continua sendo a regra mais confiável, porque
+não depende de o modelo classificar certo, mas isso seria mudar o desenho do
+fluxo, e não é o que está no ar.
 
-O backend já responde essa pergunta: o telefone da barbearia está em
-`tenant.telefone`. Se preferir não criar rota nova, o próprio agente pergunta
-uma vez ("você já tem conta com a gente?") e roteia pela resposta — mas
-consultar é melhor, porque não gasta mensagem e não erra quando a pessoa
-responde torto.
+O que estava quebrado era o critério: o prompt do Gerente Setor mandava para
+SUPORTE quem falasse em "segunda via de boleto" e para VENDAS quem falasse em
+"mentoria particular" — herança de um template de outro negócio. Conversa de
+barbearia não casava com nenhum dos dois, então **a Cacau nunca recebia
+ninguém** e o Barry atendia até quem estava com a conta bloqueada.
 
 Nos dois casos, quem transferir deve ENCERRAR a própria parte. Dois agentes
 respondendo na mesma conversa é o jeito mais rápido de a pessoa desistir.
