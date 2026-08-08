@@ -5,6 +5,7 @@ import {
   horarioEstaSegurado,
   prazoParaPagar,
   sinalExpirou,
+  soHorariosDePe,
   SINAL_EXPIRADO,
   SINAL_NAO_EXIGIDO,
   SINAL_PAGO,
@@ -117,6 +118,61 @@ describe('expiração', () => {
     expect(aguardandoPagamento({ sinalStatus: SINAL_PENDENTE })).toBe(true);
     expect(aguardandoPagamento({ sinalStatus: SINAL_PAGO })).toBe(false);
     expect(aguardandoPagamento({ sinalStatus: null })).toBe(false);
+  });
+});
+
+describe('o filtro que a agenda usa', () => {
+  const agora = new Date('2026-08-08T12:00:00Z');
+  const filtro: any = soHorariosDePe(agora);
+
+  /** Roda o `where` contra uma linha, como o Postgres faria. */
+  function passa(linha: { sinalStatus: string | null; sinalExpiraEm?: string | null }): boolean {
+    return filtro.OR.some((clausula: any) => {
+      if ('sinalStatus' in clausula && !clausula.AND) {
+        const esperado = clausula.sinalStatus;
+        if (esperado === null) return linha.sinalStatus === null;
+        if (esperado?.in) return esperado.in.includes(linha.sinalStatus as any);
+        return linha.sinalStatus === esperado;
+      }
+      const [porStatus, porPrazo] = clausula.AND;
+      if (linha.sinalStatus !== porStatus.sinalStatus) return false;
+      if (porPrazo.sinalExpiraEm === null) return !linha.sinalExpiraEm;
+      if (!linha.sinalExpiraEm) return false;
+      return new Date(linha.sinalExpiraEm).getTime() >= porPrazo.sinalExpiraEm.gte.getTime();
+    });
+  }
+
+  it('agendamento antigo, sem sinal nenhum, continua ocupando o horário', () => {
+    // Este é o caso que mais importa: `sinalStatus` é NULO em tudo que já
+    // existe. Se o filtro deixasse essas linhas de fora, a barbearia
+    // marcaria dois clientes no mesmo minuto no dia do deploy.
+    expect(passa({ sinalStatus: null, sinalExpiraEm: null })).toBe(true);
+  });
+
+  it('quem pagou, quem foi dispensado e quem não devia continuam ocupando', () => {
+    expect(passa({ sinalStatus: SINAL_PAGO })).toBe(true);
+    expect(passa({ sinalStatus: 'dispensado' })).toBe(true);
+    expect(passa({ sinalStatus: SINAL_NAO_EXIGIDO })).toBe(true);
+  });
+
+  it('pendente dentro do prazo ocupa; fora do prazo, libera', () => {
+    expect(passa({ sinalStatus: SINAL_PENDENTE, sinalExpiraEm: '2026-08-08T12:15:00Z' })).toBe(true);
+    expect(passa({ sinalStatus: SINAL_PENDENTE, sinalExpiraEm: '2026-08-08T11:45:00Z' })).toBe(false);
+  });
+
+  it('expirado libera o horário', () => {
+    expect(passa({ sinalStatus: SINAL_EXPIRADO, sinalExpiraEm: '2026-08-08T11:00:00Z' })).toBe(false);
+  });
+
+  it('pendente sem prazo gravado erra a favor de quem marcou', () => {
+    expect(passa({ sinalStatus: SINAL_PENDENTE, sinalExpiraEm: null })).toBe(true);
+  });
+
+  it('não usa NOT em lugar nenhum', () => {
+    // A regra inteira existe por causa disso. Um `NOT` aqui traz de volta o
+    // problema do NULL, e nenhum dos testes acima o pegaria — eles rodam
+    // contra o meu interpretador, não contra o Postgres.
+    expect(JSON.stringify(filtro)).not.toMatch(/"NOT"|"not"/);
   });
 });
 

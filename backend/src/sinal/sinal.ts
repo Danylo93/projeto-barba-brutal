@@ -114,14 +114,25 @@ export function aguardandoPagamento(agendamento: { sinalStatus?: string | null }
  * atrasada, e a agenda não pode ficar presa esperando por ela.
  */
 export function soHorariosDePe(agora = new Date()) {
+  // Escrito SÓ com condições positivas, de propósito.
+  //
+  // A versão natural seria `NOT: { sinalStatus: 'expirado' }`, e ela é uma
+  // armadilha: `sinalStatus` é nulo em todo agendamento criado antes desta
+  // funcionalidade, e em SQL `NULL = 'expirado'` não é falso — é nulo, e
+  // `NOT nulo` continua nulo. Dependendo de como isso for traduzido, TODOS os
+  // agendamentos antigos deixariam de ocupar horário de uma vez, e a
+  // barbearia marcaria dois clientes no mesmo minuto.
+  //
+  // Listar os estados que seguram o horário não tem esse problema.
   return {
-    AND: [
-      { NOT: { sinalStatus: SINAL_EXPIRADO } },
-      {
-        NOT: {
-          AND: [{ sinalStatus: SINAL_PENDENTE }, { sinalExpiraEm: { lt: agora } }],
-        },
-      },
+    OR: [
+      // Nunca pediu sinal: o horário é dele e pronto.
+      { sinalStatus: null },
+      { sinalStatus: { in: [SINAL_NAO_EXIGIDO, SINAL_PAGO, SINAL_DISPENSADO] } },
+      // Pediu e ainda está no prazo — o prazo é do cliente.
+      { AND: [{ sinalStatus: SINAL_PENDENTE }, { sinalExpiraEm: { gte: agora } }] },
+      // Pendente sem prazo gravado: na dúvida, o horário continua ocupado.
+      { AND: [{ sinalStatus: SINAL_PENDENTE }, { sinalExpiraEm: null }] },
     ],
   };
 }

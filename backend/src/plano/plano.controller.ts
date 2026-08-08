@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { PlanoService } from './plano.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminAuthGuard } from '../auth/admin-auth.guard';
@@ -16,6 +16,18 @@ export class PlanoController {
   @Get(':id')
   findById(@Param('id', ParseIntPipe) id: number) {
     return this.planoService.findById(id);
+  }
+
+  /**
+   * Põe os planos do banco de acordo com o catálogo do código.
+   *
+   * `?simular=true` só mostra o que mudaria. Como mexe em preço, o padrão é
+   * conferir antes.
+   */
+  @Post('sincronizar-catalogo')
+  @UseGuards(JwtAuthGuard, AdminAuthGuard)
+  sincronizarCatalogo(@Query('simular') simular?: string) {
+    return this.planoService.sincronizarComOCatalogo(simular === 'true');
   }
 
   // Gestão de planos é exclusiva do administrador do SaaS.
