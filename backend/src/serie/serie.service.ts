@@ -135,13 +135,17 @@ export class SerieService {
     const limiteDoHorizonte = new Date(
       agora.getTime() + HORIZONTE_EM_DIAS * 24 * 60 * 60_000,
     );
-    if (serie.geradoAte && serie.geradoAte >= limiteDoHorizonte) {
-      return { criados: [], pulados: [], jaEstavaCheia: true };
-    }
-
     const datas = proximasOcorrencias(serie as any, OCORRENCIAS_ADIANTADAS, agora).filter(
       (data) => data <= limiteDoHorizonte,
     );
+
+    // Nada a criar dentro do horizonte. Dizer isso explicitamente importa:
+    // sem a marca, quem chama não distingue "a série já está em dia" de
+    // "tentei e não consegui criar nada" — e a tela mostraria "0 horários
+    // criados" nos dois casos.
+    if (datas.length === 0) {
+      return { criados: [], pulados: [], jaEstavaCheia: true };
+    }
 
     const criados: Array<{ id: number; data: Date }> = [];
     const pulados: Array<{ data: Date; motivo: string }> = [];
