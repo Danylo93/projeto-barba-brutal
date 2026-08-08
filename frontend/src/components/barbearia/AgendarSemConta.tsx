@@ -11,6 +11,7 @@ import {
   mascaraTelefone,
   montarHorarios,
 } from '@/lib/horarios-publicos'
+import type { DiaHorario } from '@/lib/agendamento-utils'
 
 /**
  * Agendar sem criar conta.
@@ -51,7 +52,7 @@ export interface AgendarSemContaProps {
   servicos: Servico[]
   profissionais: Profissional[]
   /** Horário de funcionamento por dia da semana (0-6). */
-  grade: { aberto: boolean; abre?: string; fecha?: string }[]
+  grade: DiaHorario[]
   sinal?: Sinal
   /** Endereço do login, para quem prefere entrar na conta. */
   hrefLogin: string
@@ -455,9 +456,13 @@ function Confirmado({ recibo }: { recibo: any }) {
             {recibo.sinal.expiraEm && (
               <p className="mt-2 text-center text-xs text-yellow-200/70">
                 O horário fica seu até{' '}
+                {/* No fuso de Brasília, igual à data do agendamento logo
+                    acima. Sem fixar, um cliente viajando leria o prazo no
+                    fuso dele e acharia que já venceu. */}
                 {new Date(recibo.sinal.expiraEm).toLocaleTimeString('pt-BR', {
                   hour: '2-digit',
                   minute: '2-digit',
+                  timeZone: 'America/Sao_Paulo',
                 })}
                 .
               </p>

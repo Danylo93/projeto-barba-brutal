@@ -7,17 +7,26 @@ import {
   mascaraTelefone,
   montarHorarios,
 } from './horarios-publicos'
+import { horarioDoDia } from './agendamento-utils'
 
-/** Barbearia aberta de terça a sábado, das 9h às 18h. */
-const GRADE = [
-  { aberto: false },
-  { aberto: false },
-  { aberto: true, abre: '09:00', fecha: '18:00' },
-  { aberto: true, abre: '09:00', fecha: '18:00' },
-  { aberto: true, abre: '09:00', fecha: '18:00' },
-  { aberto: true, abre: '09:00', fecha: '18:00' },
-  { aberto: true, abre: '09:00', fecha: '18:00' },
-]
+/**
+ * Barbearia aberta de terça a sábado, das 9h às 18h.
+ *
+ * Montada com `horarioDoDia`, exatamente como a página faz — e não à mão. A
+ * primeira versão deste arquivo escrevia `{ aberto, abre, fecha }`, nomes que
+ * eu inventei aqui: os testes passavam contra a minha invenção enquanto a
+ * página entregava `abertura`/`fechamento`, e o formulário público não
+ * oferecia horário nenhum, para barbearia nenhuma.
+ */
+const CONFIG_DA_BARBEARIA = {
+  horarios: [0, 1, 2, 3, 4, 5, 6].map((dia) => ({
+    dia,
+    aberto: dia >= 2,
+    abertura: '09:00',
+    fechamento: '18:00',
+  })),
+}
+const GRADE = [0, 1, 2, 3, 4, 5, 6].map((dia) => horarioDoDia(CONFIG_DA_BARBEARIA, dia))
 
 // 2026-08-15 é um sábado; 2026-08-17, uma segunda (fechada).
 const SABADO = '2026-08-15'
@@ -81,8 +90,21 @@ describe('horários oferecidos', () => {
 
   it('grade sem horário de abertura não vira 00:00 às 00:00', () => {
     const semHorario = [...GRADE]
-    semHorario[6] = { aberto: true }
+    semHorario[6] = { dia: 6, aberto: true, abertura: '', fechamento: '' }
     expect(montarHorarios(semHorario, SABADO, 1, [])).toEqual([])
+  })
+
+  it('lê a grade que a PÁGINA monta, e não uma inventada aqui', () => {
+    // Este é o teste que faltava. Barbearia sem `configuracoes` — o estado de
+    // toda barbearia recém-cadastrada — cai no padrão de segunda a sábado,
+    // 08:00 às 21:00. Se os nomes dos campos divergirem de novo, aqui dá
+    // lista vazia e o teste falha.
+    const gradePadrao = [0, 1, 2, 3, 4, 5, 6].map((dia) => horarioDoDia(null, dia))
+    const livres = montarHorarios(gradePadrao, SABADO, 1, [])
+
+    expect(livres.length).toBeGreaterThan(0)
+    expect(livres[0]).toBe('08:00')
+    expect(livres.at(-1)).toBe('20:30')
   })
 })
 
@@ -107,10 +129,11 @@ describe('hoje não oferece horário que já passou', () => {
       }
     } as any
 
-    const aberta = Array.from({ length: 7 }, () => ({
+    const aberta = [0, 1, 2, 3, 4, 5, 6].map((dia) => ({
+      dia,
       aberto: true,
-      abre: '09:00',
-      fecha: '18:00',
+      abertura: '09:00',
+      fechamento: '18:00',
     }))
     const livres = montarHorarios(aberta, hoje, 1, [])
 

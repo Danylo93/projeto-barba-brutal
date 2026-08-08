@@ -7,6 +7,8 @@
  * em vez do de Brasília.
  */
 
+import type { DiaHorario } from './agendamento-utils'
+
 export const MINUTOS_POR_SLOT = 30
 
 export function brl(valor: number): string {
@@ -55,18 +57,24 @@ export function mascaraTelefone(bruto: string): string {
  * combo de uma hora numa barbearia que fecha às 20h.
  */
 export function montarHorarios(
-  grade: { aberto: boolean; abre?: string; fecha?: string }[],
+  grade: DiaHorario[],
   dia: string,
   slots: number,
   ocupados: string[],
 ): string[] {
   if (!dia) return []
 
+  // `DiaHorario` é o tipo que o resto do sistema já usa, com `abertura` e
+  // `fechamento`. A primeira versão desta função inventou `abre`/`fecha`, e o
+  // efeito foi silencioso e total: a página monta a grade com os nomes certos,
+  // aqui eles chegavam `undefined`, e o formulário público não oferecia
+  // horário NENHUM, para barbearia nenhuma. Compilava, e a tela só dizia
+  // "sem horário livre neste dia" para sempre.
   const config = grade[diaSemanaEmBrasilia(dia)]
-  if (!config?.aberto || !config.abre || !config.fecha) return []
+  if (!config?.aberto || !config.abertura || !config.fechamento) return []
 
-  const abre = emMinutos(config.abre)
-  const fecha = emMinutos(config.fecha)
+  const abre = emMinutos(config.abertura)
+  const fecha = emMinutos(config.fechamento)
   const duracaoMin = slots * MINUTOS_POR_SLOT
 
   // Hoje, só o que ainda não passou. Sem isto a tela oferece 9h às 15h.

@@ -29,6 +29,7 @@ export default function AbaRecebimento() {
   const { success: toastSuccess, error: toastError } = useToast()
 
   const [carregando, setCarregando] = useState(true)
+  const [naoCarregou, setNaoCarregou] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
   const [chavePix, setChavePix] = useState('')
@@ -39,6 +40,8 @@ export default function AbaRecebimento() {
   const [semConta, setSemConta] = useState(true)
 
   const carregar = useCallback(async () => {
+    setCarregando(true)
+    setNaoCarregou(false)
     try {
       const dados = await httpGet('/tenants/me')
       const atual: Partial<Recebimento> = dados ?? {}
@@ -49,6 +52,11 @@ export default function AbaRecebimento() {
       if (atual.sinalPrazoMinutos != null) setPrazo(String(atual.sinalPrazoMinutos))
       setSemConta(atual.agendamentoSemConta !== false)
     } catch (erro: any) {
+      // Sem isto, a falha renderizava o formulário com os valores PADRÃO —
+      // chave Pix vazia, sinal desligado — como se fosse a configuração real
+      // da barbearia. Um clique em Salvar ali apagaria o que estava
+      // configurado. Falha de leitura não pode virar proposta de escrita.
+      setNaoCarregou(true)
       toastError(erro?.message ?? 'Não conseguimos carregar as configurações.')
     } finally {
       setCarregando(false)
@@ -84,6 +92,23 @@ export default function AbaRecebimento() {
     return (
       <div className="flex justify-center py-16">
         <Loader2 className="animate-spin text-yellow-400" size={32} />
+      </div>
+    )
+  }
+
+  if (naoCarregou) {
+    return (
+      <div className="rounded-xl border border-red-900/60 bg-red-950/30 p-8 text-center">
+        <p className="mb-4 text-red-200">
+          Não conseguimos carregar suas configurações de recebimento. Não vamos mostrar o
+          formulário em branco para você não salvar por cima do que já está lá.
+        </p>
+        <button
+          onClick={carregar}
+          className="rounded-lg bg-yellow-400 px-5 py-2.5 font-semibold text-zinc-900 hover:bg-yellow-300"
+        >
+          Tentar de novo
+        </button>
       </div>
     )
   }

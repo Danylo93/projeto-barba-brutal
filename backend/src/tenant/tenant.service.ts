@@ -104,6 +104,15 @@ export class TenantService {
         preco: valorDoServicoNoAgendamento(a, s),
       })),
       valorTotal: valorCobrado(a),
+      // O sinal precisa sair daqui, senão a lista do dono não tem como
+      // mostrar quem está devendo Pix — e é justamente nela que ele confirma
+      // o recebimento. Esta função monta o objeto campo a campo, então campo
+      // novo que não for acrescentado aqui simplesmente não chega na tela.
+      sinalValor: a.sinalValor,
+      sinalStatus: a.sinalStatus,
+      sinalPixCopiaECola: a.sinalPixCopiaECola,
+      sinalExpiraEm: a.sinalExpiraEm,
+      sinalPagoEm: a.sinalPagoEm,
     }));
   }
 
