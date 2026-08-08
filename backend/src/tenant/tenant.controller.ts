@@ -88,6 +88,19 @@ export class TenantController {
     return this.tenantService.update(user.id, body);
   }
 
+  /**
+   * Regra do sinal e do agendamento sem cadastro.
+   *
+   * Fica separado de `me/configuracoes` porque estes campos são colunas, e
+   * não JSON solto: eles entram em consulta (a agenda pergunta se o sinal
+   * expirou) e em cálculo de dinheiro.
+   */
+  @Put('me/recebimento')
+  @UseGuards(JwtAuthGuard, TenantAuthGuard)
+  atualizarRecebimento(@CurrentUser() user: any, @Body() body: any) {
+    return this.tenantService.atualizarRecebimento(user.id, body);
+  }
+
   @Post('me/api-key')
   @UseGuards(JwtAuthGuard, TenantAuthGuard)
   generateApiKey(@CurrentUser() user: any) {

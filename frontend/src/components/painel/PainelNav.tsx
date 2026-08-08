@@ -105,6 +105,8 @@ export default function PainelNav() {
             { href: '/clientes', rotulo: 'Clientes' },
             { href: '/profissionais', rotulo: 'Profissionais' },
             { href: '/servicos', rotulo: 'Serviços' },
+            { href: '/produtos', rotulo: 'Produtos' },
+            { href: '/recorrentes', rotulo: 'Recorrentes' },
             { href: '/financas', rotulo: 'Financeiro' },
         ]
         if (isPlanoPremium) {
@@ -119,6 +121,9 @@ export default function PainelNav() {
     } else if (isEmployeeBarber) {
         links = [
             { href: '/agenda', rotulo: 'Minha Agenda' },
+            // O barbeiro é quem está no balcão na hora da venda: sem acesso
+            // ao estoque, a baixa nunca sai e o saldo nunca bate.
+            { href: '/produtos', rotulo: 'Produtos' },
             { href: '/financas', rotulo: 'Finanças' },
         ]
         conta = [{ href: '/meus-dados', rotulo: 'Meus dados (LGPD)' }]

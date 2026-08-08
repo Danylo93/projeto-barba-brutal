@@ -1,49 +1,48 @@
+/**
+ * Cria (ou atualiza) os planos a partir do catálogo.
+ *
+ * Rodar isto NÃO reajusta quem já assina: a recorrência do Mercado Pago nasce
+ * com o valor congelado na contratação. O que muda é o que a landing oferece
+ * e o que a próxima barbearia vai pagar.
+ *
+ *   npm run db:seed-planos
+ */
 import { PrismaClient } from '@prisma/client';
+import { linhasDoCatalogo } from '../src/plano/catalogo';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Criar planos iniciais
-  // maxUsuarios representa o número de barbeiros permitidos no plano.
-  const planos = [
-    {
-      nome: 'Básico',
-      descricao: 'Ideal para quem trabalha sozinho',
-      preco: 49.90,
-      duracao: 30,
-      maxUsuarios: 1,
-      maxAgendamentos: 200,
-      features: ['1 barbeiro', 'Agendamentos online', 'Gestão de clientes', 'Relatórios básicos'],
-    },
-    {
-      nome: 'Profissional',
-      descricao: 'Para barbearias em crescimento',
-      preco: 99.90,
-      duracao: 30,
-      maxUsuarios: 5,
-      maxAgendamentos: 1000,
-      features: ['Até 5 barbeiros', 'Agendamentos online', 'Gestão de clientes', 'Relatórios avançados', 'Integração WhatsApp'],
-    },
-    {
-      nome: 'Premium',
-      descricao: 'Para barbearias e redes de qualquer tamanho',
-      preco: 159.90,
-      duracao: 30,
-      maxUsuarios: 999999,
-      maxAgendamentos: 999999,
-      features: ['Barbeiros ilimitados', 'Agendamentos ilimitados', 'Relatórios completos', 'Integração WhatsApp', 'Suporte prioritário 24/7'],
-    },
-  ];
-
-  for (const plano of planos) {
-    await prisma.plano.upsert({
-      where: { nome: plano.nome },
-      update: plano,
-      create: plano,
+  for (const linha of linhasDoCatalogo()) {
+    const antes = await prisma.plano.findUnique({
+      where: { nome: linha.nome },
+      select: { preco: true },
     });
+
+    await prisma.plano.upsert({
+      where: { nome: linha.nome },
+      update: linha,
+      create: linha,
+    });
+
+    const mudou = antes && antes.preco !== linha.preco;
+    const situacao = !antes ? 'criado' : mudou ? `${antes.preco} → ${linha.preco}` : 'sem mudança';
+    console.log(`  ${linha.nome.padEnd(22)} R$ ${linha.preco.toFixed(2).padStart(7)}  (${situacao})`);
   }
 
-  console.log('Planos criados com sucesso!');
+  // Planos que saíram do catálogo não são apagados — assinatura viva ainda
+  // aponta para eles. Ficam inativos, que é o que tira da vitrine sem
+  // quebrar quem já paga.
+  const nomesDoCatalogo = linhasDoCatalogo().map((l) => l.nome);
+  const aposentados = await prisma.plano.updateMany({
+    where: { nome: { notIn: nomesDoCatalogo }, ativo: true },
+    data: { ativo: false },
+  });
+  if (aposentados.count > 0) {
+    console.log(`\n  ${aposentados.count} plano(s) fora do catálogo foram desativados.`);
+  }
+
+  console.log('\nPlanos sincronizados com o catálogo.');
 }
 
 main()

@@ -1,5 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
+import AgendarSemConta from '@/components/barbearia/AgendarSemConta'
+import { API_BASE } from '@/lib/api-base'
 import { notFound } from 'next/navigation'
 import {
     Scissors,
@@ -61,6 +63,10 @@ interface BarbeariaPublica {
     } | null
     servicos: ServicoPublico[]
     profissionais: ProfissionalPublico[]
+    /** Esta barbearia deixa marcar sem criar conta? */
+    agendamentoSemConta?: boolean
+    /** Regra do sinal, para a tela avisar antes de o cliente confirmar. */
+    sinal?: { ativo: boolean; percent?: number; minimo?: number; prazoMinutos?: number }
 }
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -145,7 +151,12 @@ export default async function BarbeariaPublicaPage(
 
     // Leva o cliente ao login/cadastro já vinculado a esta barbearia (tenant),
     // e daí para o fluxo de agendamento dela.
-    const agendarHref = `/entrar?tenant=${b.id}&destino=${encodeURIComponent('/agendamento')}`
+    const hrefLogin = `/entrar?tenant=${b.id}&destino=${encodeURIComponent('/agendamento')}`
+    // Quando a barbearia aceita agendamento sem cadastro, todo botão "Agendar"
+    // leva ao formulário da própria página. Mandar para o login primeiro é
+    // exatamente a fricção que esta funcionalidade existe para tirar.
+    const semConta = b.agendamentoSemConta !== false
+    const agendarHref = semConta ? '#agendar' : hrefLogin
     const cfg = b.configuracoes
     // Horário de cada dia da semana (0-6), aceitando formato novo e antigo.
     const grade = DIAS.map((rotulo, i) => ({ rotulo, ...horarioDoDia(cfg, i) }))
@@ -474,6 +485,20 @@ export default async function BarbeariaPublicaPage(
                     </div>
                 </div>
             </section>
+
+            {semConta && (
+                <AgendarSemConta
+                    dominio={params.dominio}
+                    // O proxy same-origin, não o BACKEND_URL: este trecho roda
+                    // no navegador, e a URL interna do servidor não vale lá.
+                    apiBase={API_BASE}
+                    servicos={b.servicos}
+                    profissionais={b.profissionais}
+                    grade={grade}
+                    sinal={b.sinal}
+                    hrefLogin={hrefLogin}
+                />
+            )}
 
             {/* Footer */}
             <footer className="border-t border-zinc-800/80">

@@ -23,7 +23,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "npx ts-node prisma/seed.ts",
-    "db:seed-planos": "npx ts-node prisma/seed-planos.ts"
+    "db:seed-planos": "npx ts-node prisma/seed-planos.ts",
+    "db:seed-novidades": "npx ts-node prisma/seed-novidades.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.28",

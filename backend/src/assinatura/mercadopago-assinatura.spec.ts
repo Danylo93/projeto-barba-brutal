@@ -4,6 +4,7 @@ import {
   interpretarNotificacao,
   lerReferenciaExterna,
   pagamentoRenovaPlano,
+  recorrenciaDoPlano,
   referenciaExterna,
   traduzirStatus,
 } from './mercadopago-assinatura';
@@ -89,6 +90,41 @@ describe('corpoDaAssinatura', () => {
 
   it('amarra a assinatura ao tenant e ao plano', () => {
     expect(corpo.external_reference).toBe('bb-7-2');
+  });
+});
+
+describe('de quanto em quanto tempo o Mercado Pago cobra', () => {
+  const anual = { ...plano, id: 6, nome: 'Profissional Anual', preco: 699, duracao: 365 };
+  const mensal = { ...plano, duracao: 30 };
+
+  it('o plano anual é cobrado uma vez por ano', () => {
+    // Sem isto, a recorrência fixa de 1 mês cobraria os R$ 699 do ano
+    // TODA VEZ que o mês virasse. Doze vezes, no cartão de quem confiou.
+    expect(recorrenciaDoPlano(anual)).toEqual({ frequency: 12, frequency_type: 'months' });
+    expect(corpoDoPlano(anual, 'x').auto_recurring.frequency).toBe(12);
+  });
+
+  it('o mensal continua mensal', () => {
+    expect(recorrenciaDoPlano(mensal)).toEqual({ frequency: 1, frequency_type: 'months' });
+  });
+
+  it('plano sem duração declarada é tratado como mensal', () => {
+    // As linhas antigas do banco não têm `duracao` no select de todo lugar.
+    // Na dúvida, cobrar mensal erra a favor de quem paga.
+    expect(recorrenciaDoPlano({ duracao: null })).toEqual({ frequency: 1, frequency_type: 'months' });
+    expect(recorrenciaDoPlano({ duracao: undefined })).toEqual({ frequency: 1, frequency_type: 'months' });
+  });
+
+  it('a assinatura de verdade também respeita o prazo do plano', () => {
+    const corpo = corpoDaAssinatura({
+      plano: anual,
+      emailDoPagador: 'dono@barbearia.app',
+      tenantId: 7,
+      backUrl: 'https://barbeariabrutal.vercel.app/assinatura',
+      primeiraCobranca: new Date('2026-09-01T12:00:00Z'),
+    });
+    expect(corpo.auto_recurring.frequency).toBe(12);
+    expect(corpo.auto_recurring.transaction_amount).toBe(699);
   });
 });
 

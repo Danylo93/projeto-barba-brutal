@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { linhasDoCatalogo } from '../src/plano/catalogo';
 
 const prisma = new PrismaClient();
 
@@ -8,39 +9,8 @@ async function seed() {
     
     // 1. Criar planos de assinatura
     console.log('📋 Criando planos de assinatura...');
-    // maxUsuarios representa o número de barbeiros permitidos no plano.
-    const planos = [
-      {
-        nome: 'Básico',
-        descricao: 'Ideal para quem trabalha sozinho',
-        preco: 49.90,
-        duracao: 30,
-        maxUsuarios: 1,
-        maxAgendamentos: 200,
-        features: ['1 barbeiro', 'Agendamentos online', 'Gestão de clientes', 'Relatórios básicos'],
-        ativo: true,
-      },
-      {
-        nome: 'Profissional',
-        descricao: 'Para barbearias em crescimento',
-        preco: 99.90,
-        duracao: 30,
-        maxUsuarios: 5,
-        maxAgendamentos: 1000,
-        features: ['Até 5 barbeiros', 'Agendamentos online', 'Gestão de clientes', 'Relatórios avançados', 'Integração WhatsApp'],
-        ativo: true,
-      },
-      {
-        nome: 'Premium',
-        descricao: 'Para barbearias e redes de qualquer tamanho',
-        preco: 159.90,
-        duracao: 30,
-        maxUsuarios: 999999,
-        maxAgendamentos: 999999,
-        features: ['Barbeiros ilimitados', 'Agendamentos ilimitados', 'Relatórios completos', 'Integração WhatsApp', 'Suporte prioritário 24/7'],
-        ativo: true,
-      },
-    ];
+    // Os planos saem do catálogo — preço e limite não se digitam duas vezes.
+    const planos = linhasDoCatalogo().map((linha) => ({ ...linha, ativo: true }));
 
     await prisma.plano.createMany({
       data: planos,

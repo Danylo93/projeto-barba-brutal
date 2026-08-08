@@ -152,6 +152,35 @@ export class AgendamentoController {
     return { id: agendamento.id, status: 'cancelado' };
   }
 
+  /**
+   * O dono viu o Pix cair e libera o horário.
+   *
+   * É ação manual porque o dinheiro não passa por aqui: o Pix vai direto para
+   * a conta da barbearia, e quem enxerga o extrato é ela. Confirmar sozinho
+   * exigiria integrar a conta bancária do dono — outra funcionalidade, e
+   * outro tipo de responsabilidade.
+   */
+  @Post(':id/sinal/confirmar')
+  async confirmarSinal(
+    @Param('id') id: string,
+    @UsuarioLogado() usuarioLogado: Usuario,
+    @CurrentTenant() tenant: any,
+  ) {
+    this.exigirEquipe(usuarioLogado);
+    return this.repo.registrarSinal(+id, tenant.id, 'pago');
+  }
+
+  /** Cliente conhecido, freguês antigo: o dono libera sem cobrar. */
+  @Post(':id/sinal/dispensar')
+  async dispensarSinal(
+    @Param('id') id: string,
+    @UsuarioLogado() usuarioLogado: Usuario,
+    @CurrentTenant() tenant: any,
+  ) {
+    this.exigirEquipe(usuarioLogado);
+    return this.repo.registrarSinal(+id, tenant.id, 'dispensado');
+  }
+
   @Patch(':id/status')
   async atualizarStatus(
     @Param('id') id: string,
@@ -205,6 +234,12 @@ export class AgendamentoController {
     }
 
     return { id: agendamento.id, status: novoStatus };
+  }
+
+  /** Dono ou barbeiro. Cliente não confirma o próprio pagamento. */
+  private exigirEquipe(usuario: Usuario | any) {
+    if (usuario?.tipo === 'tenant' || usuario?.barbeiro) return;
+    throw new HttpException('Usuário não autorizado', 401);
   }
 
   /**

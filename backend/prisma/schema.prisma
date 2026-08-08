@@ -10,27 +10,34 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")   // no Neon: URL "pooled" (-pooler)
-  directUrl = env("DIRECT_URL")     // no Neon: URL direta (migrations); local: igual à DATABASE_URL
+  url       = env("DATABASE_URL") // no Neon: URL "pooled" (-pooler)
+  directUrl = env("DIRECT_URL") // no Neon: URL direta (migrations); local: igual à DATABASE_URL
 }
 
 // Planos de assinatura disponíveis
 model Plano {
-  id          Int       @id @default(autoincrement())
-  nome        String    @unique
-  descricao   String
-  preco       Float
-  duracao     Int       // em dias
-  maxUsuarios Int       // máximo de usuários por tenant
-  maxAgendamentos Int   // máximo de agendamentos por mês
-  features    String[]  // features incluídas no plano
-  ativo       Boolean   @default(true)
+  id                  Int      @id @default(autoincrement())
+  nome                String   @unique
+  descricao           String
+  preco               Float
+  duracao             Int // em dias
+  maxUsuarios         Int // máximo de usuários por tenant
+  maxAgendamentos     Int // máximo de agendamentos por mês
+  features            String[] // features incluídas no plano
+  ativo               Boolean  @default(true)
+  /// mensal | anual. O que muda de verdade é a `duracao`; isto existe para a
+  /// tela poder agrupar sem interpretar número de dia.
+  periodicidade       String   @default("mensal")
+  /// basico | profissional | premium — é o que liga a versão mensal à anual
+  /// do mesmo plano no alternador de preço. Sem isto, "Premium" e "Premium
+  /// Anual" seriam dois planos sem parentesco nenhum.
+  grupo               String?
   /// id do preapproval_plan no Mercado Pago (assinatura recorrente).
-  mpPreapprovalPlanId String? @unique
+  mpPreapprovalPlanId String?  @unique
   /// Link do checkout de assinatura gerado pelo Mercado Pago.
-  mpInitPoint String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  mpInitPoint         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   assinaturas Assinatura[]
   pagamentos  Pagamento[]
@@ -40,85 +47,105 @@ model Plano {
 
 // Tenants (salões/barbearias)
 model Tenant {
-  id            Int       @id @default(autoincrement())
-  nome          String
-  email         String    @unique
-  telefone      String
-  senha         String?
-  endereco      String?
+  id               Int      @id @default(autoincrement())
+  nome             String
+  email            String   @unique
+  telefone         String
+  senha            String?
+  endereco         String?
   /// CPF ou CNPJ da barbearia, só dígitos (e letras, no CNPJ alfanumérico).
   /// É o que impede a mesma pessoa abrir várias contas com e-mails diferentes
   /// para renovar o teste grátis — e-mail não verificado não identifica ninguém.
-  documento     String?   @unique
+  documento        String?  @unique
   /// cpf | cnpj — guardado para exibir formatado sem recalcular.
-  tipoDocumento String?
+  tipoDocumento    String?
   /// @deprecated Use `documento`. Mantido para não quebrar cadastros antigos.
-  cnpj          String?   @unique
-  dominio       String?   @unique // subdomínio personalizado
+  cnpj             String?  @unique
+  dominio          String?  @unique // subdomínio personalizado
   /// Endereços que a barbearia já teve.
   ///
   /// O slug vira `latita.barbeariabrutal.com`, então trocá-lo quebra QR code
   /// impresso, link na bio e cartão de visita. Guardando os antigos, a página
   /// pública ainda encontra a barbearia pelo endereço velho e redireciona.
-  dominiosAntigos String[] @default([])
-  logo          String?   // URL da logo
-  corPrimaria   String?   // cor primária da marca
-  corSecundaria String?   // cor secundária da marca
-  apiKey        String?   @unique // Chave de API para integração externa
-  stripeCustomerId String? @unique // ID do customer no Stripe
-  configuracoes Json?     // Configurações da barbearia (horários, dias, etc)
-  ativo         Boolean   @default(true)
+  dominiosAntigos  String[] @default([])
+  logo             String? // URL da logo
+  corPrimaria      String? // cor primária da marca
+  corSecundaria    String? // cor secundária da marca
+  apiKey           String?  @unique // Chave de API para integração externa
+  stripeCustomerId String?  @unique // ID do customer no Stripe
+  configuracoes    Json? // Configurações da barbearia (horários, dias, etc)
+  ativo            Boolean  @default(true)
   /// Identifica a sessão ativa. Um login novo gera outro valor e o token
   /// anterior para de valer na requisição seguinte — é o que garante uma
   /// sessão por conta sem manter lista de tokens revogados.
-  sessaoId      String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  assinatura    Assinatura?
-  usuarios      Usuario[]
-  profissionais Profissional[]
-  servicos      Servico[]
-  chavePix      String?   // chave Pix da barbearia (recebe o clube de assinatura)
+  sessaoId         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  assinatura          Assinatura?
+  usuarios            Usuario[]
+  profissionais       Profissional[]
+  servicos            Servico[]
+  chavePix            String? // chave Pix da barbearia (recebe o clube de assinatura)
   /// Quando o teste grátis foi concedido. Fica no tenant, e não na assinatura,
   /// para sobreviver a cancelamento — senão bastava cancelar e escolher plano
   /// de novo para ganhar outros 30 dias, todo mês.
-  testeGratisUsadoEm DateTime?
-  agendamentos  Agendamento[]
-  pagamentos    Pagamento[]
-  bloqueios     Bloqueio[]
-  planosClube   PlanoClube[]
-  assinaturasClube AssinaturaClube[]
-  cupons        Cupom[]
+  testeGratisUsadoEm  DateTime?
+  /// Exige sinal para segurar o horário. Desligado por padrão: cobrar
+  /// adiantado de quem não espera muda a relação com o cliente, e essa
+  /// decisão é da barbearia.
+  sinalAtivo          Boolean            @default(false)
+  /// Quanto do valor do serviço vira sinal, em % (0 a 100).
+  sinalPercent        Float              @default(0)
+  /// Piso do sinal em reais. Sem isto, 20% de um corte infantil vira R$ 5 e o
+  /// Pix custa mais atenção do que segura horário.
+  sinalMinimo         Float              @default(0)
+  /// Minutos que o horário fica preso esperando o Pix cair.
+  sinalPrazoMinutos   Int                @default(30)
+  /// Deixa marcar sem criar conta, só com nome e WhatsApp.
+  agendamentoSemConta Boolean            @default(true)
+  agendamentos        Agendamento[]
+  pagamentos          Pagamento[]
+  bloqueios           Bloqueio[]
+  planosClube         PlanoClube[]
+  assinaturasClube    AssinaturaClube[]
+  cupons              Cupom[]
+  produtos            Produto[]
+  movimentosEstoque   MovimentoEstoque[]
+  series              SerieAgendamento[]
 
+  // Índice GIN, criado pela migração dos endereços antigos: é o que faz a
+  // página pública achar a barbearia por um slug que ela já teve. Declarado
+  // aqui para o schema parar de divergir do banco.
+  @@index([dominiosAntigos], type: Gin, map: "tenant_dominios_antigos_idx")
   @@map("tenant")
 }
 
 // Assinaturas dos tenants
 model Assinatura {
-  id                Int       @id @default(autoincrement())
-  tenantId          Int       @unique
-  planoId           Int
-  status            String    // trialing, active, canceled, past_due, unpaid
-  emTeste           Boolean   @default(false) // período de teste de 30 dias
-  stripeCustomerId  String?   @unique
-  stripeSubscriptionId String? @unique
+  id                        Int       @id @default(autoincrement())
+  tenantId                  Int       @unique
+  planoId                   Int
+  status                    String // trialing, active, canceled, past_due, unpaid
+  emTeste                   Boolean   @default(false) // período de teste de 30 dias
+  stripeCustomerId          String?   @unique
+  stripeSubscriptionId      String?   @unique
   /// id do preapproval no Mercado Pago — a assinatura recorrente do barbeiro.
-  mpPreapprovalId   String?   @unique
+  mpPreapprovalId           String?   @unique
   /// recorrente (cartão/Pix pelo Mercado Pago) ou pix_avulso (QR Code manual)
-  meioPagamento     String?
-  dataInicio        DateTime
-  dataFim           DateTime
-  renovacaoAutomatica Boolean @default(true)
+  meioPagamento             String?
+  dataInicio                DateTime
+  dataFim                   DateTime
+  renovacaoAutomatica       Boolean   @default(true)
   avisoVencimentoWhatsappEm DateTime?
   avisoVencimentoEmailEm    DateTime?
   avisoExpiracaoWhatsappEm  DateTime?
   avisoExpiracaoEmailEm     DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
-  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  plano             Plano     @relation(fields: [planoId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plano  Plano  @relation(fields: [planoId], references: [id])
 
   @@index([status, dataFim])
   @@map("assinatura")
@@ -126,19 +153,19 @@ model Assinatura {
 
 // Pagamentos (Pix via Mercado Pago) — o admin do SaaS acompanha e controla
 model Pagamento {
-  id            Int       @id @default(autoincrement())
-  tenantId      Int
-  planoId       Int
-  valor         Float
-  metodo        String    @default("pix")
-  status        String    @default("pending") // pending, approved, rejected, cancelled
-  mpPaymentId   String?   @unique  // id do pagamento no Mercado Pago
-  qrCode        String?   // copia e cola (EMV)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          Int      @id @default(autoincrement())
+  tenantId    Int
+  planoId     Int
+  valor       Float
+  metodo      String   @default("pix")
+  status      String   @default("pending") // pending, approved, rejected, cancelled
+  mpPaymentId String?  @unique // id do pagamento no Mercado Pago
+  qrCode      String? // copia e cola (EMV)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  plano         Plano     @relation(fields: [planoId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plano  Plano  @relation(fields: [planoId], references: [id])
 
   @@map("pagamento")
 }
@@ -156,110 +183,116 @@ model Admin {
   sessaoId  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@map("admin")
 }
 
 model Usuario {
-  id           Int           @id @default(autoincrement())
-  nome         String
-  email        String
-  senha        String
-  telefone     String
+  id               Int                @id @default(autoincrement())
+  nome             String
+  email            String
+  senha            String
+  telefone         String
   /// Cliente por padrão. Barbeiro só pelo cadastro de profissional, que
   /// exige token do dono — nunca pelo cadastro público.
-  barbeiro     Boolean       @default(false)
-  tenantId     Int
-  ativo        Boolean       @default(true)
+  barbeiro         Boolean            @default(false)
+  tenantId         Int
+  ativo            Boolean            @default(true)
   /// Identifica a sessão ativa. Um login novo gera outro valor e o token
   /// anterior para de valer na requisição seguinte — é o que garante uma
   /// sessão por conta sem manter lista de tokens revogados.
-  sessaoId     String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  agendamentos Agendamento[]
-  profissional Profissional?
+  sessaoId         String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  /// Conta criada no agendamento sem cadastro: existe para segurar o
+  /// histórico, mas ninguém escolheu senha ainda. Vira conta normal quando a
+  /// pessoa aceita o convite de primeiro acesso.
+  semCadastro      Boolean            @default(false)
+  agendamentos     Agendamento[]
+  profissional     Profissional?
   assinaturasClube AssinaturaClube[]
+  series           SerieAgendamento[]
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   @@unique([email, tenantId]) // email único por tenant
   @@map("usuario")
 }
 
 model Profissional {
-  id                   Int           @id @default(autoincrement())
+  id                   Int                @id @default(autoincrement())
   nome                 String
   descricao            String
-  imagemUrl            String        @default("")
-  avaliacao            Float         @default(0)
-  quantidadeAvaliacoes Int           @default(0)
+  imagemUrl            String             @default("")
+  avaliacao            Float              @default(0)
+  quantidadeAvaliacoes Int                @default(0)
   tenantId             Int
-  usuarioId            Int?          @unique
-  ativo                Boolean       @default(true)
+  usuarioId            Int?               @unique
+  ativo                Boolean            @default(true)
   /// % do valor do serviço que fica com o profissional (0 a 100).
-  comissaoPercent      Float         @default(0)
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  comissaoPercent      Float              @default(0)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
   agendamentos         Agendamento[]
-  servicos             Servico[]     // serviços que este profissional realiza
-  bloqueios            Bloqueio[]    // folgas, almoço, férias
+  servicos             Servico[] // serviços que este profissional realiza
+  bloqueios            Bloqueio[] // folgas, almoço, férias
+  series               SerieAgendamento[]
 
-  tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  usuario              Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@unique([nome, tenantId]) // nome único por tenant
   @@map("profissional")
 }
 
 model Servico {
-  id           Int           @id @default(autoincrement())
-  nome         String
-  descricao    String
-  preco        Float
-  qtdeSlots    Int
-  imagemURL    String        @default("")
-  ehCombo      Boolean        @default(false) // combo (ex: barba + cabelo) — seleção exclusiva no agendamento
-  tenantId     Int
-  ativo        Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  agendamentos Agendamento[]
+  id            Int            @id @default(autoincrement())
+  nome          String
+  descricao     String
+  preco         Float
+  qtdeSlots     Int
+  imagemURL     String         @default("")
+  ehCombo       Boolean        @default(false) // combo (ex: barba + cabelo) — seleção exclusiva no agendamento
+  tenantId      Int
+  ativo         Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  agendamentos  Agendamento[]
   profissionais Profissional[] // profissionais que realizam este serviço
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([nome, tenantId]) // nome único por tenant
   @@map("servico")
 }
 
 model Agendamento {
-  id             Int          @id @default(autoincrement())
-  data           DateTime     @db.Timestamptz(3)
-  profissional   Profissional @relation(fields: [profissionalId], references: [id])
-  profissionalId Int
-  servicos       Servico[]
-  usuario        Usuario      @relation(fields: [usuarioId], references: [id])
-  usuarioId      Int
-  tenantId       Int
-  status         String       @default("agendado") // agendado, confirmado, cancelado, concluido, expirado
-  observacoes    String?
+  id                   Int          @id @default(autoincrement())
+  data                 DateTime     @db.Timestamptz(3)
+  profissional         Profissional @relation(fields: [profissionalId], references: [id])
+  profissionalId       Int
+  servicos             Servico[]
+  usuario              Usuario      @relation(fields: [usuarioId], references: [id])
+  usuarioId            Int
+  tenantId             Int
+  status               String       @default("agendado") // agendado, confirmado, cancelado, concluido, expirado
+  observacoes          String?
   /// Valor cobrado, congelado na hora de agendar.
   ///
   /// Antes o faturamento era recalculado a partir de `Servico.preco` toda vez
   /// que alguém abria o relatório: o dono reajustava o corte em agosto e o
   /// faturamento de junho mudava junto, junto com a comissão já paga.
-  valorTotal     Float?
+  valorTotal           Float?
   /// Preço de cada serviço no momento do agendamento: { "<servicoId>": 45 }.
   /// É o que permite o relatório de serviços mais vendidos bater com a receita.
-  precosServicos Json?
+  precosServicos       Json?
   /// Quando o lembrete de WhatsApp foi enviado.
   ///
   /// O dedup morava no Redis, com janela fixa de 5 minutos: se UMA execução do
   /// n8n falhasse, os agendamentos daquela janela nunca mais eram consultados
   /// e ninguém era lembrado — sem erro em lugar nenhum. Aqui no banco, o que
   /// não foi enviado continua pendente até sair.
-  lembreteEnviadoEm DateTime?
+  lembreteEnviadoEm    DateTime?
   /// Quando a confirmação de WhatsApp foi enviada.
   ///
   /// O fluxo de confirmação guardava no Redis o id do último agendamento
@@ -270,13 +303,35 @@ model Agendamento {
   confirmacaoEnviadaEm DateTime?
   /// Quando o cliente recebeu o lembrete para voltar e refazer os serviços.
   /// Separado do lembrete de horário e gerado só por atendimento concluído.
-  retornoEnviadoEm DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  retornoEnviadoEm     DateTime?
+  /// Quanto de sinal foi pedido, congelado no momento de agendar — o dono
+  /// pode mudar a regra amanhã e quem já marcou continua devendo o que
+  /// combinou.
+  sinalValor           Float?
+  /// nao_exigido | pendente | pago | expirado | dispensado
+  sinalStatus          String?
+  /// Pix copia e cola do sinal. Cai direto na conta da barbearia.
+  sinalPixCopiaECola   String?
+  /// Depois disto o horário volta para a agenda se o Pix não cair.
+  sinalExpiraEm        DateTime?
+  sinalPagoEm          DateTime?
+  /// De qual série de atendimento recorrente este horário nasceu.
+  serieId              Int?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 
-  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  serie  SerieAgendamento? @relation(fields: [serieId], references: [id], onDelete: SetNull)
 
+  @@index([sinalStatus, sinalExpiraEm])
+  @@index([serieId])
   @@index([tenantId, status, data])
+  // Os três índices abaixo já existem no banco desde as migrações das
+  // automações de WhatsApp. O `map` repete o nome que a migração usou, senão
+  // o Prisma acha que precisa dropar e recriar cada um deles.
+  @@index([data, lembreteEnviadoEm], map: "agendamento_lembrete_idx")
+  @@index([createdAt, confirmacaoEnviadaEm], map: "agendamento_confirmacao_idx")
+  @@index([tenantId, status, data, retornoEnviadoEm], map: "agendamento_retorno_idx")
   @@map("agendamento")
 }
 
@@ -296,16 +351,16 @@ model AuditLog {
 /// Período em que não se pode agendar: folga, almoço, férias ou feriado.
 /// `profissionalId` nulo bloqueia a barbearia inteira.
 model Bloqueio {
-  id             Int           @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   tenantId       Int
   profissionalId Int?
-  inicio         DateTime      @db.Timestamptz(3)
-  fim            DateTime      @db.Timestamptz(3)
+  inicio         DateTime @db.Timestamptz(3)
+  fim            DateTime @db.Timestamptz(3)
   motivo         String?
-  createdAt      DateTime      @default(now())
+  createdAt      DateTime @default(now())
 
-  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  profissional   Profissional? @relation(fields: [profissionalId], references: [id], onDelete: Cascade)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profissional Profissional? @relation(fields: [profissionalId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, inicio])
   @@index([profissionalId, inicio])
@@ -371,18 +426,18 @@ model SolicitacaoExclusao {
 /// porque a exportação da LGPD lê estas tabelas. Uma migração que dropasse
 /// isso seria irreversível — e a decisão foi "por enquanto".
 model PlanoClube {
-  id          Int      @id @default(autoincrement())
-  tenantId    Int
-  nome        String
-  descricao   String?
-  preco       Float
+  id         Int      @id @default(autoincrement())
+  tenantId   Int
+  nome       String
+  descricao  String?
+  preco      Float
   /// Benefícios listados na página do clube (ex.: "2 cortes por mês").
-  beneficios  String[]
-  ativo       Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  beneficios String[]
+  ativo      Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assinaturas AssinaturaClube[]
 
   @@unique([nome, tenantId])
@@ -407,9 +462,9 @@ model AssinaturaClube {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  usuario       Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  plano         PlanoClube @relation(fields: [planoClubeId], references: [id], onDelete: Cascade)
+  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuario Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  plano   PlanoClube @relation(fields: [planoClubeId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status])
   @@index([usuarioId])
@@ -418,22 +473,129 @@ model AssinaturaClube {
 
 /// Cupons de Desconto (Módulo de Marketing)
 model Cupom {
-  id          Int       @id @default(autoincrement())
-  tenantId    Int
-  codigo      String
-  tipo        String    /// 'percentual' ou 'fixo'
-  valor       Float     /// 10 (10%) ou 15.00 (R$ 15,00)
-  ativo       Boolean   @default(true)
-  validoAte   DateTime?
-  usos        Int       @default(0)
-  maxUsos     Int?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        Int       @id @default(autoincrement())
+  tenantId  Int
+  codigo    String
+  tipo      String /// 'percentual' ou 'fixo'
+  valor     Float /// 10 (10%) ou 15.00 (R$ 15,00)
+  ativo     Boolean   @default(true)
+  validoAte DateTime?
+  usos      Int       @default(0)
+  maxUsos   Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([codigo, tenantId])
   @@map("cupom")
+}
+
+/// Cliente que volta sempre no mesmo dia e hora: "todo sábado às 10h".
+///
+/// A série não é a agenda. Ela é a REGRA, e os horários de verdade continuam
+/// sendo linhas de `Agendamento` — senão a agenda do dia teria que consultar
+/// duas fontes e conciliar as duas, e todo cancelamento viraria exceção
+/// guardada em algum canto.
+///
+/// Os horários são materializados com antecedência (`geradoAte`) porque é
+/// isso que faz o conflito aparecer na hora de marcar, e não no sábado de
+/// manhã com dois clientes na porta.
+model SerieAgendamento {
+  id             Int       @id @default(autoincrement())
+  tenantId       Int
+  usuarioId      Int
+  profissionalId Int
+  /// Serviços da série. Guardados como ids porque a série é um molde: o
+  /// vínculo de verdade nasce em cada `Agendamento` gerado.
+  servicoIds     Int[]
+  /// semanal | quinzenal | mensal
+  frequencia     String
+  /// 0 (domingo) a 6 (sábado), no fuso de Brasília.
+  diaSemana      Int
+  /// "15:00", no fuso de Brasília. Texto, e não DateTime, porque o que se
+  /// repete é a hora do relógio — não o instante.
+  hora           String
+  /// Até quando os horários já foram criados.
+  geradoAte      DateTime?
+  /// Última data da série. Nulo = enquanto a barbearia não cancelar.
+  ate            DateTime?
+  ativo          Boolean   @default(true)
+  observacoes    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuario      Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  profissional Profissional  @relation(fields: [profissionalId], references: [id], onDelete: Cascade)
+  agendamentos Agendamento[]
+
+  @@index([tenantId, ativo])
+  @@map("serie_agendamento")
+}
+
+/// Produto revendido no balcão: pomada, óleo, shampoo.
+///
+/// `estoque` é saldo derivado — quem manda é a soma dos movimentos. Fica
+/// materializado aqui porque a tela de venda precisa saber o saldo sem somar
+/// o histórico inteiro a cada clique; toda escrita passa pelo serviço, que
+/// grava o movimento e o saldo na mesma transação.
+model Produto {
+  id            Int      @id @default(autoincrement())
+  tenantId      Int
+  nome          String
+  descricao     String?
+  /// Quanto o cliente paga.
+  precoVenda    Float
+  /// Quanto a barbearia pagou. É o que permite dizer o lucro, e não só o
+  /// faturamento.
+  precoCusto    Float    @default(0)
+  estoque       Int      @default(0)
+  /// Abaixo disto a tela avisa que está acabando.
+  estoqueMinimo Int      @default(0)
+  imagemUrl     String   @default("")
+  ativo         Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  movimentos MovimentoEstoque[]
+
+  @@unique([nome, tenantId])
+  @@index([tenantId, ativo])
+  @@map("produto")
+}
+
+/// Toda entrada e saída de estoque, uma linha por vez.
+///
+/// Existe para responder "por que o saldo é 3 se eu comprei 12": sem
+/// histórico, estoque errado não tem como ser investigado, só corrigido no
+/// chute. Linha nenhuma é editada nem apagada — engano se conserta com um
+/// movimento de ajuste, que também fica registrado.
+model MovimentoEstoque {
+  id            Int      @id @default(autoincrement())
+  tenantId      Int
+  produtoId     Int
+  /// entrada (compra) | venda | saida (perda, uso interno) | ajuste
+  tipo          String
+  /// Sempre positiva. O sinal quem dá é o `tipo`.
+  quantidade    Int
+  /// Saldo depois deste movimento, congelado. É o que permite auditar sem
+  /// recalcular a cadeia inteira.
+  saldoDepois   Int
+  /// Preço unitário praticado neste movimento (venda ou compra).
+  valorUnitario Float?
+  motivo        String?
+  /// Quem registrou. Nulo quando veio de rotina do sistema.
+  usuarioId     Int?
+  createdAt     DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([produtoId, createdAt])
+  @@map("movimento_estoque")
 }
 
 /// Pedido de redefinição de senha.
@@ -450,6 +612,9 @@ model RecuperacaoSenha {
   usadoEm     DateTime?
   createdAt   DateTime  @default(now())
 
-  @@index([titularTipo, titularId])
+  // O `map` existe porque a migração criou o índice com este nome, e o
+  // Prisma geraria outro. Sem ele, todo `migrate diff` acusa deriva e a
+  // próxima migração tenta renomear um índice que está certo.
+  @@index([titularTipo, titularId], map: "recuperacao_senha_titular_idx")
   @@map("recuperacao_senha")
 }

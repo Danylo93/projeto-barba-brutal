@@ -18,6 +18,8 @@ import {
 } from './mercadopago-assinatura';
 import { dominioDaOpcao } from './dominio';
 import { DIAS_TESTE_GRATIS } from './teste-gratis';
+import { vigenciaAte } from '../plano/catalogo';
+import { contaDaTroca, tipoDaTroca } from './troca-de-plano';
 
 @Injectable()
 export class AssinaturaService {
@@ -73,22 +75,21 @@ export class AssinaturaService {
     const planoAtual = assinatura
       ? await this.prisma.plano.findUnique({ where: { id: assinatura.planoId } })
       : null;
-    const eUpgrade = !!planoAtual && plano.preco > planoAtual.preco;
-    const eDowngrade = !!planoAtual && plano.preco < planoAtual.preco;
-    const diasRestantes = assinatura && assinatura.dataFim > agora
-      ? Math.max(0, Math.ceil((assinatura.dataFim.getTime() - agora.getTime()) / 86400000))
-      : 0;
-    const diasNoCiclo = assinatura
-      ? Math.max(
-          1,
-          Math.ceil((assinatura.dataFim.getTime() - assinatura.dataInicio.getTime()) / 86400000),
-        )
-      : 30;
-    const proporcaoRestante = diasRestantes / diasNoCiclo;
+    // Mesma conta que a cobrança usa — o número que a tela mostra não pode
+    // discordar do que o Pix vai pedir. Comparar preço cheio diria que ir do
+    // Premium mensal para o anual é "upgrade"; é a mesma coisa paga de outro
+    // jeito.
+    const tipoDeTroca = tipoDaTroca(plano, planoAtual);
+    const contaDoUpgrade = contaDaTroca(
+      plano,
+      planoAtual,
+      assinatura,
+      !!assinatura?.emTeste,
+      agora,
+    );
+    const diasRestantes = contaDoUpgrade.diasRestantes;
     const diferencaProporcional =
-      eUpgrade && planoAtual
-        ? Number(Math.max(0, (plano.preco - planoAtual.preco) * proporcaoRestante).toFixed(2))
-        : 0;
+      tipoDeTroca === 'downgrade' ? 0 : contaDoUpgrade.valor;
 
     // Teste grátis é UMA vez por barbearia, e a marca fica no tenant para
     // sobreviver a cancelamento. Sem isso bastava cancelar e escolher um
@@ -160,7 +161,7 @@ export class AssinaturaService {
     await this.avisarPlanoContratado(tenantId, plano, retornoValidoAte, ehTrial);
     return {
       assinatura: trocada,
-      tipoAlteracao: eUpgrade ? 'upgrade' : eDowngrade ? 'downgrade' : 'troca',
+      tipoAlteracao: tipoDeTroca,
       valorProporcional: diferencaProporcional,
       diasRestantes,
     };
@@ -507,18 +508,22 @@ export class AssinaturaService {
     const planoAtual = assinatura
       ? await this.prisma.plano.findUnique({ where: { id: assinatura.planoId } })
       : null;
-    const diasRestantes = assinatura && assinatura.dataFim > agora
-      ? Math.max(0, Math.ceil((assinatura.dataFim.getTime() - agora.getTime()) / 86400000))
-      : 0;
-    const diasNoCiclo = assinatura
-      ? Math.max(
-          1,
-          Math.ceil((assinatura.dataFim.getTime() - assinatura.dataInicio.getTime()) / 86400000),
-        )
-      : 30;
-    const proporcaoRestante = diasRestantes / diasNoCiclo;
-    const valorBase = planoAtual ? Math.max(0, plano.preco - planoAtual.preco) : plano.preco;
-    const valorCobranca = Number(Math.max(0.01, valorBase * proporcaoRestante || plano.preco).toFixed(2));
+    // Cobra o plano novo por inteiro e abate o que resta do ciclo atual.
+    //
+    // A fórmula anterior cobrava a DIFERENÇA de preço rateada pelo que
+    // sobrava — conta que só fecha quando os dois planos duram o mesmo tanto.
+    // Como a ativação sempre concede um ciclo inteiro, trocar o Premium
+    // mensal pelo anual cobrava R$ 599,40 e entregava 365 dias; no último dia
+    // do ciclo, R$ 29,97 por um ano.
+    const conta = contaDaTroca(
+      plano,
+      planoAtual,
+      assinatura,
+      !!assinatura?.emTeste,
+      agora,
+    );
+    const { valor: valorCobranca, credito, diasRestantes } = conta;
+    const valorBase = conta.precoDoPlano;
 
     if (!this.mpToken) {
       throw new BadRequestException(
@@ -539,6 +544,7 @@ export class AssinaturaService {
           planoId,
           upgrade: true,
           valorBase,
+          credito,
           diasRestantes,
         },
       }),
@@ -684,11 +690,17 @@ export class AssinaturaService {
     return { pagamentoId: pagamento.id, status: pagamento.status };
   }
 
-  /** Ativa (ou renova) a assinatura como PAGA por 30 dias. */
+  /** Ativa (ou renova) a assinatura como PAGA pelo prazo do plano. */
   private async ativarAssinaturaPaga(tenantId: number, planoId: number) {
+    // O plano é lido ANTES de gravar porque é ele quem diz até quando a
+    // assinatura vale. Com o valor fixo de 30 dias que estava aqui, quem
+    // pagasse o anual perderia o acesso no mês seguinte.
+    const plano = await this.prisma.plano.findUnique({
+      where: { id: planoId },
+      select: { nome: true, preco: true, duracao: true },
+    });
     const dataInicio = new Date();
-    const dataFim = new Date();
-    dataFim.setDate(dataFim.getDate() + 30);
+    const dataFim = vigenciaAte(plano, dataInicio);
     await this.prisma.assinatura.upsert({
       where: { tenantId },
       create: {
@@ -713,10 +725,6 @@ export class AssinaturaService {
     });
 
     // O barbeiro pagou e merece a confirmação no celular, não só na tela.
-    const plano = await this.prisma.plano.findUnique({
-      where: { id: planoId },
-      select: { nome: true, preco: true },
-    });
     if (plano) await this.avisarPlanoContratado(tenantId, plano, dataFim, false);
   }
 
@@ -909,12 +917,16 @@ export class AssinaturaService {
       where: { tenantId },
       select: { dataFim: true, emTeste: true },
     });
-    const daquiATrintaDias = new Date();
-    daquiATrintaDias.setDate(daquiATrintaDias.getDate() + 30);
+    // Quem ainda não tinha teste ganha o prazo que a landing anuncia. Estava
+    // fixo em 30 aqui enquanto a promessa já era de 14 — o `free_trial` que
+    // vai no corpo do plano sempre saiu da constante, então os dois números
+    // discordavam dentro da mesma contratação.
+    const fimDoTeste = new Date();
+    fimDoTeste.setDate(fimDoTeste.getDate() + DIAS_TESTE_GRATIS);
     const primeiraCobranca =
       assinaturaAtual?.emTeste && assinaturaAtual.dataFim > new Date()
         ? assinaturaAtual.dataFim
-        : daquiATrintaDias;
+        : fimDoTeste;
 
     const criada = await this.mpFetch('/preapproval', {
       method: 'POST',
@@ -1030,10 +1042,13 @@ export class AssinaturaService {
       return;
     }
 
-    // Autorizada: vale por 30 dias e renova sozinha a cada cobrança.
+    // Autorizada: vale o prazo do plano e renova sozinha a cada cobrança.
     const inicio = new Date();
-    const fim = new Date();
-    fim.setDate(fim.getDate() + 30);
+    const planoAutorizado = await this.prisma.plano.findUnique({
+      where: { id: ref.planoId },
+      select: { duracao: true },
+    });
+    const fim = vigenciaAte(planoAutorizado, inicio);
     await this.prisma.assinatura.upsert({
       where: { tenantId: ref.tenantId },
       create: {
@@ -1083,8 +1098,11 @@ export class AssinaturaService {
       return;
     }
 
-    const fim = new Date();
-    fim.setDate(fim.getDate() + 30);
+    const planoDaCobranca = await this.prisma.plano.findUnique({
+      where: { id: assinatura.planoId },
+      select: { duracao: true },
+    });
+    const fim = vigenciaAte(planoDaCobranca);
     await this.prisma.assinatura.update({
       where: { id: assinatura.id },
       data: {
