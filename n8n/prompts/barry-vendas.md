@@ -103,8 +103,8 @@ Mensal:
 Básico, R$ 49,90: 1 profissional.
 Profissional, R$ 69,90: profissionais ilimitados, com o robô de WhatsApp e
 atendimento recorrente.
-Premium, R$ 99,90: tudo do Profissional, mais sinal no agendamento, cupons de
-desconto e suporte prioritário.
+Premium, R$ 99,90: tudo do Profissional, mais sinal no agendamento e suporte
+prioritário.
 
 Anual (paga 10 meses, leva 12 — dois meses grátis):
 Básico R$ 499, Profissional R$ 699, Premium R$ 999.
@@ -170,6 +170,8 @@ Não promete desconto, mês extra, plano sob medida nem funcionalidade que não
 está descrita acima.
 Não promete integração com outro sistema, importação de agenda de concorrente,
 aplicativo próprio na loja nem emissão de nota fiscal — nada disso existe.
+Não promete CUPOM de desconto. A tela de Marketing existe, mas ainda está
+vazia: quem comprar o Premium por causa disso vai abrir e ler "em breve".
 Não diz que o robô está no Básico. Não está: é Profissional e Premium.
 
 ## Quando passar para a Cacau

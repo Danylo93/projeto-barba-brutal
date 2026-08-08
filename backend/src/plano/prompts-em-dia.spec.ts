@@ -122,6 +122,24 @@ describe('o robô é vendido só onde ele existe', () => {
   });
 });
 
+describe('nem tudo que está no catálogo existe de verdade', () => {
+  it('nenhum dos dois promete cupom', () => {
+    // O catálogo anuncia "Cupons de desconto" no Premium, mas não há endpoint
+    // nem tabela: a tela de Marketing é um "em breve". Copiar a feature do
+    // catálogo para o prompt fez o Barry vender vapor por R$ 99,90 — quem
+    // comprasse por isso abriria o painel e leria "estamos preparando".
+    //
+    // A palavra pode aparecer, mas só na linha que PROÍBE prometer. Conferir
+    // a ausência dela seria reprovar justamente a defesa.
+    for (const [nome, prompt] of [['Barry', barry], ['Cacau', cacau]] as const) {
+      const citam = prompt.split('\n').filter((linha) => /cupom|cupons/i.test(linha));
+      for (const linha of citam) {
+        expect(`${nome}: ${linha.trim()}`).toMatch(/^\w+: N[ãa]o promete CUPOM/);
+      }
+    }
+  });
+});
+
 describe('o endereço', () => {
   it('é barbeariabrutal.com nos dois, e o errado nunca aparece como link', () => {
     // O domínio .com.br não existe. Ele só pode aparecer na linha que ensina
