@@ -158,10 +158,10 @@ describe('o robô é vendido só onde ele existe', () => {
 
 describe('nem tudo que está no catálogo existe de verdade', () => {
   it('nenhum dos dois promete cupom', () => {
-    // O catálogo anuncia "Cupons de desconto" no Premium, mas não há endpoint
-    // nem tabela: a tela de Marketing é um "em breve". Copiar a feature do
-    // catálogo para o prompt fez o Barry vender vapor por R$ 99,90 — quem
-    // comprasse por isso abriria o painel e leria "estamos preparando".
+    // O cupom foi retirado do produto: saiu do catálogo, saiu da vitrine e a
+    // tela de Marketing — que era só um "em breve" — deixou de existir. Antes
+    // disso o Barry vendia Premium citando cupom, e quem comprasse por causa
+    // dele abriria o painel e leria "estamos preparando".
     //
     // A palavra pode aparecer, mas só na linha que PROÍBE prometer. Conferir
     // a ausência dela seria reprovar justamente a defesa.

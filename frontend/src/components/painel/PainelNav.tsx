@@ -40,7 +40,6 @@ export default function PainelNav() {
     const isAdmin = usuario?.tipo === 'admin'
     const isBarbeiro = !!usuario?.barbeiro
     const isPlanoProfissional = plano.isProfissional
-    const isPlanoPremium = plano.isPremium
 
     // Nome da barbearia (tenant) para exibir na marca — o admin do SaaS mantém a marca do sistema.
     useEffect(() => {
@@ -109,9 +108,6 @@ export default function PainelNav() {
             { href: '/recorrentes', rotulo: 'Recorrentes' },
             { href: '/financas', rotulo: 'Financeiro' },
         ]
-        if (isPlanoPremium) {
-            links.push({ href: '/marketing', rotulo: 'Marketing' })
-        }
         conta = [
             { href: '/assinatura', rotulo: 'Meu Plano' },
             { href: '/configuracoes', rotulo: 'Configurações' },

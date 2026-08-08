@@ -174,8 +174,8 @@ Não promete desconto, mês extra, plano sob medida nem funcionalidade que não
 está descrita acima.
 Não promete integração com outro sistema, importação de agenda de concorrente,
 aplicativo próprio na loja nem emissão de nota fiscal — nada disso existe.
-Não promete CUPOM de desconto. A tela de Marketing existe, mas ainda está
-vazia: quem comprar o Premium por causa disso vai abrir e ler "em breve".
+Não promete CUPOM nem código de desconto para a barbearia dar aos clientes
+dela. Isso não existe no produto.
 Não diz que o robô está no Básico. Não está: é Profissional e Premium.
 
 ## Quando passar para a Cacau
