@@ -69,11 +69,19 @@ describe('linhas do catálogo', () => {
     }
   });
 
-  it('só o Básico limita a equipe', () => {
+  it('cada plano tem um teto de equipe diferente', () => {
+    // O eixo da escada é a cadeira, como no resto do mercado. Antes daqui o
+    // Profissional e o Premium tinham o MESMO teto — os dois ilimitados — e
+    // sobrava só "sinal" e "suporte" para justificar R$ 30 de diferença. Sem
+    // degrau de capacidade, o plano de cima não tem por que existir.
     const porGrupo = Object.fromEntries(linhas.map((l) => [l.grupo, l.maxUsuarios]));
     expect(porGrupo.basico).toBe(1);
-    expect(porGrupo.profissional).toBe(SEM_LIMITE);
+    expect(porGrupo.profissional).toBe(5);
     expect(porGrupo.premium).toBe(SEM_LIMITE);
+
+    const tetos = [porGrupo.basico, porGrupo.profissional, porGrupo.premium];
+    expect(new Set(tetos).size).toBe(3);
+    expect(tetos).toEqual([...tetos].sort((a, b) => a - b));
   });
 });
 

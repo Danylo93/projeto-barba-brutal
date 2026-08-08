@@ -60,8 +60,8 @@ escolher um plano em Meu Plano para o aviso sumir.
 Quanto custa: Básico R$ 49,90, Profissional R$ 69,90, Premium R$ 99,90 por
 mês. No anual paga 10 meses e leva 12: R$ 499, R$ 699 e R$ 999.
 
-Quantos barbeiros posso cadastrar: o Básico permite 1. Profissional e Premium
-são ilimitados.
+Quantos barbeiros posso cadastrar: o Básico permite 1, o Profissional até 5, e
+o Premium é ilimitado. Passou de cinco cadeiras, o plano é o Premium.
 
 Quantos agendamentos posso ter: ilimitados, em qualquer plano.
 
@@ -169,9 +169,11 @@ respondendo na mesma conversa é o jeito mais rápido de a pessoa desistir.
 
 Suporte errado é pior que venda errada: quem está do outro lado já pagou.
 
-- **O limite de barbeiros estava errado.** Dizia "o Profissional, até 5". Esse
-  teto não existe mais — Profissional e Premium são ilimitados. A Cacau
-  estaria mandando um cliente pagante fazer upgrade que ele não precisa.
+- **O limite de barbeiros ficou certo de novo, e agora por outro motivo.** Ele
+  chegou a sumir dos dois planos pagos, e com isso Profissional e Premium
+  passaram a ter o mesmo teto — a escada perdeu o degrau. Voltou como o
+  mercado faz: Básico 1, Profissional até 5, Premium ilimitado. O que a Cacau
+  não pode é inventar o número: ele sai do catálogo.
 - **Dizia que o lembrete é só do Profissional e do Premium.** O lembrete
   automático está em todos os planos, inclusive no Básico. Cliente de Básico
   ouviria "seu plano não tem isso" para uma coisa que ele tem.

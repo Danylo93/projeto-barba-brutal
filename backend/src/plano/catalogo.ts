@@ -40,11 +40,21 @@ export interface PlanoDoCatalogo {
 /**
  * Os três planos.
  *
- * O teto de agendamentos saiu de todos. Ele existia como 200/mês no Básico e
- * 1.000 no Profissional, e o efeito prático era o pior possível: a barbearia
- * batia o teto no dia 20 e a API passava a recusar agendamento com 403 no
- * meio do mês — justo quando o mês estava indo bem. Quem cobra por cadeira
- * não precisa cobrar por movimento.
+ * O eixo é o NÚMERO DE PROFISSIONAIS, como o mercado faz. A Trinks cobra por
+ * faixa (1-2, 3-4, 5-10, 11-20, 21+), a Booksy cobra um fixo mais um valor por
+ * membro extra, a Fresha cobra por profissional agendável. Todas escalonam por
+ * cadeira, e por um motivo simples: cadeira é o que cresce junto com o
+ * faturamento da barbearia, então o preço acompanha a capacidade de pagar.
+ *
+ * Antes daqui os três planos eram 1 / ilimitado / ilimitado. Profissional e
+ * Premium tinham EXATAMENTE o mesmo teto, e os R$ 30 de diferença compravam
+ * "sinal no agendamento" e "suporte prioritário" — sem degrau de capacidade
+ * nenhum. É por isso que a diferença parecia arbitrária: ela era.
+ *
+ * O teto de AGENDAMENTOS continua fora de todos, e isso é de propósito. Ele
+ * existia como 200/mês no Básico e o efeito era o pior possível: a barbearia
+ * batia o teto no dia 20 e a API recusava agendamento no meio do mês, justo
+ * quando o mês estava indo bem. Cobra-se por cadeira, não por movimento.
  */
 export const CATALOGO: PlanoDoCatalogo[] = [
   {
@@ -57,8 +67,9 @@ export const CATALOGO: PlanoDoCatalogo[] = [
     features: [
       '1 profissional',
       'Agendamentos ilimitados',
+      'Página de agendamento da sua barbearia',
       'Agendamento sem cadastro',
-      'Lembrete automático no WhatsApp',
+      'Confirmação e lembrete no WhatsApp',
       'Gestão de clientes',
       'Produtos e estoque',
       'Relatórios básicos',
@@ -69,15 +80,21 @@ export const CATALOGO: PlanoDoCatalogo[] = [
     nome: 'Profissional',
     descricao: 'Para a barbearia com equipe',
     precoMensal: 69.9,
-    maxUsuarios: SEM_LIMITE,
+    // Cinco é a faixa que o mercado usa para "barbearia com equipe" — a Trinks
+    // separa 3-4 de 5-10 exatamente aí. Acima disso a operação muda de tamanho
+    // e passa a ser Premium.
+    maxUsuarios: 5,
     maxAgendamentos: SEM_LIMITE,
     features: [
-      'Profissionais ilimitados',
+      'Até 5 profissionais',
       'Agendamentos ilimitados',
+      'Página de agendamento da sua barbearia',
       'Agendamento sem cadastro',
+      'Confirmação e lembrete no WhatsApp',
       'Robô de WhatsApp que marca, remarca e cancela',
       'Atendimento recorrente',
       'Comissão por profissional',
+      'Bloqueio de horário: folga, almoço e férias',
       'Produtos e estoque',
       'Relatórios avançados',
     ],
@@ -85,7 +102,7 @@ export const CATALOGO: PlanoDoCatalogo[] = [
   {
     grupo: 'premium',
     nome: 'Premium',
-    descricao: 'Para quem não quer horário furado',
+    descricao: 'Para barbearia grande, com mais de cinco cadeiras',
     precoMensal: 99.9,
     maxUsuarios: SEM_LIMITE,
     maxAgendamentos: SEM_LIMITE,
@@ -100,10 +117,13 @@ export const CATALOGO: PlanoDoCatalogo[] = [
     features: [
       'Profissionais ilimitados',
       'Agendamentos ilimitados',
+      'Página de agendamento da sua barbearia',
       'Agendamento sem cadastro',
+      'Confirmação e lembrete no WhatsApp',
       'Robô de WhatsApp que marca, remarca e cancela',
       'Atendimento recorrente',
       'Comissão por profissional',
+      'Bloqueio de horário: folga, almoço e férias',
       'Produtos e estoque',
       'Sinal no agendamento',
       'Relatórios avançados',
@@ -111,7 +131,6 @@ export const CATALOGO: PlanoDoCatalogo[] = [
     ],
   },
 ];
-
 /** Preço do ano inteiro, pago de uma vez. */
 export function precoAnual(precoMensal: number): number {
   return Number((precoMensal * MESES_COBRADOS_NO_ANUAL).toFixed(2));

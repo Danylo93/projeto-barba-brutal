@@ -101,10 +101,10 @@ Financeiro: quanto entrou, ticket médio, o que mais vende.
 
 Mensal:
 Básico, R$ 49,90: 1 profissional.
-Profissional, R$ 69,90: profissionais ilimitados, com o robô de WhatsApp e
-atendimento recorrente.
-Premium, R$ 99,90: tudo do Profissional, mais sinal no agendamento e suporte
-prioritário.
+Profissional, R$ 69,90: até 5 profissionais, com o robô de WhatsApp,
+atendimento recorrente e comissão por profissional.
+Premium, R$ 99,90: tudo do Profissional com profissionais ILIMITADOS, mais
+sinal no agendamento e suporte prioritário.
 
 Anual (paga 10 meses, leva 12 — dois meses grátis):
 Básico R$ 499, Profissional R$ 699, Premium R$ 999.

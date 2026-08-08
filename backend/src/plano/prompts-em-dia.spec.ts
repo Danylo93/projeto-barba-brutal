@@ -115,22 +115,28 @@ describe('o prompt do Barry cobra o preço do catálogo', () => {
 });
 
 describe('os dois prompts contam a mesma história de limite', () => {
-  it('nenhum promete teto de barbeiros onde o catálogo diz ilimitado', () => {
-    // "até 5 barbeiros" foi o texto que sobreviveu ao teto ser removido, e a
-    // Cacau mandava cliente pagante fazer upgrade que ele não precisava.
-    for (const texto of [barry, cacau]) {
-      expect(texto).not.toMatch(/at[ée] \d+ (barbeiros|profissionais)/i);
+  it('o teto que os prompts anunciam é o do catálogo', () => {
+    // O número já esteve errado nos dois sentidos: o texto dizia "até 5"
+    // depois de o teto sumir, e depois dizia "ilimitado" depois de o teto
+    // voltar. Em vez de fixar um número aqui, o teste lê o catálogo — assim
+    // ele acompanha a decisão de produto em vez de brigar com ela.
+    const profissional = CATALOGO.find((p) => p.grupo === 'profissional')!;
+    expect(profissional.maxUsuarios).not.toBe(SEM_LIMITE);
+    // A redação difere de propósito entre os dois — o Barry lista o plano, a
+    // Cacau responde uma pergunta. O que precisa bater é o NÚMERO.
+    for (const texto of [barryCorrido, cacauCorrido]) {
+      expect(texto).toMatch(new RegExp(`at[ée] ${profissional.maxUsuarios}\\b`, 'i'));
     }
   });
 
-  it('o Básico continua sendo o único com um profissional só', () => {
+  it('o Básico é o de um profissional e o Premium é o ilimitado', () => {
     const basico = CATALOGO.find((p) => p.grupo === 'basico')!;
     expect(basico.maxUsuarios).toBe(1);
     expect(cacauCorrido).toMatch(/B[áa]sico permite 1/i);
 
     const ilimitados = CATALOGO.filter((p) => p.maxUsuarios === SEM_LIMITE).map((p) => p.nome);
-    expect(ilimitados).toEqual(['Profissional', 'Premium']);
-    expect(cacauCorrido).toMatch(/Profissional e Premium s[ãa]o ilimitados/i);
+    expect(ilimitados).toEqual(['Premium']);
+    expect(cacauCorrido).toMatch(/Premium [ée] ilimitado/i);
   });
 
   it('agendamento é ilimitado em todos, e os dois dizem isso', () => {
@@ -197,9 +203,13 @@ describe('o que está colado no n8n conta a mesma história', () => {
     }
   });
 
-  it.each(['Barry', 'Cacau'])('o %s do fluxo não promete teto de barbeiros', (quem) => {
-    // "até 5 barbeiros" era o texto do fluxo antigo, e o teto não existe mais.
-    expect(noFluxo[quem]).not.toMatch(/at[ée] \d+ (barbeiros|profissionais)/i);
+  it.each(['Barry', 'Cacau'])('o %s do fluxo anuncia o teto do catálogo', (quem) => {
+    // Este teste já foi o contrário — proibia qualquer teto, porque o teto
+    // tinha sumido do catálogo. Agora ele voltou como degrau da escada, e o
+    // que vale é o fluxo repetir o número que o catálogo tem, seja ele qual
+    // for. Número fixo aqui só criaria uma terceira versão da verdade.
+    const profissional = CATALOGO.find((p) => p.grupo === 'profissional')!;
+    expect(noFluxo[quem]).toMatch(new RegExp(`at[ée] ${profissional.maxUsuarios}\\b`, 'i'));
   });
 
   it('o fluxo não põe o robô no Premium sozinho', () => {
