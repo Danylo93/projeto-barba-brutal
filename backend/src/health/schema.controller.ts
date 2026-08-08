@@ -35,10 +35,6 @@ export class SchemaController {
         'maxAgendamentos', 'features', 'ativo', 'mpPreapprovalPlanId',
         'mpInitPoint', 'createdAt', 'updatedAt',
       ],
-      cupom: [
-        'id', 'tenantId', 'codigo', 'tipo', 'valor', 'ativo', 'validoAte',
-        'usos', 'maxUsos', 'createdAt', 'updatedAt',
-      ],
       usuario: [
         'id', 'nome', 'email', 'senha', 'telefone', 'barbeiro', 'tenantId',
         'ativo', 'createdAt', 'updatedAt',

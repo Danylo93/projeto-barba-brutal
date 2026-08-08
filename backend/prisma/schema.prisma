@@ -109,7 +109,6 @@ model Tenant {
   bloqueios           Bloqueio[]
   planosClube         PlanoClube[]
   assinaturasClube    AssinaturaClube[]
-  cupons              Cupom[]
   produtos            Produto[]
   movimentosEstoque   MovimentoEstoque[]
   series              SerieAgendamento[]
@@ -469,26 +468,6 @@ model AssinaturaClube {
   @@index([tenantId, status])
   @@index([usuarioId])
   @@map("assinatura_clube")
-}
-
-/// Cupons de Desconto (Módulo de Marketing)
-model Cupom {
-  id        Int       @id @default(autoincrement())
-  tenantId  Int
-  codigo    String
-  tipo      String /// 'percentual' ou 'fixo'
-  valor     Float /// 10 (10%) ou 15.00 (R$ 15,00)
-  ativo     Boolean   @default(true)
-  validoAte DateTime?
-  usos      Int       @default(0)
-  maxUsos   Int?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([codigo, tenantId])
-  @@map("cupom")
 }
 
 /// Cliente que volta sempre no mesmo dia e hora: "todo sábado às 10h".
