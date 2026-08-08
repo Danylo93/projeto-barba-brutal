@@ -30,6 +30,56 @@ export default function BannerConsentimento({ tenantId = null }: Props) {
     const [detalhes, setDetalhes] = useState(false)
     const [analise, setAnalise] = useState(false)
     const [marketing, setMarketing] = useState(false)
+    // Callback ref, e não `useRef`: o banner é renderizado dentro de um
+    // `AnimatePresence`, então o nó só existe depois que `aberto` vira true.
+    // Com `useRef` o efeito rodava antes de o nó montar, lia `null` e não
+    // reservava espaço nenhum — a correção parecia aplicada e não era.
+    const [caixa, setCaixa] = useState<HTMLDivElement | null>(null)
+
+    /**
+     * Reserva no fim da página a altura que o banner ocupa.
+     *
+     * O banner é `fixed` no rodapé, então ele flutua POR CIMA do fim da
+     * página. No cadastro isso escondia a caixinha dos termos: ela caía nos
+     * últimos pixels da tela, o toque acertava o banner e a pessoa não
+     * conseguia aceitar — nem enviar o formulário, porque o aceite é
+     * obrigatório. O cadastro inteiro travava, e o mais provável é a pessoa
+     * desistir em vez de reclamar.
+     *
+     * Empurrar o conteúdo é melhor que mexer no z-index: com espaço reservado
+     * dá para rolar até o fim e alcançar qualquer coisa, em qualquer página.
+     * A altura vem do elemento, medida a cada mudança — o banner cresce
+     * quando abre os detalhes, e some quando a pessoa decide.
+     */
+    useEffect(() => {
+        const el = caixa
+        if (!aberto || !el) {
+            document.body.style.removeProperty('padding-bottom')
+            document.documentElement.style.removeProperty('scroll-padding-bottom')
+            return
+        }
+
+        const medir = () => {
+            const altura = `${el.offsetHeight}px`
+            // O padding deixa rolar além do banner...
+            document.body.style.paddingBottom = altura
+            // ...e o scroll-padding faz a rolagem AUTOMÁTICA do navegador
+            // respeitar a mesma faixa. Sem ele, focar um campo ou um
+            // `scrollIntoView` ainda encosta o elemento no rodapé, bem
+            // debaixo do banner — foi assim que a caixinha dos termos
+            // continuou inalcançável mesmo já havendo espaço para rolar.
+            document.documentElement.style.scrollPaddingBottom = altura
+        }
+        medir()
+
+        const observador = new ResizeObserver(medir)
+        observador.observe(el)
+        return () => {
+            observador.disconnect()
+            document.body.style.removeProperty('padding-bottom')
+            document.documentElement.style.removeProperty('scroll-padding-bottom')
+        }
+    }, [aberto, caixa])
 
     useEffect(() => {
         // Só decide depois de montar: no servidor não há localStorage, e abrir
@@ -71,6 +121,7 @@ export default function BannerConsentimento({ tenantId = null }: Props) {
                     role="dialog"
                     aria-modal="false"
                     aria-labelledby="titulo-cookies"
+                    ref={setCaixa}
                     className="fixed inset-x-0 bottom-0 z-[90] p-3 sm:p-4"
                 >
                     {/* Fundo opaco de propósito: aviso legal precisa ser legível

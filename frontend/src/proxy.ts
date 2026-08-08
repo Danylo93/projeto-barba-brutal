@@ -28,41 +28,26 @@ const DOMINIO_RAIZ = process.env.NEXT_PUBLIC_DOMINIO_RAIZ || ''
  */
 const NAO_SAO_BARBEARIA = new Set(['www', 'app', 'api', 'admin', 'painel'])
 
-/** Caminhos que nunca pertencem à página pública de uma barbearia. */
-const CAMINHOS_DO_SISTEMA = [
-  '/api',
-  '/_next',
-  '/admin',
-  '/dashboard',
-  '/login',
-  '/entrar',
-  '/register',
-  '/recuperar-senha',
-  '/redefinir-senha',
-  '/agendamento',
-  '/agendamentos',
-  '/agenda',
-  '/api-key',
-  '/assinatura',
-  '/clientes',
-  '/configuracoes',
-  '/financas',
-  '/marketing',
-  '/meus-dados',
-  '/planos',
-  '/profissionais',
-  '/servicos',
-  '/favicon.ico',
-  '/robots.txt',
-  '/sitemap.xml',
-]
-
+/**
+ * Só a RAIZ do subdomínio vira página da barbearia.
+ *
+ * Aqui existia uma lista de "caminhos do sistema" que o proxy deixava passar,
+ * e tudo o que não estivesse nela era reescrito para `/barbearia/<slug>/...`.
+ * A lista precisava ser atualizada à mão a cada rota interna nova — e não foi:
+ * `/produtos` e `/recorrentes` nasceram e ninguém as acrescentou. No subdomínio
+ * as duas viravam `/barbearia/latita/produtos`, que não existe, e a barbearia
+ * com domínio próprio recebia 404 nas telas mais novas do painel. No domínio
+ * principal funcionava, que é justamente onde se testa.
+ *
+ * A regra virou o contrário, e por isso não quebra de novo: a área pública da
+ * barbearia tem UMA página (`/barbearia/[dominio]/page.tsx`), então só `/`
+ * precisa ser reescrito. Rota nova entra no painel sem ninguém lembrar deste
+ * arquivo — e o teste ao lado confere isso lendo as pastas de verdade.
+ */
 export function proxy(request: NextRequest) {
   const url = request.nextUrl
 
-  if (CAMINHOS_DO_SISTEMA.some((c) => url.pathname.startsWith(c))) {
-    return NextResponse.next()
-  }
+  if (url.pathname !== '/') return NextResponse.next()
 
   const slug = slugDoHost(request.headers.get('host'))
   if (!slug) return NextResponse.next()
@@ -70,7 +55,7 @@ export function proxy(request: NextRequest) {
   // Reescrita, não redirecionamento: a barra de endereço continua mostrando
   // latita.barbeariabrutal.com, que é o endereço que a barbearia divulga.
   const destino = new URL(url)
-  destino.pathname = `/barbearia/${slug}${url.pathname === '/' ? '' : url.pathname}`
+  destino.pathname = `/barbearia/${slug}`
   return NextResponse.rewrite(destino)
 }
 

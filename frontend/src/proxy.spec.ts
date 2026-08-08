@@ -62,3 +62,63 @@ describe('slug do host', () => {
     expect(slugDoHost('LaTita.BarbeariaBrutal.com')).toBe('latita')
   })
 })
+
+/**
+ * O `slugDoHost` já era testado; o `proxy` em si, não. Foi exatamente aí que
+ * o defeito morou: a lista de caminhos do sistema ficou desatualizada e
+ * ninguém percebeu, porque nenhum teste passava uma requisição por ela.
+ *
+ * Este bloco lê as pastas de rota DE VERDADE e exige que cada uma sobreviva
+ * ao proxy no subdomínio. Rota nova entra no teste sozinha.
+ */
+describe('o proxy no subdomínio da barbearia', () => {
+  const { readdirSync } = require('fs')
+  const { join } = require('path')
+  /* eslint-disable */
+  const { proxy } = require('./proxy')
+  /* eslint-enable */
+
+  const INTERNAS = join(__dirname, 'app', '(paginas)', '(internas)')
+
+  function requisicao(caminho: string, host = 'latita.barbeariabrutal.com') {
+    return {
+      nextUrl: new URL(`https://${host}${caminho}`),
+      headers: { get: (nome: string) => (nome.toLowerCase() === 'host' ? host : null) },
+    } as any
+  }
+
+  /** O destino final da requisição, já com a reescrita aplicada. */
+  function destinoDe(caminho: string, host?: string): string {
+    const r = proxy(requisicao(caminho, host))
+    const reescrito = r?.headers?.get?.('x-middleware-rewrite')
+    return reescrito ? new URL(reescrito).pathname : caminho
+  }
+
+  const rotasInternas = readdirSync(INTERNAS, { withFileTypes: true })
+    .filter((d: any) => d.isDirectory() && !d.name.startsWith('('))
+    .map((d: any) => `/${d.name}`)
+
+  it('encontra as rotas internas para conferir', () => {
+    // Sem isto, uma varredura vazia faria o `it.each` abaixo passar sem testar
+    // nada — que é o tipo de teste verde que não protege ninguém.
+    expect(rotasInternas.length).toBeGreaterThan(5)
+    expect(rotasInternas).toContain('/produtos')
+    expect(rotasInternas).toContain('/recorrentes')
+  })
+
+  it.each(rotasInternas)('%s chega ao painel, sem virar página de barbearia', (rota) => {
+    expect(destinoDe(rota)).toBe(rota)
+  })
+
+  it('a raiz do subdomínio vira a página da barbearia', () => {
+    expect(destinoDe('/')).toBe('/barbearia/latita')
+  })
+
+  it('e no domínio principal a raiz continua sendo a landing', () => {
+    expect(destinoDe('/', 'barbeariabrutal.com')).toBe('/')
+  })
+
+  it('caminho fundo do painel também passa', () => {
+    expect(destinoDe('/configuracoes/recebimento')).toBe('/configuracoes/recebimento')
+  })
+})
