@@ -1,4 +1,5 @@
 // Tipos e interfaces para o sistema de barbearias
+import { horarioEstaSegurado } from '../sinal/sinal';
 
 export interface Usuario {
   id?: number;
@@ -55,8 +56,13 @@ export class ObterHorariosOcupados {
   async executar(profissionalId: number, data: Date | string, tenantId: number): Promise<string[]> {
     const agendamentos = await this.repo.buscarPorProfissional(profissionalId, data, tenantId);
     
-    // Filtra agendamentos cancelados
-    const ativos = agendamentos.filter((a: any) => a.status !== 'cancelado');
+    // Fora os cancelados e os que o sinal devolveu para a agenda: o horário
+    // de quem não pagou no prazo tem que voltar a aparecer como livre, senão
+    // a barbearia perde a vaga duas vezes — o cliente não veio e ninguém mais
+    // conseguiu marcar.
+    const ativos = agendamentos.filter(
+      (a: any) => a.status !== 'cancelado' && horarioEstaSegurado(a),
+    );
     const ocupados: string[] = [];
 
     for (const agendamento of ativos) {

@@ -12,6 +12,17 @@ import {
   diaPedidoEmBrasilia,
 } from './agendamento.validacao';
 import { totalDoAtendimento, valorCobrado, valorDoServicoNoAgendamento } from '../servico/preco';
+import {
+  calcularSinal,
+  prazoParaPagar,
+  soHorariosDePe,
+  statusInicial,
+  SINAL_EXPIRADO,
+  SINAL_NAO_EXIGIDO,
+  SINAL_PAGO,
+  SINAL_PENDENTE,
+} from '../sinal/sinal';
+import { gerarPixCopiaECola } from '../sinal/pix-brcode';
 
 const MINUTOS_POR_SLOT = 30;
 
@@ -46,6 +57,14 @@ function paraLeitura(agendamento: any) {
     tenantId: agendamento.tenantId,
     status: agendamento.status,
     observacoes: agendamento.observacoes,
+    // O sinal sai junto porque quem lê a agenda precisa saber se o horário
+    // está pago, esperando Pix ou já foi devolvido.
+    sinalValor: agendamento.sinalValor ?? null,
+    sinalStatus: agendamento.sinalStatus ?? null,
+    sinalPixCopiaECola: agendamento.sinalPixCopiaECola ?? null,
+    sinalExpiraEm: agendamento.sinalExpiraEm ?? null,
+    sinalPagoEm: agendamento.sinalPagoEm ?? null,
+    serieId: agendamento.serieId ?? null,
     createdAt: agendamento.createdAt,
     updatedAt: agendamento.updatedAt,
   };
@@ -64,6 +83,12 @@ export class AgendamentoRepository implements RepositorioAgendamento {
           tx,
         );
 
+        const sinal = await this.montarSinal(
+          agendamento.tenantId,
+          valorTotal,
+          tx,
+        );
+
         const criado = await tx.agendamento.create({
           data: {
             data: agendamento.data,
@@ -79,6 +104,8 @@ export class AgendamentoRepository implements RepositorioAgendamento {
             // este atendimento não muda junto.
             valorTotal,
             precosServicos,
+            serieId: (agendamento as any).serieId ?? null,
+            ...sinal,
           },
         });
         return criado.id;
@@ -219,6 +246,118 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   }
 
   /**
+   * Marca o sinal como pago ou dispensado.
+   *
+   * Aceita mesmo depois do prazo: o Pix atrasou cinco minutos, o dinheiro
+   * está na conta e o cliente está a caminho — recusar aqui seria perder o
+   * atendimento por causa do relógio. O que o prazo faz é liberar a vaga para
+   * outra pessoa; se ninguém pegou, ela ainda é de quem pagou.
+   */
+  async registrarSinal(
+    id: number,
+    tenantId: number,
+    novoStatus: 'pago' | 'dispensado',
+  ) {
+    const agendamento = await this.prismaService.agendamento.findFirst({
+      where: { id, tenantId },
+      select: { id: true, sinalStatus: true, sinalValor: true },
+    });
+    if (!agendamento) {
+      throw new BadRequestException('Agendamento não encontrado.');
+    }
+    if (agendamento.sinalStatus === SINAL_NAO_EXIGIDO || !agendamento.sinalValor) {
+      throw new BadRequestException('Este agendamento não pede sinal.');
+    }
+    if (agendamento.sinalStatus === SINAL_PAGO) {
+      return { id, sinalStatus: SINAL_PAGO, jaEstava: true };
+    }
+
+    const atualizado = await this.prismaService.agendamento.update({
+      where: { id },
+      data: {
+        sinalStatus: novoStatus,
+        sinalPagoEm: novoStatus === SINAL_PAGO ? new Date() : null,
+        // O prazo deixa de valer: o horário está garantido.
+        sinalExpiraEm: null,
+      },
+      select: { id: true, sinalStatus: true, sinalValor: true, sinalPagoEm: true },
+    });
+    return atualizado;
+  }
+
+  /**
+   * Devolve para a agenda os horários cujo sinal venceu.
+   *
+   * O agendamento NÃO é apagado — vira cancelado, com o sinal marcado como
+   * expirado. Sumir com a linha tiraria do dono a única pista de que alguém
+   * tentou marcar e não pagou, que é justamente o que ele precisa saber para
+   * decidir se a regra do sinal está espantando cliente.
+   */
+  async expirarSinaisVencidos(agora = new Date()): Promise<number> {
+    const vencidos = await this.prismaService.agendamento.findMany({
+      where: {
+        sinalStatus: SINAL_PENDENTE,
+        sinalExpiraEm: { lt: agora },
+        status: { in: ['agendado', 'confirmado'] },
+      },
+      select: { id: true },
+    });
+    if (vencidos.length === 0) return 0;
+
+    const { count } = await this.prismaService.agendamento.updateMany({
+      where: { id: { in: vencidos.map((v) => v.id) } },
+      data: { sinalStatus: SINAL_EXPIRADO, status: 'cancelado' },
+    });
+    return count;
+  }
+
+  /**
+   * Os campos de sinal com que o agendamento nasce.
+   *
+   * O Pix é gerado aqui, com a chave da própria barbearia, e o valor é
+   * congelado: se o dono mudar a regra de 30% para 50% amanhã, quem marcou
+   * hoje continua devendo o que combinou.
+   */
+  private async montarSinal(
+    tenantId: number,
+    valorTotal: number,
+    db: any = this.prismaService,
+  ) {
+    const barbearia = await db.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        nome: true,
+        chavePix: true,
+        sinalAtivo: true,
+        sinalPercent: true,
+        sinalMinimo: true,
+        sinalPrazoMinutos: true,
+      },
+    });
+
+    const valor = calcularSinal(barbearia ?? {}, valorTotal);
+    if (valor <= 0) {
+      return { sinalValor: null, sinalStatus: statusInicial(0) };
+    }
+
+    return {
+      sinalValor: valor,
+      sinalStatus: statusInicial(valor),
+      sinalExpiraEm: prazoParaPagar(barbearia),
+      sinalPixCopiaECola: gerarPixCopiaECola({
+        chave: String(barbearia.chavePix),
+        nome: barbearia.nome ?? 'BARBEARIA',
+        valor,
+        // Sem id do agendamento ainda — ele nasce na mesma transação. O
+        // txid serve para o dono achar o Pix no extrato, e a hora já
+        // distingue o suficiente.
+        txid: `SINAL${Date.now().toString(36).toUpperCase()}`,
+        descricao: 'Sinal do agendamento',
+      }),
+    };
+  }
+
+  /**
    * Recusa o agendamento quando o intervalo cai em um bloqueio do profissional
    * ou da barbearia inteira (profissionalId nulo).
    */
@@ -299,6 +438,8 @@ export class AgendamentoRepository implements RepositorioAgendamento {
         tenantId: agendamento.tenantId,
         status: { in: ['agendado', 'confirmado'] },
         data: { gte: de, lte: ate },
+        // Quem não pagou o sinal no prazo devolveu o horário.
+        ...soHorariosDePe(),
         ...(ignorarId ? { id: { not: ignorarId } } : {}),
       },
       select: { data: true, servicos: { select: { qtdeSlots: true } } },

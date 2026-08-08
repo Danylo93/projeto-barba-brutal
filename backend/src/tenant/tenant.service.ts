@@ -3,6 +3,7 @@ import { PrismaService } from '../db/prisma.service';
 import { calcularComissoes, intervaloDoMes } from './comissao';
 import { valorCobrado, valorDoServicoNoAgendamento } from '../servico/preco';
 import { escolherCorMarca, COR_PRIMARIA_PADRAO } from './cores-marca';
+import { validarChavePix } from '../sinal/pix-brcode';
 import {
   guardarEnderecoAntigo,
   normalizarSlug,
@@ -307,6 +308,9 @@ export class TenantService {
             imagemUrl: true,
             avaliacao: true,
             quantidadeAvaliacoes: true,
+            // Quem faz o quê. Sem isto a página pública oferece um serviço e
+            // depois descobre, no POST, que aquele profissional não o faz.
+            servicos: { select: { id: true } },
           },
         },
       },
@@ -330,6 +334,18 @@ export class TenantService {
       configuracoes: tenant.configuracoes,
       servicos: tenant.servicos,
       profissionais: tenant.profissionais,
+      // Como esta barbearia recebe. A chave Pix NÃO sai daqui: o cliente não
+      // precisa dela para marcar, e ela só aparece dentro do Pix já montado,
+      // com o valor certo, depois que o horário existe.
+      agendamentoSemConta: tenant.agendamentoSemConta,
+      sinal: tenant.sinalAtivo
+        ? {
+            ativo: true,
+            percent: tenant.sinalPercent,
+            minimo: tenant.sinalMinimo,
+            prazoMinutos: tenant.sinalPrazoMinutos,
+          }
+        : { ativo: false },
     };
   }
 
@@ -770,6 +786,98 @@ export class TenantService {
         currentAgendamentos: counts.agendamentos,
       },
     };
+  }
+
+  /**
+   * Salva a chave Pix, a regra do sinal e se a barbearia aceita agendamento
+   * sem cadastro.
+   *
+   * Ligar o sinal sem chave Pix é recusado aqui, e não deixado para dar
+   * errado depois: sem chave, `calcularSinal` devolve zero e a barbearia
+   * ficaria com a funcionalidade "ligada" sem cobrar nada de ninguém, sem
+   * nenhum aviso.
+   */
+  async atualizarRecebimento(tenantId: number, dados: any) {
+    const mudancas: any = {};
+
+    if (dados?.chavePix !== undefined) {
+      const chave = String(dados.chavePix ?? '').trim();
+      if (chave && !validarChavePix(chave)) {
+        throw new BadRequestException(
+          'Chave Pix inválida. Use CPF, CNPJ, e-mail, telefone com +55 ou chave aleatória.',
+        );
+      }
+      mudancas.chavePix = chave || null;
+    }
+
+    if (dados?.sinalPercent !== undefined) {
+      mudancas.sinalPercent = this.percentual(dados.sinalPercent);
+    }
+    if (dados?.sinalMinimo !== undefined) {
+      const minimo = Number(dados.sinalMinimo);
+      if (!Number.isFinite(minimo) || minimo < 0) {
+        throw new BadRequestException('O valor mínimo do sinal não pode ser negativo.');
+      }
+      mudancas.sinalMinimo = Number(minimo.toFixed(2));
+    }
+    if (dados?.sinalPrazoMinutos !== undefined) {
+      const minutos = Number(dados.sinalPrazoMinutos);
+      if (!Number.isInteger(minutos) || minutos < 5 || minutos > 1440) {
+        throw new BadRequestException(
+          'O prazo do sinal tem que ficar entre 5 minutos e 24 horas.',
+        );
+      }
+      mudancas.sinalPrazoMinutos = minutos;
+    }
+    if (dados?.agendamentoSemConta !== undefined) {
+      mudancas.agendamentoSemConta = Boolean(dados.agendamentoSemConta);
+    }
+
+    if (dados?.sinalAtivo !== undefined) {
+      const ligando = Boolean(dados.sinalAtivo);
+      if (ligando) {
+        const atual = await this.prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { chavePix: true, sinalPercent: true, sinalMinimo: true },
+        });
+        const chave = mudancas.chavePix ?? atual?.chavePix;
+        if (!chave) {
+          throw new BadRequestException(
+            'Cadastre a chave Pix da barbearia antes de exigir sinal — é para ela que o dinheiro vai.',
+          );
+        }
+        const percent = mudancas.sinalPercent ?? atual?.sinalPercent ?? 0;
+        const minimo = mudancas.sinalMinimo ?? atual?.sinalMinimo ?? 0;
+        if (percent <= 0 && minimo <= 0) {
+          throw new BadRequestException(
+            'Defina o percentual ou o valor mínimo do sinal — do contrário nada seria cobrado.',
+          );
+        }
+      }
+      mudancas.sinalAtivo = ligando;
+    }
+
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: mudancas,
+      select: {
+        id: true,
+        chavePix: true,
+        sinalAtivo: true,
+        sinalPercent: true,
+        sinalMinimo: true,
+        sinalPrazoMinutos: true,
+        agendamentoSemConta: true,
+      },
+    });
+  }
+
+  private percentual(valor: unknown): number {
+    const numero = Number(valor);
+    if (!Number.isFinite(numero) || numero < 0 || numero > 100) {
+      throw new BadRequestException('O percentual do sinal tem que ficar entre 0 e 100.');
+    }
+    return Number(numero.toFixed(2));
   }
 
   async generateApiKey(tenantId: number) {

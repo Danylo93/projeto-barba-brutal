@@ -149,4 +149,19 @@ export class LembreteController {
       limite: Number(limite) || undefined,
     });
   }
+
+  /**
+   * Rotina de limpeza: cancela os agendamentos cujo sinal venceu.
+   *
+   * A agenda já não considera esses horários ocupados no instante em que o
+   * prazo passa — quem decide isso é a própria consulta. Esta rotina existe
+   * para o painel também contar a mesma história, em vez de exibir para
+   * sempre um agendamento "aguardando Pix" de três semanas atrás.
+   */
+  @Post('sinais/expirar')
+  async expirarSinais(@Headers('x-lembrete-token') token: string) {
+    this.exigirToken(token);
+    const expirados = await this.service.expirarSinaisVencidos();
+    return { expirados };
+  }
 }

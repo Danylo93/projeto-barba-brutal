@@ -15,6 +15,7 @@ import {
   telefoneUtilizavel,
 } from './janela';
 import { configuracaoDeRetorno } from './retorno';
+import { AgendamentoRepository } from '../agendamento/agendamento.repository';
 
 /** Quantos agendamentos um disparo processa por vez. */
 const LIMITE_PADRAO = 60;
@@ -80,7 +81,20 @@ export class LembreteService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly whatsapp: WhatsappService,
+    private readonly agendamentos: AgendamentoRepository,
   ) {}
+
+  /**
+   * Cancela os agendamentos cujo sinal venceu.
+   *
+   * Delegado ao repositório de agendamento de propósito: a regra de quando um
+   * horário deixa de estar segurado tem que ser a MESMA que a checagem de
+   * conflito usa. Duas cópias divergem, e aí a tela mostra horário livre que
+   * a API recusa.
+   */
+  async expirarSinaisVencidos(agora = new Date()): Promise<number> {
+    return this.agendamentos.expirarSinaisVencidos(agora);
+  }
 
   /** Agendamentos que ainda precisam de lembrete, com as mensagens prontas. */
   async proximos(minutosAntes: number, janelaMin: number, tenantId?: number) {
