@@ -589,6 +589,11 @@ export class WhatsappAgendaService {
         'Esse atendimento já foi realizado, então não há o que cancelar.',
       );
     }
+    if (agendamento.status === 'expirado') {
+      throw new BadRequestException(
+        'Esse horário já terminou, então não dá mais para cancelar. Se você foi atendido, a barbearia pode confirmar a conclusão.',
+      );
+    }
     await this.agendamentos.atualizarStatus(agendamento.id, tenantId, 'cancelado');
     const completo = await this.prisma.agendamento.findUnique({
       where: { id: agendamento.id },

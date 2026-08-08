@@ -35,6 +35,8 @@ function deveFicarRiscado(status?: string) {
 
 function rotuloDoStatus(status?: string) {
   if (status === 'remarcado') return 'remarcado'
+  if (status === 'concluido') return 'concluído'
+  if (status === 'expirado') return 'encerrado'
   return status ?? 'agendado'
 }
 
@@ -44,6 +46,7 @@ function classeDoStatus(status?: string) {
     return 'bg-red-500/15 text-red-400'
   }
   if (status === 'concluido') return 'bg-blue-500/15 text-blue-400'
+  if (status === 'expirado') return 'bg-zinc-700/60 text-zinc-300'
   return 'bg-yellow-500/15 text-yellow-400'
 }
 
@@ -67,10 +70,10 @@ export default function AgendamentosPage() {
   // (o profissional) e não a própria identidade.
   const isCliente = !isTenant && !isEmployeeBarber
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (exibirCarregamento = true) => {
     if (!usuario) return
     try {
-      setLoading(true)
+      if (exibirCarregamento) setLoading(true)
       let uri = `agendamentos/${encodeURIComponent(usuario.email)}`
       if (isTenant) {
         uri = '/tenants/me/agendamentos'
@@ -79,16 +82,19 @@ export default function AgendamentosPage() {
       }
       const resposta = await httpGet(uri)
       setAgendamentos(Array.isArray(resposta) ? resposta : [])
+      setError('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar agendamentos')
       setAgendamentos([])
     } finally {
-      setLoading(false)
+      if (exibirCarregamento) setLoading(false)
     }
   }, [httpGet, usuario, isTenant, isEmployeeBarber])
 
   useEffect(() => {
     carregar()
+    const atualizacao = window.setInterval(() => carregar(false), 60_000)
+    return () => window.clearInterval(atualizacao)
   }, [carregar])
 
   const handleCancelar = async () => {

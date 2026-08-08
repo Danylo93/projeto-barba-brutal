@@ -21,12 +21,14 @@ export default function useProfissionalAgenda() {
 
     useEffect(() => {
         carregarAgendamentos()
+        const atualizacao = window.setInterval(carregarAgendamentos, 60_000)
+        return () => window.clearInterval(atualizacao)
     }, [carregarAgendamentos])
 
     async function excluirAgendamento(id: number) {
         try {
             await httpDelete(`agendamentos/${id}`)
-            setAgendamentos(agendamentos.map((a) => a.id === id ? { ...a, status: 'cancelado' } : a))
+            setAgendamentos((atuais) => atuais.map((a) => a.id === id ? { ...a, status: 'cancelado' } : a))
             success('Agendamento cancelado', 'O agendamento continua no histórico.')
         } catch (err) {
             toastError('Erro ao cancelar', err instanceof Error ? err.message : 'Erro ao cancelar o agendamento')
@@ -36,7 +38,7 @@ export default function useProfissionalAgenda() {
     async function atualizarStatus(id: number, status: string) {
         try {
             await httpPatch(`agendamentos/${id}/status`, { status })
-            setAgendamentos(agendamentos.map((a) => a.id === id ? { ...a, status } : a))
+            setAgendamentos((atuais) => atuais.map((a) => a.id === id ? { ...a, status } : a))
             success('Status atualizado', `Agendamento marcado como ${status}.`)
         } catch (err) {
             toastError('Erro ao atualizar', err instanceof Error ? err.message : 'Erro ao atualizar o status')

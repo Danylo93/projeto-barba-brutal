@@ -56,12 +56,20 @@ export class ObterHorariosOcupados {
   async executar(profissionalId: number, data: Date | string, tenantId: number): Promise<string[]> {
     const agendamentos = await this.repo.buscarPorProfissional(profissionalId, data, tenantId);
     
-    // Fora os cancelados e os que o sinal devolveu para a agenda: o horário
-    // de quem não pagou no prazo tem que voltar a aparecer como livre, senão
-    // a barbearia perde a vaga duas vezes — o cliente não veio e ninguém mais
-    // conseguiu marcar.
+    // Duas coisas tiram um horário da disponibilidade, e as duas valem.
+    //
+    // Pelo STATUS: só agendado e confirmado ocupam. Cancelado, concluído e
+    // expirado são histórico. A lista fechada é melhor que negar 'cancelado'
+    // um a um — status novo entra sem ocupar agenda por engano, que foi
+    // justamente o caso do 'expirado'.
+    //
+    // Pelo SINAL: quem não pagou no prazo devolveu a vaga. Sem isso a
+    // barbearia perde o horário duas vezes — o cliente não veio e ninguém
+    // mais conseguiu marcar.
     const ativos = agendamentos.filter(
-      (a: any) => a.status !== 'cancelado' && horarioEstaSegurado(a),
+      (a: any) =>
+        ['agendado', 'confirmado'].includes(String(a.status ?? 'agendado')) &&
+        horarioEstaSegurado(a),
     );
     const ocupados: string[] = [];
 

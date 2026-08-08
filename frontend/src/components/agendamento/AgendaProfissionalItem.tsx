@@ -20,7 +20,10 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
     const [confirmarCancelamento, setConfirmarCancelamento] = useState(false)
     
     const dtInicio = new Date(agendamento.data)
-    const totalMinutos = (agendamento.servicos ?? []).reduce((acc, s) => acc + (s.qtdeSlots ?? 1) * 30, 0)
+    const totalMinutos = Math.max(
+        30,
+        (agendamento.servicos ?? []).reduce((acc, s) => acc + (s.qtdeSlots ?? 1) * 30, 0)
+    )
     const dtFim = new Date(dtInicio.getTime() + totalMinutos * 60000)
 
     const isAgendado = agendamento.status === 'agendado'
@@ -28,16 +31,19 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
     const isConcluido = agendamento.status === 'concluido'
     const isCancelado = agendamento.status === 'cancelado'
     const isRemarcado = agendamento.status === 'remarcado'
+    const isExpirado = agendamento.status === 'expirado'
     const isAtivo = isAgendado || isConfirmado
     const isRiscado = isCancelado || isRemarcado
 
     return (
         <div
-            aria-disabled={!isAtivo}
+            aria-disabled={!isAtivo && !isExpirado}
             className={`flex flex-col gap-6 rounded-md border-l-4 p-7 sm:flex-row sm:items-center ${
                 isAtivo
                     ? 'border-l-emerald-400 bg-emerald-500/[0.06]'
-                    : 'border-l-zinc-700 bg-zinc-900/70 opacity-60'
+                    : isExpirado
+                      ? 'border-l-zinc-500 bg-zinc-900/80'
+                      : 'border-l-zinc-700 bg-zinc-900/70 opacity-60'
             }`}
         >
             <IconCalendar size={60} stroke={1} className={isConcluido ? 'text-green-500' : isConfirmado ? 'text-blue-500' : 'text-zinc-400'} />
@@ -80,6 +86,7 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
                 {isConfirmado && <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs uppercase text-blue-400">Confirmado</span>}
                 {isCancelado && <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs uppercase text-red-400">Cancelado</span>}
                 {isRemarcado && <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs uppercase text-red-400">Remarcado</span>}
+                {isExpirado && <span className="rounded-full bg-zinc-700/70 px-2 py-0.5 text-xs uppercase text-zinc-300">Encerrado</span>}
                 {isAgendado && (
                     <button 
                         className="button bg-blue-500 hover:bg-blue-600 flex items-center gap-1 px-4" 
@@ -107,7 +114,17 @@ export default function AgendaProfissionalItem(props: AgendaProfissionalItemProp
                         <IconTrash size={24} stroke={1.5} />
                     </button>
                 )}
-                {!isAtivo && (
+                {isExpirado && (
+                    <button
+                        className="button bg-green-600 hover:bg-green-500 flex items-center gap-1 px-4"
+                        onClick={() => props.atualizarStatus(agendamento.id, 'concluido')}
+                        title="Confirmar que o cliente foi atendido"
+                    >
+                        <IconChecks size={20} />
+                        <span className="hidden sm:inline">Foi atendido</span>
+                    </button>
+                )}
+                {!isAtivo && !isExpirado && (
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500">
                         <IconLock size={16} />
                         Bloqueado

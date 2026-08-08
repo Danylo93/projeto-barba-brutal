@@ -31,6 +31,18 @@ describe('calcularComissoes', () => {
     expect(r.linhas[0].faturamento).toBe(20);
   });
 
+  it('ignora horário expirado sem confirmação de que o serviço aconteceu', () => {
+    const r = calcularComissoes(
+      [marcao],
+      [
+        { profissionalId: 1, status: 'expirado', servicos: [{ preco: 100 }] },
+        { profissionalId: 1, status: 'concluido', servicos: [{ preco: 20 }] },
+      ],
+    );
+    expect(r.linhas[0].atendimentos).toBe(1);
+    expect(r.linhas[0].faturamento).toBe(20);
+  });
+
   it('soma vários serviços no mesmo atendimento', () => {
     const r = calcularComissoes(
       [marcao],

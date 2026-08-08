@@ -23,6 +23,7 @@ import {
   SINAL_PENDENTE,
 } from '../sinal/sinal';
 import { gerarPixCopiaECola } from '../sinal/pix-brcode';
+import { encerrarHorariosUltrapassados } from './status-automatico';
 
 const MINUTOS_POR_SLOT = 30;
 
@@ -503,12 +504,10 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   }
 
   async buscarPorUsuario(usuarioId: number): Promise<Agendamento[]> {
+    await encerrarHorariosUltrapassados(this.prismaService, { usuarioId });
     const agendamentos = await this.prismaService.agendamento.findMany({
       where: {
         usuarioId,
-        data: {
-          gte: new Date(),
-        },
       },
       include: {
         servicos: true,
@@ -538,6 +537,10 @@ export class AgendamentoRepository implements RepositorioAgendamento {
     const pedido = diaPedidoEmBrasilia(data);
     if (!pedido) return [];
     const { inicio: inicioDoDia, fim: fimDoDia } = janelaDoDiaEmBrasilia(pedido);
+    await encerrarHorariosUltrapassados(this.prismaService, {
+      profissionalId,
+      tenantId,
+    });
 
     const agendamentos = await this.prismaService.agendamento.findMany({
       where: {
@@ -558,14 +561,15 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   }
 
   async buscarPorEmail(email: string, tenantId: number): Promise<Agendamento[]> {
+    await encerrarHorariosUltrapassados(this.prismaService, {
+      tenantId,
+      usuario: { email },
+    });
     const agendamentos = await this.prismaService.agendamento.findMany({
       where: {
         tenantId,
         usuario: {
           email: email,
-        },
-        data: {
-          gte: new Date(),
         },
       },
       include: {
@@ -582,14 +586,15 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   }
 
   async buscarPorTelefone(telefone: string, tenantId: number): Promise<Agendamento[]> {
+    await encerrarHorariosUltrapassados(this.prismaService, {
+      tenantId,
+      usuario: { telefone },
+    });
     const agendamentos = await this.prismaService.agendamento.findMany({
       where: {
         tenantId,
         usuario: {
           telefone: telefone,
-        },
-        data: {
-          gte: new Date(),
         },
       },
       include: {
@@ -627,6 +632,7 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   }
 
   async buscarPorId(id: number, tenantId: number): Promise<Agendamento | null> {
+    await encerrarHorariosUltrapassados(this.prismaService, { id, tenantId });
     const agendamento = await this.prismaService.agendamento.findUnique({
       where: {
         id,
@@ -708,14 +714,15 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   }
 
   async buscarPorUsuarioProfissional(usuarioId: number, tenantId: number): Promise<Agendamento[]> {
+    await encerrarHorariosUltrapassados(this.prismaService, {
+      tenantId,
+      profissional: { usuarioId },
+    });
     const agendamentos = await this.prismaService.agendamento.findMany({
       where: {
         tenantId,
         profissional: {
           usuarioId: usuarioId,
-        },
-        data: {
-          gte: new Date(),
         },
       },
       include: {

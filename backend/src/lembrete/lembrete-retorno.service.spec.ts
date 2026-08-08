@@ -36,11 +36,14 @@ function montar(opcoes: {
       ]),
     },
     agendamento: {
-      findMany: jest.fn(async (args: any) =>
-        'retornoEnviadoEm' in args.where
+      findMany: jest.fn(async (args: any) => {
+        // Antes do lembrete, a mesma execução encerra horários ativos cujo
+        // serviço já terminou. Essa consulta não faz parte da fila de retorno.
+        if (args.select?.servicos?.select?.qtdeSlots) return [];
+        return 'retornoEnviadoEm' in args.where
           ? (opcoes.candidatos ?? [candidato()])
-          : (opcoes.posteriores ?? []),
-      ),
+          : (opcoes.posteriores ?? []);
+      }),
       updateMany: jest.fn(async (args: any) => {
         marcacoes.push(args);
         return { count: args.where.id.in.length };
@@ -78,7 +81,9 @@ describe('lembrete automático para o cliente retornar', () => {
 
     await service.dispararRetornos({ agora: AGORA });
 
-    const consulta = prisma.agendamento.findMany.mock.calls[0][0];
+    const consulta = prisma.agendamento.findMany.mock.calls
+      .map(([args]: any[]) => args)
+      .find((args: any) => 'retornoEnviadoEm' in args.where);
     expect(consulta.where.status).toBe('concluido');
     expect(consulta.where.data.lte).toEqual(
       new Date(AGORA.getTime() - dias * 24 * 60 * 60 * 1000),
@@ -93,7 +98,11 @@ describe('lembrete automático para o cliente retornar', () => {
       configuracoes: { lembreteRetorno: { ativo: false, dias: 30 } },
     });
     const resposta = await service.dispararRetornos({ agora: AGORA });
-    expect(prisma.agendamento.findMany).not.toHaveBeenCalled();
+    // A sincronização geral ainda roda, mas a fila de retorno não é consultada.
+    const consultasDeRetorno = prisma.agendamento.findMany.mock.calls.filter(
+      ([args]: any[]) => 'retornoEnviadoEm' in args.where,
+    );
+    expect(consultasDeRetorno).toHaveLength(0);
     expect(whatsapp.enviarTexto).not.toHaveBeenCalled();
     expect(resposta.enviados).toBe(0);
   });

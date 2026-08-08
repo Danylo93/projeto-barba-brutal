@@ -136,8 +136,13 @@ export class AgendamentoController {
     if (agendamento.status === 'cancelado') {
       return { id: agendamento.id, status: 'cancelado', jaEstava: true };
     }
-    if (agendamento.status === 'concluido') {
-      throw new HttpException('Não é possível cancelar um agendamento já concluído', 400);
+    if (agendamento.status === 'concluido' || agendamento.status === 'expirado') {
+      throw new HttpException(
+        agendamento.status === 'expirado'
+          ? 'Não é possível cancelar um horário que já terminou'
+          : 'Não é possível cancelar um agendamento já concluído',
+        400,
+      );
     }
     // DELETE é mantido para não quebrar os clientes existentes, mas o efeito
     // de negócio é cancelamento. Apagar a linha destruía o histórico que a
@@ -201,6 +206,19 @@ export class AgendamentoController {
     if (agendamento.status === 'concluido' && novoStatus !== 'concluido') {
       throw new HttpException('Não é possível reverter o status de um agendamento concluído', 400);
     }
+    if (novoStatus === 'expirado' && agendamento.status !== 'expirado') {
+      throw new HttpException('O status expirado é definido automaticamente pelo sistema', 400);
+    }
+    if (
+      agendamento.status === 'expirado' &&
+      novoStatus !== 'expirado' &&
+      novoStatus !== 'concluido'
+    ) {
+      throw new HttpException(
+        'Um horário encerrado só pode ser confirmado como concluído',
+        400,
+      );
+    }
     await this.repo.atualizarStatus(+id, tenant.id, novoStatus);
 
     if (novoStatus === 'cancelado') {
@@ -256,8 +274,15 @@ export class AgendamentoController {
     if (!usuarioLogado.barbeiro && usuarioLogado.tipo !== 'tenant' && usuarioLogado.id !== agendamento.usuarioId) {
       throw new HttpException('Usuário não autorizado', 401);
     }
-    if (agendamento.status === 'concluido' || agendamento.status === 'cancelado') {
-      throw new HttpException('Não é possível reagendar um agendamento concluído ou cancelado', 400);
+    if (
+      agendamento.status === 'concluido' ||
+      agendamento.status === 'cancelado' ||
+      agendamento.status === 'expirado'
+    ) {
+      throw new HttpException(
+        'Não é possível reagendar um agendamento concluído, cancelado ou encerrado',
+        400,
+      );
     }
     await this.repo.reagendar(+id, tenant.id, new Date(data));
   }
