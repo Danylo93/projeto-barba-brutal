@@ -150,3 +150,49 @@ export function reais(valor: number): string {
     currency: 'BRL',
   })
 }
+
+/**
+ * As linhas de benefício do cartão, sem repetir o limite de profissionais.
+ *
+ * O cartão montava uma linha própria a partir de `maxUsuarios` e depois
+ * listava as `features` do catálogo, filtrando as que falassem em "barbeiro"
+ * para não repetir. O catálogo passou a dizer "profissional", o filtro parou
+ * de casar, e o Premium exibiu "Profissionais ilimitados" duas vezes seguidas
+ * — o Básico exibiu "1 profissional(is)" e "1 profissional".
+ *
+ * A lista do catálogo já diz o limite em todos os planos, então ela manda. A
+ * linha derivada só entra se NENHUMA feature falar do assunto, o que cobre
+ * plano antigo gravado antes desse texto existir.
+ */
+export function beneficiosDoCartao(
+  features: string[],
+  maxUsuarios: number | null | undefined,
+): string[] {
+  const limpas = (features ?? []).filter((f) => String(f).trim().length > 0)
+  const jaFalaDoLimite = limpas.some((f) => /barbeiro|profissional|profissionais/i.test(f))
+  if (jaFalaDoLimite) return limpas
+
+  const derivada = ehIlimitado(maxUsuarios)
+    ? 'Profissionais ilimitados'
+    : `${maxUsuarios} ${maxUsuarios === 1 ? 'profissional' : 'profissionais'}`
+  return [derivada, ...limpas]
+}
+
+/**
+ * A frase verde acima do botão.
+ *
+ * Era fixa em "Upgrade disponível" para todo plano que não fosse o atual —
+ * inclusive nos mais baratos, onde o botão logo abaixo dizia "Fazer
+ * downgrade". O cartão se contradizia sozinho.
+ */
+export function situacaoDoCartao(dados: {
+  atual: boolean
+  emTeste: boolean
+  preco: number
+  precoAtual: number
+}): string {
+  if (dados.atual) return dados.emTeste ? 'Teste grátis ativo' : 'Assinatura ativa'
+  if (dados.preco > dados.precoAtual) return 'Upgrade disponível'
+  if (dados.preco < dados.precoAtual) return 'Plano mais enxuto'
+  return 'Mesmo valor, outra periodicidade'
+}

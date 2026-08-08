@@ -1,5 +1,6 @@
 import {
   agruparPlanos,
+  beneficiosDoCartao,
   chaveDoPlano,
   economiaNoAno,
   ehIlimitado,
@@ -8,6 +9,7 @@ import {
   periodicidadeDe,
   planoEscolhido,
   reais,
+  situacaoDoCartao,
 } from './planos'
 
 const MENSAL = {
@@ -135,5 +137,67 @@ describe('dinheiro na tela', () => {
   it('sai em real, do jeito brasileiro', () => {
     expect(reais(69.9).replace(/ /g, ' ')).toBe('R$ 69,90')
     expect(reais(699).replace(/ /g, ' ')).toBe('R$ 699,00')
+  })
+})
+
+describe('benefícios do cartão de plano', () => {
+  // As features de verdade, como o catálogo as escreve hoje.
+  const PREMIUM = [
+    'Profissionais ilimitados',
+    'Agendamentos ilimitados',
+    'Sinal no agendamento',
+  ]
+  const BASICO = ['1 profissional', 'Agendamentos ilimitados', 'Relatórios básicos']
+
+  it('não repete o limite de profissionais', () => {
+    // O cartão montava uma linha a partir de `maxUsuarios` e listava as
+    // features por cima, filtrando só as que diziam "barbeiro". O catálogo
+    // passou a dizer "profissional" e o Premium exibiu a mesma linha duas
+    // vezes seguidas, na cara do cliente que ia decidir pagar.
+    const linhas = beneficiosDoCartao(PREMIUM, 999999)
+    expect(linhas.filter((l) => /profissionais ilimitados/i.test(l))).toHaveLength(1)
+    expect(linhas).toEqual(PREMIUM)
+  })
+
+  it('nem no Básico, que dizia "1 profissional(is)" e "1 profissional"', () => {
+    const linhas = beneficiosDoCartao(BASICO, 1)
+    expect(linhas.filter((l) => /profissional/i.test(l))).toHaveLength(1)
+    expect(linhas).not.toContain('1 profissional(is)')
+  })
+
+  it('plano antigo, sem a feature, ainda mostra o limite', () => {
+    // Linha gravada antes de o catálogo escrever o limite em texto.
+    expect(beneficiosDoCartao(['Relatórios'], 1)[0]).toBe('1 profissional')
+    expect(beneficiosDoCartao(['Relatórios'], 3)[0]).toBe('3 profissionais')
+    expect(beneficiosDoCartao(['Relatórios'], 999999)[0]).toBe('Profissionais ilimitados')
+  })
+
+  it('e o texto antigo com "barbeiro" também conta como já dito', () => {
+    expect(beneficiosDoCartao(['Barbeiros ilimitados'], 999999)).toEqual(['Barbeiros ilimitados'])
+  })
+
+  it('feature vazia não vira linha em branco', () => {
+    expect(beneficiosDoCartao(['1 profissional', '  ', ''], 1)).toEqual(['1 profissional'])
+  })
+})
+
+describe('a frase acima do botão', () => {
+  it('concorda com a ação, em vez de dizer sempre "upgrade"', () => {
+    // O cartão dizia "Upgrade disponível" e o botão logo abaixo dizia "Fazer
+    // downgrade" — o mesmo cartão se contradizendo.
+    expect(situacaoDoCartao({ atual: false, emTeste: false, preco: 49.9, precoAtual: 99.9 }))
+      .not.toMatch(/upgrade/i)
+    expect(situacaoDoCartao({ atual: false, emTeste: false, preco: 99.9, precoAtual: 49.9 }))
+      .toMatch(/upgrade/i)
+  })
+
+  it('mesmo preço é troca de periodicidade, não upgrade', () => {
+    expect(situacaoDoCartao({ atual: false, emTeste: false, preco: 99.9, precoAtual: 99.9 }))
+      .toMatch(/periodicidade/i)
+  })
+
+  it('o plano atual diz o que ele é', () => {
+    expect(situacaoDoCartao({ atual: true, emTeste: true, preco: 1, precoAtual: 1 })).toMatch(/teste/i)
+    expect(situacaoDoCartao({ atual: true, emTeste: false, preco: 1, precoAtual: 1 })).toMatch(/ativa/i)
   })
 })

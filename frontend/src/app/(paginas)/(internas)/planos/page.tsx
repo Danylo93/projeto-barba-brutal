@@ -9,14 +9,15 @@ import { useToast } from '@/hooks/use-toast'
 import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 import {
   agruparPlanos,
+  beneficiosDoCartao,
   economiaNoAno,
-  ehIlimitado,
   equivalenteMensal,
   mesesDeGraca,
   Periodicidade,
   PlanoDaApi,
   planoEscolhido,
   reais,
+  situacaoDoCartao,
 } from '@/lib/planos'
 
 /**
@@ -295,7 +296,6 @@ export default function PlanosPage() {
             const economia = economiaNoAno(cartao)
             const meses = mesesDeGraca(cartao)
             const atual = plano.id === planoAtualId
-            const ilimitado = ehIlimitado(plano.maxUsuarios)
             const precoAtual = atualPlano?.preco ?? plano.preco
             const acaoTexto = atual
               ? 'Plano atual'
@@ -337,14 +337,10 @@ export default function PlanosPage() {
                   </p>
                 )}
                 <p className="text-xs text-green-400 mb-4">
-                  {atual && emTeste ? 'Teste grátis ativo' : atual ? 'Assinatura ativa' : 'Upgrade disponível'}
+                  {situacaoDoCartao({ atual, emTeste, preco: plano.preco, precoAtual })}
                 </p>
                 <ul className="space-y-2 my-4 flex-1">
-                  <li className="flex items-center gap-2 text-sm text-zinc-300">
-                    <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
-                    {ilimitado ? 'Profissionais ilimitados' : `${plano.maxUsuarios} profissional(is)`}
-                  </li>
-                  {cartao.features.filter((f) => !/barbeiro/i.test(f)).map((f, i) => (
+                  {beneficiosDoCartao(cartao.features, plano.maxUsuarios).map((f, i) => (
                     <li key={i} className="flex items-center gap-2 text-sm text-zinc-300">
                       <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
                       {f}
