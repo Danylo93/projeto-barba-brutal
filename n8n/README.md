@@ -13,6 +13,23 @@ Cinco fluxos, um trabalho cada:
 Os quatro primeiros falam; o quinto conversa. Este README cobre os cinco, e o
 atendente tem uma seção própria mais abaixo.
 
+## Os dois agentes do WhatsApp comercial
+
+Além dos cinco acima — que são da barbearia falando com o cliente dela —
+existe o WhatsApp do próprio SaaS, que fala com dono de barbearia. Ali são
+dois agentes, com objetivos opostos:
+
+| Agente | Fala com | Objetivo | Prompt |
+|---|---|---|---|
+| **Barry** | quem ainda não é cliente | levar ao teste grátis | `prompts/barry-vendas.md` |
+| **Cacau** | quem já é cliente | resolver e sair do caminho | `prompts/cacau-suporte.md` |
+
+O fluxo vive no n8n; os prompts ficam versionados aqui porque são texto que
+cliente lê, e porque preço e endereço saem daqui — errar um deles custa venda.
+
+O roteamento é pelo telefone: número que já pertence a um tenant vai para a
+Cacau, o resto vai para o Barry.
+
 Os quatro automáticos têm dois nós de trabalho: um relógio e uma chamada HTTP. **Quem busca,
 monta a mensagem, envia pela Evolution e marca o que saiu é o backend.**
 
