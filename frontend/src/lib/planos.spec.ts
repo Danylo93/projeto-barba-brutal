@@ -1,4 +1,5 @@
 import {
+  acaoDoCartao,
   agruparPlanos,
   beneficiosDoCartao,
   chaveDoPlano,
@@ -199,5 +200,32 @@ describe('a frase acima do botão', () => {
   it('o plano atual diz o que ele é', () => {
     expect(situacaoDoCartao({ atual: true, emTeste: true, preco: 1, precoAtual: 1 })).toMatch(/teste/i)
     expect(situacaoDoCartao({ atual: true, emTeste: false, preco: 1, precoAtual: 1 })).toMatch(/ativa/i)
+  })
+})
+
+describe('a barbearia que ainda não escolheu plano', () => {
+  // Recém-cadastrada: `planoAtualId` é nulo, e `precoAtual` acaba sendo o
+  // preço do próprio cartão, porque não há com o que comparar.
+  const semPlano = { atual: false, semPlano: true, preco: 99.9, precoAtual: 99.9 }
+
+  it('o botão convida a escolher, em vez de "Trocar plano"', () => {
+    // "Trocar plano" era o texto que sobrava por empate de preço — e o botão
+    // não fazia nada, porque `tentarAcao` saía calado sem plano atual. Quem
+    // chega por anúncio apertava e a tela ficava parada.
+    expect(acaoDoCartao(semPlano)).toBe('Escolher este plano')
+  })
+
+  it('e a frase acima não promete upgrade de coisa nenhuma', () => {
+    expect(situacaoDoCartao({ ...semPlano, emTeste: false })).toBe('Disponível para começar')
+  })
+
+  it('quem já tem plano continua vendo upgrade e downgrade', () => {
+    expect(acaoDoCartao({ atual: false, preco: 99.9, precoAtual: 49.9 })).toBe('Fazer upgrade')
+    expect(acaoDoCartao({ atual: false, preco: 49.9, precoAtual: 99.9 })).toBe('Fazer downgrade')
+    expect(acaoDoCartao({ atual: false, preco: 99.9, precoAtual: 99.9 })).toBe('Trocar plano')
+  })
+
+  it('o plano atual continua sendo o plano atual', () => {
+    expect(acaoDoCartao({ atual: true, semPlano: true, preco: 1, precoAtual: 1 })).toBe('Plano atual')
   })
 })

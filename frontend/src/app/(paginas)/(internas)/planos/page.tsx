@@ -8,6 +8,7 @@ import Modal from '@/components/painel/Modal'
 import { useToast } from '@/hooks/use-toast'
 import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
 import {
+  acaoDoCartao,
   agruparPlanos,
   beneficiosDoCartao,
   economiaNoAno,
@@ -201,7 +202,17 @@ export default function PlanosPage() {
   }
 
   const tentarAcao = (plano: Plano) => {
-    if (!planoAtualId || plano.id === planoAtualId) return
+    if (plano.id === planoAtualId) return
+
+    // Sem plano nenhum não há diferença a pagar: é adesão. O backend abre o
+    // teste grátis, ou explica que ele já foi usado — e `aplicarTroca` mostra
+    // a resposta. Antes esta função saía calada nesse caso e o botão não
+    // fazia nada para quem tinha acabado de se cadastrar.
+    if (!planoAtualId) {
+      aplicarTroca(plano)
+      return
+    }
+
     if (plano.preco > (atualPlano?.preco ?? plano.preco)) {
       abrirPixUpgrade(plano)
       return
@@ -297,13 +308,8 @@ export default function PlanosPage() {
             const meses = mesesDeGraca(cartao)
             const atual = plano.id === planoAtualId
             const precoAtual = atualPlano?.preco ?? plano.preco
-            const acaoTexto = atual
-              ? 'Plano atual'
-              : plano.preco > precoAtual
-                ? 'Fazer upgrade'
-                : plano.preco < precoAtual
-                  ? 'Fazer downgrade'
-                  : 'Trocar plano'
+            const semPlano = !planoAtualId
+            const acaoTexto = acaoDoCartao({ atual, preco: plano.preco, precoAtual, semPlano })
 
             return (
               <div
@@ -337,7 +343,7 @@ export default function PlanosPage() {
                   </p>
                 )}
                 <p className="text-xs text-green-400 mb-4">
-                  {situacaoDoCartao({ atual, emTeste, preco: plano.preco, precoAtual })}
+                  {situacaoDoCartao({ atual, emTeste, preco: plano.preco, precoAtual, semPlano })}
                 </p>
                 <ul className="space-y-2 my-4 flex-1">
                   {beneficiosDoCartao(cartao.features, plano.maxUsuarios).map((f, i) => (

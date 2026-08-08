@@ -190,9 +190,35 @@ export function situacaoDoCartao(dados: {
   emTeste: boolean
   preco: number
   precoAtual: number
+  /** A barbearia ainda não escolheu plano nenhum. */
+  semPlano?: boolean
 }): string {
   if (dados.atual) return dados.emTeste ? 'Teste grátis ativo' : 'Assinatura ativa'
+  if (dados.semPlano) return 'Disponível para começar'
   if (dados.preco > dados.precoAtual) return 'Upgrade disponível'
   if (dados.preco < dados.precoAtual) return 'Plano mais enxuto'
   return 'Mesmo valor, outra periodicidade'
+}
+
+/**
+ * O texto do botão.
+ *
+ * Existe porque a barbearia SEM plano precisava de um caso próprio, e ele não
+ * existia: `tentarAcao` começava com `if (!planoAtualId) return` e o botão
+ * simplesmente não fazia nada. Quem acabou de se cadastrar — que é quem chega
+ * por anúncio — apertava e a tela ficava parada, sem erro e sem aviso. O
+ * backend sempre soube iniciar o teste grátis nesse caso; era a tela que não
+ * deixava pedir.
+ */
+export function acaoDoCartao(dados: {
+  atual: boolean
+  preco: number
+  precoAtual: number
+  semPlano?: boolean
+}): string {
+  if (dados.atual) return 'Plano atual'
+  if (dados.semPlano) return 'Escolher este plano'
+  if (dados.preco > dados.precoAtual) return 'Fazer upgrade'
+  if (dados.preco < dados.precoAtual) return 'Fazer downgrade'
+  return 'Trocar plano'
 }
