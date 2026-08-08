@@ -62,9 +62,16 @@ function montar(opcoes: {
     configurado: false,
     enviarTexto: jest.fn(async () => opcoes.envioOk ?? true),
   };
-  const service = new LembreteService(prisma as any, whatsapp as any);
+  const service = new LembreteService(prisma as any, whatsapp as any, agendamentos as any);
   return { service, prisma, whatsapp, marcacoes };
 }
+
+/**
+ * O repositório de agendamento entra aqui só porque o serviço de lembrete
+ * também expira os sinais vencidos. Nenhum teste deste arquivo exercita isso;
+ * o dublê existe para o construtor não mentir sobre a dependência.
+ */
+const agendamentos = { expirarSinaisVencidos: jest.fn(async () => 0) };
 
 describe('lembrete automático para o cliente retornar', () => {
   it.each([15, 20, 30, 40])('usa os %i dias escolhidos pela barbearia', async (dias) => {

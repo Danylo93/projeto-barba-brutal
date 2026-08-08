@@ -22,6 +22,25 @@ export interface PlanoLocal {
   nome: string;
   descricao: string;
   preco: number;
+  /** Em dias. 365 = anual; qualquer outra coisa é tratada como mensal. */
+  duracao?: number | null;
+}
+
+/**
+ * De quanto em quanto tempo o Mercado Pago cobra este plano.
+ *
+ * A recorrência estava fixa em "1 mês". No dia em que nasceu o plano anual,
+ * isso deixaria de ser um detalhe: o preço do ano inteiro seria cobrado TODO
+ * MÊS, doze vezes. O Mercado Pago só aceita `months` ou `days`, então um ano
+ * são 12 meses.
+ */
+export function recorrenciaDoPlano(plano: Pick<PlanoLocal, 'duracao'>): {
+  frequency: number;
+  frequency_type: 'months';
+} {
+  return Number(plano.duracao) >= 365
+    ? { frequency: 12, frequency_type: 'months' }
+    : { frequency: 1, frequency_type: 'months' };
 }
 
 /**
@@ -36,8 +55,7 @@ export function corpoDoPlano(plano: PlanoLocal, backUrl: string) {
   return {
     reason: `Barbearia Brutal — Plano ${plano.nome}`,
     auto_recurring: {
-      frequency: 1,
-      frequency_type: 'months' as const,
+      ...recorrenciaDoPlano(plano),
       // O teste antes da primeira cobrança é o mesmo que a landing promete —
       // por isso sai da constante, e não de um número digitado aqui.
       free_trial: {
@@ -77,8 +95,7 @@ export function corpoDaAssinatura(dados: {
     payer_email: dados.emailDoPagador,
     external_reference: referenciaExterna(dados.tenantId, dados.plano.id),
     auto_recurring: {
-      frequency: 1,
-      frequency_type: 'months' as const,
+      ...recorrenciaDoPlano(dados.plano),
       // Só começa a cobrar quando o teste acaba.
       start_date: dados.primeiraCobranca.toISOString(),
       transaction_amount: Number(dados.plano.preco.toFixed(2)),

@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import useSessao from '@/data/hooks/useSessao'
 import useAPI from '@/data/hooks/useAPI'
 import Cabecalho from '@/components/shared/Cabecalho'
+import AbaRecebimento from '@/components/painel/AbaRecebimento'
 import { useToast } from '@/hooks/use-toast'
 import UpgradeCallout from '@/components/painel/UpgradeCallout'
 import WhatsappConnectionCard from '@/components/painel/WhatsappConnectionCard'
@@ -46,7 +47,7 @@ export default function ConfiguracoesPage() {
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
     const [sucesso, setSucesso] = useState(false)
-    const [abaAtual, setAbaAtual] = useState<'geral' | 'integracoes'>('geral')
+    const [abaAtual, setAbaAtual] = useState<'geral' | 'recebimento' | 'integracoes'>('geral')
 
     const [horarios, setHorarios] = useState<DiaHorario[]>(horariosPadrao())
     const [corPrimaria, setCorPrimaria] = useState('#09090b')
@@ -187,6 +188,12 @@ export default function ConfiguracoesPage() {
                     >
                         Geral
                     </button>
+                    <button
+                        onClick={() => setAbaAtual('recebimento')}
+                        className={`px-4 py-3 font-semibold text-sm transition-colors ${abaAtual === 'recebimento' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        Recebimento
+                    </button>
                     {!plano.isProfissional ? (
                         <button
                             type="button"
@@ -226,6 +233,8 @@ export default function ConfiguracoesPage() {
                         <span className="text-sm font-semibold">Configurações salvas com sucesso!</span>
                     </motion.div>
                 )}
+
+                {abaAtual === 'recebimento' && <AbaRecebimento />}
 
                 {abaAtual === 'geral' && (
                     <div className="flex flex-col gap-8 animate-slide-up">

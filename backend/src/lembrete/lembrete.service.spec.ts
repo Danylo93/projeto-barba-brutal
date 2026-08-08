@@ -51,9 +51,16 @@ function montarServico(opcoes: { lista?: any[]; envioOk?: (n: string) => boolean
     }),
   };
 
-  const service = new LembreteService(prisma as any, whatsapp as any);
+  const service = new LembreteService(prisma as any, whatsapp as any, agendamentos as any);
   return { service, prisma, whatsapp, consultas, marcacoes, enviadas };
 }
+
+/**
+ * O repositório de agendamento entra aqui só porque o serviço de lembrete
+ * também expira os sinais vencidos. Nenhum teste deste arquivo exercita isso;
+ * o dublê existe para o construtor não mentir sobre a dependência.
+ */
+const agendamentos = { expirarSinaisVencidos: jest.fn(async () => 0) };
 
 beforeAll(() => jest.useFakeTimers().setSystemTime(AGORA));
 afterAll(() => jest.useRealTimers());
@@ -265,6 +272,7 @@ describe('rodadas seguidas', () => {
     const service = new LembreteService(
       bancoComEstado(linhas) as any,
       whatsapp as any,
+      agendamentos as any,
     );
 
     for (let i = 0; i < 10; i++) await service.disparar('confirmacao');
@@ -293,6 +301,7 @@ describe('rodadas seguidas', () => {
     const service = new LembreteService(
       bancoComEstado(linhas) as any,
       whatsapp as any,
+      agendamentos as any,
     );
 
     const [a, b] = await Promise.all([
@@ -323,6 +332,7 @@ describe('rodadas seguidas', () => {
     const service = new LembreteService(
       bancoComEstado(linhas) as any,
       whatsapp as any,
+      agendamentos as any,
     );
 
     await service.disparar('lembrete');

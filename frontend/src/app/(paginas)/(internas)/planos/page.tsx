@@ -7,18 +7,24 @@ import useUsuario from '@/data/hooks/useUsuario'
 import Modal from '@/components/painel/Modal'
 import { useToast } from '@/hooks/use-toast'
 import { PRAZO_TESTE_GRATIS } from '@/lib/teste-gratis'
+import {
+  agruparPlanos,
+  economiaNoAno,
+  ehIlimitado,
+  equivalenteMensal,
+  mesesDeGraca,
+  Periodicidade,
+  PlanoDaApi,
+  planoEscolhido,
+  reais,
+} from '@/lib/planos'
 
-interface Plano {
-  id: number
-  nome: string
-  descricao: string
-  preco: number
-  duracao: number
-  maxUsuarios: number
-  maxAgendamentos: number
-  features: string[]
-  ativo: boolean
-}
+/**
+ * O plano como a API devolve. O tipo mora em `@/lib/planos` porque a landing
+ * lê exatamente a mesma coisa — e é o que garante que as duas telas
+ * anunciem o mesmo preço.
+ */
+type Plano = PlanoDaApi
 
 interface PixData {
   pagamentoId: number
@@ -53,6 +59,8 @@ export default function PlanosPage() {
   const isTenant = usuario?.tipo === 'tenant'
 
   const [planos, setPlanos] = useState<Plano[]>([])
+  // Mensal ou anual. A API devolve os dois; a tela mostra três cartões.
+  const [periodicidade, setPeriodicidade] = useState<Periodicidade>('mensal')
   const [planoAtualId, setPlanoAtualId] = useState<number | null>(null)
   const [emTeste, setEmTeste] = useState(false)
   const [diasRestantes, setDiasRestantes] = useState<number | null>(null)
@@ -201,6 +209,8 @@ export default function PlanosPage() {
   }
 
   const atualPlano = planos.find((p) => p.id === planoAtualId)
+  // Os seis planos da API viram três cartões; o alternador escolhe o preço.
+  const cartoes = agruparPlanos(planos)
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -250,10 +260,42 @@ export default function PlanosPage() {
           </div>
         )}
 
+        {cartoes.some((c) => c.anual) && (
+          <div className="mb-6 flex justify-center">
+            <div
+              role="radiogroup"
+              aria-label="Como você quer pagar"
+              className="inline-flex rounded-full border border-zinc-800 bg-zinc-900 p-1"
+            >
+              {(['mensal', 'anual'] as const).map((opcao) => (
+                <button
+                  key={opcao}
+                  type="button"
+                  role="radio"
+                  aria-checked={periodicidade === opcao}
+                  onClick={() => setPeriodicidade(opcao)}
+                  className={`rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+                    periodicidade === opcao
+                      ? 'bg-yellow-400 text-zinc-900'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  {opcao === 'mensal' ? 'Mensal' : 'Anual'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-slide-up">
-          {planos.map((plano) => {
+          {cartoes.map((cartao) => {
+            const plano = planoEscolhido(cartao, periodicidade)
+            if (!plano) return null
+            const ehAnual = periodicidade === 'anual' && !!cartao.anual
+            const economia = economiaNoAno(cartao)
+            const meses = mesesDeGraca(cartao)
             const atual = plano.id === planoAtualId
-            const ilimitado = plano.maxUsuarios >= 999999
+            const ilimitado = ehIlimitado(plano.maxUsuarios)
             const precoAtual = atualPlano?.preco ?? plano.preco
             const acaoTexto = atual
               ? 'Plano atual'
@@ -265,11 +307,11 @@ export default function PlanosPage() {
 
             return (
               <div
-                key={plano.id}
+                key={cartao.chave}
                 className={`bg-zinc-900 rounded-xl flex flex-col p-6 border-2 ${atual ? 'border-yellow-400' : 'border-zinc-800'}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xl font-bold text-white">{plano.nome}</h2>
+                  <h2 className="text-xl font-bold text-white">{cartao.nome}</h2>
                   {atual && (
                     <span className="flex items-center gap-1 text-xs font-semibold text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-full">
                       <Crown size={14} /> {emTeste ? 'Em teste' : 'Plano atual'}
@@ -278,18 +320,31 @@ export default function PlanosPage() {
                 </div>
                 <p className="text-zinc-400 text-sm mb-4">{plano.descricao}</p>
                 <p className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-1">
-                  R$ {plano.preco.toFixed(2).replace('.', ',')}
+                  {/* No anual mostra o equivalente por mês: é com o mensal
+                      que a pessoa compara. */}
+                  {reais(ehAnual ? equivalenteMensal(plano.preco) : plano.preco)}
                   <span className="text-sm font-normal text-zinc-500">/mês</span>
                 </p>
+                {ehAnual && (
+                  <p className="text-xs text-zinc-500 mb-1">
+                    {reais(plano.preco)} por ano
+                    {economia > 0 && (
+                      <span className="text-green-400">
+                        {' · '}economiza {reais(economia)}
+                        {meses > 0 && ` (${meses} ${meses === 1 ? 'mês' : 'meses'})`}
+                      </span>
+                    )}
+                  </p>
+                )}
                 <p className="text-xs text-green-400 mb-4">
                   {atual && emTeste ? 'Teste grátis ativo' : atual ? 'Assinatura ativa' : 'Upgrade disponível'}
                 </p>
                 <ul className="space-y-2 my-4 flex-1">
                   <li className="flex items-center gap-2 text-sm text-zinc-300">
                     <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
-                    {ilimitado ? 'Barbeiros ilimitados' : `${plano.maxUsuarios} barbeiro(s)`}
+                    {ilimitado ? 'Profissionais ilimitados' : `${plano.maxUsuarios} profissional(is)`}
                   </li>
-                  {plano.features.filter((f) => !/barbeiro/i.test(f)).map((f, i) => (
+                  {cartao.features.filter((f) => !/barbeiro/i.test(f)).map((f, i) => (
                     <li key={i} className="flex items-center gap-2 text-sm text-zinc-300">
                       <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
                       {f}

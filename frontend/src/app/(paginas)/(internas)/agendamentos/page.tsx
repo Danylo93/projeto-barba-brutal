@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import useUsuario from '@/data/hooks/useUsuario'
 import ConfirmModal from '@/components/shared/ConfirmModal'
 import { useToast } from '@/hooks/use-toast'
+import SinalDoAgendamento from '@/components/painel/SinalDoAgendamento'
 
 interface AgendamentoUI {
   id: number
@@ -17,6 +18,11 @@ interface AgendamentoUI {
   servicos: Array<{ nome: string; preco: number }>
   usuario?: { nome: string; email?: string }
   status?: string
+  // Sinal: só vem preenchido nas barbearias que exigem.
+  sinalValor?: number | null
+  sinalStatus?: string | null
+  sinalExpiraEm?: string | null
+  sinalPixCopiaECola?: string | null
 }
 
 function podeAlterarAgendamento(status?: string) {
@@ -316,6 +322,16 @@ export default function AgendamentosPage() {
                       ))}
                     </div>
                   )}
+
+                  <SinalDoAgendamento
+                    agendamentoId={agendamento.id}
+                    sinalValor={agendamento.sinalValor}
+                    sinalStatus={agendamento.sinalStatus}
+                    sinalExpiraEm={agendamento.sinalExpiraEm}
+                    sinalPixCopiaECola={agendamento.sinalPixCopiaECola}
+                    podeConfirmar={isTenant || isBarbeiro}
+                    aoAtualizar={carregar}
+                  />
 
                   {podeAlterarAgendamento(agendamento.status) && (
                     <div className="flex gap-2 pt-1">

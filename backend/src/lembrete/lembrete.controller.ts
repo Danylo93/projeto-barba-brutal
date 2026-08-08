@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { LembreteService } from './lembrete.service';
+import { SerieService } from '../serie/serie.service';
 
 /**
  * Endpoints server-to-server dos avisos de WhatsApp (n8n + Evolution).
@@ -26,7 +27,10 @@ import { LembreteService } from './lembrete.service';
 @Controller('lembretes')
 @SkipThrottle()
 export class LembreteController {
-  constructor(private readonly service: LembreteService) {}
+  constructor(
+    private readonly service: LembreteService,
+    private readonly series: SerieService,
+  ) {}
 
   /** Confere o token e devolve o tenant opcional já validado. */
   private exigirToken(token: string, tenantId?: string): number | undefined {
@@ -148,5 +152,33 @@ export class LembreteController {
       tenantId: tenant,
       limite: Number(limite) || undefined,
     });
+  }
+
+  /**
+   * Rotina diária: estende as séries de atendimento recorrente.
+   *
+   * Sem ela, toda série parava depois das oito primeiras ocorrências até
+   * alguém clicar em "estender" à mão — e o cliente fixo simplesmente sumia
+   * da agenda dois meses depois, sem ninguém perceber.
+   */
+  @Post('series/gerar')
+  async gerarSeries(@Headers('x-lembrete-token') token: string) {
+    this.exigirToken(token);
+    return this.series.gerarDeTodas();
+  }
+
+  /**
+   * Rotina de limpeza: cancela os agendamentos cujo sinal venceu.
+   *
+   * A agenda já não considera esses horários ocupados no instante em que o
+   * prazo passa — quem decide isso é a própria consulta. Esta rotina existe
+   * para o painel também contar a mesma história, em vez de exibir para
+   * sempre um agendamento "aguardando Pix" de três semanas atrás.
+   */
+  @Post('sinais/expirar')
+  async expirarSinais(@Headers('x-lembrete-token') token: string) {
+    this.exigirToken(token);
+    const expirados = await this.service.expirarSinaisVencidos();
+    return { expirados };
   }
 }

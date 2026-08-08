@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { HowItWorks } from '@/components/landing/HowItWorks';
 import { Features } from '@/components/landing/Features';
+import { AtendenteWhatsApp } from '@/components/landing/AtendenteWhatsApp';
 import { Pricing } from '@/components/landing/Pricing';
 import { Testimonials } from '@/components/landing/Testimonials';
 import { FAQ } from '@/components/landing/FAQ';
@@ -29,6 +30,7 @@ export default function HomePage() {
         <HomeFilme />
         <HowItWorks />
         <Features />
+        <AtendenteWhatsApp />
         <Pricing />
         <Testimonials />
         <FAQ />

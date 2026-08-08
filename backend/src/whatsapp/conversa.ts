@@ -15,6 +15,7 @@
  */
 
 import { expedienteDoDia } from '../agendamento/agendamento.validacao';
+import { chaveDoPlano } from '../plano/catalogo';
 
 /** Brasília é UTC-3 o ano inteiro desde 2019 — não há mais horário de verão. */
 const OFFSET_BRASILIA = '-03:00';
@@ -282,11 +283,16 @@ export const ROBO_FORA_DO_PLANO =
   'O atendimento por WhatsApp está disponível nos planos Profissional e Premium.';
 
 /** O plano desta barbearia inclui o robô? */
-export function planoTemRobo(plano: { nome?: string | null; features?: string[] | null } | null): boolean {
+export function planoTemRobo(
+  plano: { nome?: string | null; grupo?: string | null; features?: string[] | null } | null,
+): boolean {
   if (!plano) return false;
 
-  const nome = String(plano.nome ?? '').trim().toLowerCase();
-  if ((PLANOS_COM_ROBO as readonly string[]).includes(nome)) return true;
+  // Pela chave canônica, e não pelo nome: "Profissional Anual" é o mesmo
+  // plano que "Profissional", e quem pagou o ano adiantado não pode acordar
+  // sem robô.
+  const chave = chaveDoPlano(plano);
+  if ((PLANOS_COM_ROBO as readonly string[]).includes(chave)) return true;
 
   // A feature escrita à mão também vale: o dono do SaaS pode liberar o robô
   // para um plano sob medida sem mexer em código.
