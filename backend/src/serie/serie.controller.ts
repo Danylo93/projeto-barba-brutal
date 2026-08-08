@@ -13,8 +13,7 @@ import { SerieService } from './serie.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SubscriptionGuard } from '../auth/subscription.guard';
 import { CurrentTenantId } from '../auth/current-tenant.decorator';
-import { UsuarioLogado } from '../usuario/usuario.decorator';
-import { Usuario } from '../types';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 /**
  * Atendimento recorrente: "todo sábado às 10h".
@@ -29,7 +28,7 @@ export class SerieController {
   constructor(private readonly series: SerieService) {}
 
   @Get()
-  listar(@CurrentTenantId() tenantId: number, @UsuarioLogado() usuario: Usuario) {
+  listar(@CurrentTenantId() tenantId: number, @CurrentUser() usuario: any) {
     this.exigirEquipe(usuario);
     return this.series.listar(tenantId);
   }
@@ -38,7 +37,7 @@ export class SerieController {
   criar(
     @Body() body: any,
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
   ) {
     this.exigirEquipe(usuario);
     return this.series.criar(tenantId, body);
@@ -49,7 +48,7 @@ export class SerieController {
   async gerar(
     @Param('id', ParseIntPipe) id: number,
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
   ) {
     this.exigirEquipe(usuario);
     await this.exigirDaBarbearia(tenantId, id);
@@ -60,13 +59,13 @@ export class SerieController {
   encerrar(
     @Param('id', ParseIntPipe) id: number,
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
   ) {
     this.exigirEquipe(usuario);
     return this.series.encerrar(tenantId, id);
   }
 
-  private exigirEquipe(usuario: Usuario | any) {
+  private exigirEquipe(usuario: any) {
     if (usuario?.tipo === 'tenant' || usuario?.barbeiro) return;
     throw new ForbiddenException('Só a equipe da barbearia monta atendimento recorrente.');
   }

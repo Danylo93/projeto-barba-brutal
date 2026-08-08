@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ErrorFilter } from './error.filter';
 import { LoggingInterceptor } from './common/logging.interceptor';
@@ -26,10 +27,24 @@ async function bootstrap() {
   };
 
   // rawBody habilita a validação de assinatura do webhook do Stripe
-  const app = await NestFactory.create(AppModule, { cors: corsOptions, rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    cors: corsOptions,
+    rawBody: true,
+  });
   
   // Security headers
   app.use(helmet());
+
+  // Sem isto, `req.ip` é o endereço do proxy do Render — o MESMO para todo
+  // visitante do planeta. Todos os limites por IP viravam um balde só: cinco
+  // agendamentos públicos por minuto no SaaS inteiro, e nenhuma proteção
+  // contra robô, que bastava trocar de IP para escapar de um contador que
+  // nem estava olhando para ele.
+  //
+  // `1` e não `true`: confia só no proxy imediatamente à frente. Confiar na
+  // cadeia toda deixaria qualquer um forjar o próprio IP no
+  // `X-Forwarded-For` e furar o limite à vontade.
+  app.set('trust proxy', 1);
 
   // Global Validation Pipe
   app.useGlobalPipes(new ValidationPipe({

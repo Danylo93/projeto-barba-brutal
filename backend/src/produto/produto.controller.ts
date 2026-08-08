@@ -15,8 +15,7 @@ import { ProdutoService } from './produto.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SubscriptionGuard } from '../auth/subscription.guard';
 import { CurrentTenantId } from '../auth/current-tenant.decorator';
-import { UsuarioLogado } from '../usuario/usuario.decorator';
-import { Usuario } from '../types';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 /**
  * Produtos e estoque.
@@ -33,7 +32,7 @@ export class ProdutoController {
   @Get()
   listar(
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
     @Query('todos') todos?: string,
   ) {
     this.exigirEquipe(usuario);
@@ -41,7 +40,7 @@ export class ProdutoController {
   }
 
   @Get('resumo')
-  resumo(@CurrentTenantId() tenantId: number, @UsuarioLogado() usuario: Usuario) {
+  resumo(@CurrentTenantId() tenantId: number, @CurrentUser() usuario: any) {
     this.exigirDono(usuario);
     return this.produtos.resumo(tenantId);
   }
@@ -49,7 +48,7 @@ export class ProdutoController {
   @Get('movimentos')
   historico(
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
     @Query('produtoId') produtoId?: string,
     @Query('limite') limite?: string,
   ) {
@@ -65,7 +64,7 @@ export class ProdutoController {
   buscar(
     @Param('id', ParseIntPipe) id: number,
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
   ) {
     this.exigirEquipe(usuario);
     return this.produtos.buscar(tenantId, id);
@@ -75,7 +74,7 @@ export class ProdutoController {
   criar(
     @Body() body: any,
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
   ) {
     this.exigirDono(usuario);
     return this.produtos.criar(tenantId, body);
@@ -86,7 +85,7 @@ export class ProdutoController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
   ) {
     this.exigirDono(usuario);
     return this.produtos.atualizar(tenantId, id, body);
@@ -96,7 +95,7 @@ export class ProdutoController {
   desativar(
     @Param('id', ParseIntPipe) id: number,
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
   ) {
     this.exigirDono(usuario);
     return this.produtos.desativar(tenantId, id);
@@ -108,20 +107,20 @@ export class ProdutoController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
     @CurrentTenantId() tenantId: number,
-    @UsuarioLogado() usuario: Usuario,
+    @CurrentUser() usuario: any,
   ) {
     this.exigirEquipe(usuario);
     return this.produtos.movimentar(tenantId, id, body, usuario?.id);
   }
 
   /** Dono e barbeiro. */
-  private exigirEquipe(usuario: Usuario | any) {
+  private exigirEquipe(usuario: any) {
     if (usuario?.tipo === 'tenant' || usuario?.barbeiro) return;
     throw new ForbiddenException('Só a equipe da barbearia acessa o estoque.');
   }
 
   /** Só o dono: preço de custo e cadastro são decisão de quem paga a conta. */
-  private exigirDono(usuario: Usuario | any) {
+  private exigirDono(usuario: any) {
     if (usuario?.tipo === 'tenant') return;
     throw new ForbiddenException('Só o dono da barbearia pode fazer isso.');
   }

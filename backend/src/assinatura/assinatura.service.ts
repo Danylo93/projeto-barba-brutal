@@ -19,6 +19,7 @@ import {
 import { dominioDaOpcao } from './dominio';
 import { DIAS_TESTE_GRATIS } from './teste-gratis';
 import { vigenciaAte } from '../plano/catalogo';
+import { contaDaTroca, tipoDaTroca } from './troca-de-plano';
 
 @Injectable()
 export class AssinaturaService {
@@ -74,22 +75,21 @@ export class AssinaturaService {
     const planoAtual = assinatura
       ? await this.prisma.plano.findUnique({ where: { id: assinatura.planoId } })
       : null;
-    const eUpgrade = !!planoAtual && plano.preco > planoAtual.preco;
-    const eDowngrade = !!planoAtual && plano.preco < planoAtual.preco;
-    const diasRestantes = assinatura && assinatura.dataFim > agora
-      ? Math.max(0, Math.ceil((assinatura.dataFim.getTime() - agora.getTime()) / 86400000))
-      : 0;
-    const diasNoCiclo = assinatura
-      ? Math.max(
-          1,
-          Math.ceil((assinatura.dataFim.getTime() - assinatura.dataInicio.getTime()) / 86400000),
-        )
-      : 30;
-    const proporcaoRestante = diasRestantes / diasNoCiclo;
+    // Mesma conta que a cobrança usa — o número que a tela mostra não pode
+    // discordar do que o Pix vai pedir. Comparar preço cheio diria que ir do
+    // Premium mensal para o anual é "upgrade"; é a mesma coisa paga de outro
+    // jeito.
+    const tipoDeTroca = tipoDaTroca(plano, planoAtual);
+    const contaDoUpgrade = contaDaTroca(
+      plano,
+      planoAtual,
+      assinatura,
+      !!assinatura?.emTeste,
+      agora,
+    );
+    const diasRestantes = contaDoUpgrade.diasRestantes;
     const diferencaProporcional =
-      eUpgrade && planoAtual
-        ? Number(Math.max(0, (plano.preco - planoAtual.preco) * proporcaoRestante).toFixed(2))
-        : 0;
+      tipoDeTroca === 'downgrade' ? 0 : contaDoUpgrade.valor;
 
     // Teste grátis é UMA vez por barbearia, e a marca fica no tenant para
     // sobreviver a cancelamento. Sem isso bastava cancelar e escolher um
@@ -161,7 +161,7 @@ export class AssinaturaService {
     await this.avisarPlanoContratado(tenantId, plano, retornoValidoAte, ehTrial);
     return {
       assinatura: trocada,
-      tipoAlteracao: eUpgrade ? 'upgrade' : eDowngrade ? 'downgrade' : 'troca',
+      tipoAlteracao: tipoDeTroca,
       valorProporcional: diferencaProporcional,
       diasRestantes,
     };
@@ -508,18 +508,22 @@ export class AssinaturaService {
     const planoAtual = assinatura
       ? await this.prisma.plano.findUnique({ where: { id: assinatura.planoId } })
       : null;
-    const diasRestantes = assinatura && assinatura.dataFim > agora
-      ? Math.max(0, Math.ceil((assinatura.dataFim.getTime() - agora.getTime()) / 86400000))
-      : 0;
-    const diasNoCiclo = assinatura
-      ? Math.max(
-          1,
-          Math.ceil((assinatura.dataFim.getTime() - assinatura.dataInicio.getTime()) / 86400000),
-        )
-      : 30;
-    const proporcaoRestante = diasRestantes / diasNoCiclo;
-    const valorBase = planoAtual ? Math.max(0, plano.preco - planoAtual.preco) : plano.preco;
-    const valorCobranca = Number(Math.max(0.01, valorBase * proporcaoRestante || plano.preco).toFixed(2));
+    // Cobra o plano novo por inteiro e abate o que resta do ciclo atual.
+    //
+    // A fórmula anterior cobrava a DIFERENÇA de preço rateada pelo que
+    // sobrava — conta que só fecha quando os dois planos duram o mesmo tanto.
+    // Como a ativação sempre concede um ciclo inteiro, trocar o Premium
+    // mensal pelo anual cobrava R$ 599,40 e entregava 365 dias; no último dia
+    // do ciclo, R$ 29,97 por um ano.
+    const conta = contaDaTroca(
+      plano,
+      planoAtual,
+      assinatura,
+      !!assinatura?.emTeste,
+      agora,
+    );
+    const { valor: valorCobranca, credito, diasRestantes } = conta;
+    const valorBase = conta.precoDoPlano;
 
     if (!this.mpToken) {
       throw new BadRequestException(
@@ -540,6 +544,7 @@ export class AssinaturaService {
           planoId,
           upgrade: true,
           valorBase,
+          credito,
           diasRestantes,
         },
       }),

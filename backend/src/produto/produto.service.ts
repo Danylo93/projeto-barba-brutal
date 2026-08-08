@@ -126,9 +126,22 @@ export class ProdutoService {
   /**
    * Registra uma entrada, venda, saída ou ajuste.
    *
-   * O saldo e o movimento são gravados na MESMA transação, e o saldo é lido
-   * dentro dela: duas vendas no mesmo segundo, em dois celulares diferentes,
-   * não podem ler o mesmo saldo e gravar o mesmo resultado.
+   * A gravação do saldo é CONDICIONAL e relativa:
+   *
+   *     UPDATE produto SET estoque = estoque - 1
+   *      WHERE id = ? AND estoque >= 1
+   *
+   * A primeira versão lia o saldo com `findFirst` dentro da transação,
+   * calculava em JS e gravava o valor absoluto. Parecia seguro por estar numa
+   * transação, e não era: no isolamento padrão do Postgres, duas transações
+   * leem `estoque = 3`, as duas gravam `2`, as duas comitam sem erro. Medido
+   * com seis processos vendendo ao mesmo tempo: seis vendas registradas, uma
+   * unidade baixada, e o sistema dizendo que ainda havia 2 na prateleira.
+   *
+   * Deixando o próprio banco fazer a subtração, a linha é travada no UPDATE e
+   * a condição `estoque >= quantidade` é avaliada com o valor real. Quem
+   * chegou depois atualiza zero linhas e leva a recusa — que é o certo, porque
+   * o produto acabou mesmo.
    */
   async movimentar(
     tenantId: number,
@@ -151,12 +164,26 @@ export class ProdutoService {
       const produto = await tx.produto.findFirst({ where: { id: produtoId, tenantId } });
       if (!produto) throw new NotFoundException('Produto não encontrado');
 
-      let resultado: { saldoDepois: number; variacao: number };
+      // Só para validar o formato e dar a mensagem boa. O saldo de verdade
+      // quem decide é o UPDATE lá embaixo.
       try {
-        resultado = aplicarMovimento(produto.estoque, tipo, quantidade);
+        aplicarMovimento(produto.estoque, tipo, quantidade);
       } catch (erro: any) {
         throw new BadRequestException(erro?.message ?? 'Movimento inválido.');
       }
+
+      const atualizado = await this.gravarSaldo(tx, produtoId, tipo, quantidade);
+      if (!atualizado) {
+        // Alguém levou as últimas unidades entre a leitura e a gravação.
+        const agora = await tx.produto.findUnique({
+          where: { id: produtoId },
+          select: { estoque: true },
+        });
+        throw new BadRequestException(
+          `Não dá para tirar ${quantidade} de um estoque de ${agora?.estoque ?? 0}.`,
+        );
+      }
+      const resultado = { saldoDepois: atualizado.estoque };
 
       const valorUnitario =
         dados?.valorUnitario != null
@@ -180,15 +207,58 @@ export class ProdutoService {
         },
       });
 
-      const atualizado = await tx.produto.update({
-        where: { id: produtoId },
-        data: { estoque: resultado.saldoDepois },
-      });
-
+      const comSaldo = { ...produto, estoque: resultado.saldoDepois };
       return {
         movimento,
-        produto: { ...atualizado, estoqueBaixo: estoqueBaixo(atualizado) },
+        produto: { ...comSaldo, estoqueBaixo: estoqueBaixo(comSaldo) },
       };
+    });
+  }
+
+  /**
+   * Grava o saldo deixando a conta com o banco.
+   *
+   * Devolve `null` quando nenhuma linha foi atualizada — que é como a venda
+   * concorrente perde: a condição `estoque >= quantidade` foi avaliada com o
+   * valor real, já baixado por quem chegou antes.
+   *
+   * O ajuste é o único absoluto: ele não soma nem subtrai, ele DEFINE o
+   * saldo. É a contagem de prateleira, e o que estava no sistema já não vale
+   * mesmo.
+   */
+  private async gravarSaldo(
+    tx: any,
+    produtoId: number,
+    tipo: TipoDeMovimento,
+    quantidade: number,
+  ): Promise<{ estoque: number } | null> {
+    if (tipo === 'ajuste') {
+      return tx.produto.update({
+        where: { id: produtoId },
+        data: { estoque: quantidade },
+        select: { estoque: true },
+      });
+    }
+
+    if (tipo === 'entrada') {
+      return tx.produto.update({
+        where: { id: produtoId },
+        data: { estoque: { increment: quantidade } },
+        select: { estoque: true },
+      });
+    }
+
+    // Venda e saída: só sai se houver. `updateMany` aceita a condição no
+    // `where`; `update` exigiria um id único e não deixaria condicionar.
+    const { count } = await tx.produto.updateMany({
+      where: { id: produtoId, estoque: { gte: quantidade } },
+      data: { estoque: { decrement: quantidade } },
+    });
+    if (count === 0) return null;
+
+    return tx.produto.findUnique({
+      where: { id: produtoId },
+      select: { estoque: true },
     });
   }
 

@@ -79,6 +79,7 @@ export default function AgendarSemConta({
 
   const [ocupados, setOcupados] = useState<string[]>([])
   const [buscandoHorarios, setBuscandoHorarios] = useState(false)
+  const [falhouAoBuscar, setFalhouAoBuscar] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
   const [recibo, setRecibo] = useState<any>(null)
@@ -110,12 +111,25 @@ export default function AgendarSemConta({
     }
     let vivo = true
     setBuscandoHorarios(true)
+    setFalhouAoBuscar(false)
     fetch(`${apiBase}/publico/${dominio}/horarios/${profissionalId}/${dia}`)
-      .then((r) => (r.ok ? r.json() : { ocupados: [] }))
+      .then(async (r) => {
+        // Falha NÃO pode virar "está tudo livre".
+        //
+        // Era `r.ok ? r.json() : { ocupados: [] }`: qualquer erro — inclusive
+        // o 429 do limite de requisições — fazia a tela oferecer a agenda
+        // inteira. A pessoa escolhia um horário ocupado e só descobria ao
+        // confirmar, levando "este profissional já tem um atendimento às
+        // 14:00" na cara.
+        if (!r.ok) throw new Error('não deu para consultar')
+        return r.json()
+      })
       .then((dados) => {
         if (vivo) setOcupados(Array.isArray(dados?.ocupados) ? dados.ocupados : [])
       })
-      .catch(() => undefined)
+      .catch(() => {
+        if (vivo) setFalhouAoBuscar(true)
+      })
       .finally(() => {
         if (vivo) setBuscandoHorarios(false)
       })
@@ -125,8 +139,8 @@ export default function AgendarSemConta({
   }, [apiBase, dominio, profissionalId, dia])
 
   const horariosDoDia = useMemo(
-    () => montarHorarios(grade, dia, slots, ocupados),
-    [grade, dia, slots, ocupados],
+    () => (falhouAoBuscar ? [] : montarHorarios(grade, dia, slots, ocupados)),
+    [grade, dia, slots, ocupados, falhouAoBuscar],
   )
 
   const alternarServico = useCallback(
@@ -265,6 +279,11 @@ export default function AgendarSemConta({
                 {buscandoHorarios ? (
                   <p className="flex items-center gap-2 text-sm text-zinc-500">
                     <Loader2 size={16} className="animate-spin" /> Vendo o que está livre…
+                  </p>
+                ) : falhouAoBuscar ? (
+                  <p className="text-sm text-yellow-400">
+                    Não conseguimos ver a agenda agora. Escolha o dia de novo em alguns
+                    instantes — não queremos oferecer um horário que já foi.
                   </p>
                 ) : horariosDoDia.length === 0 ? (
                   <p className="text-sm text-zinc-400">

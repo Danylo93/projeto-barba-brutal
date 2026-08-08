@@ -28,9 +28,12 @@ import { VERSAO_PRIVACIDADE, VERSAO_TERMOS } from '../lgpd/versoes';
  * 1. A barbearia vem do ENDEREÇO (o slug da URL), nunca do corpo. Mandar
  *    `tenantId` no JSON não muda nada — é o que impede marcar na agenda de
  *    outra barbearia.
- * 2. A resposta devolve SÓ o agendamento recém-criado. Nada de listar,
- *    consultar por telefone ou devolver dados de terceiro: senão bastaria
- *    digitar números de telefone para descobrir quem se corta onde.
+ * 2. A resposta devolve SÓ o agendamento recém-criado, montado campo a
+ *    campo. Nada de listar, consultar por telefone ou devolver dado de
+ *    terceiro — senão bastaria digitar números de telefone para descobrir
+ *    quem se corta onde. A resposta chegou a trazer um `novaConta`, que era
+ *    exatamente esse bit ("este telefone já é cliente daqui?"); saiu, porque
+ *    a tela não precisava dele para nada.
  * 3. A conta criada nasce `semCadastro`, com senha aleatória que ninguém
  *    conhece — nem nós. Ela não serve para entrar em lugar nenhum até a
  *    pessoa definir a própria senha pelo link de primeiro acesso.
@@ -135,7 +138,7 @@ export class PublicoService {
     });
 
     const agendamento = await this.agendamentos.buscarPorId(id, tenant.id);
-    return this.soODaPessoa(agendamento, cliente.novaConta);
+    return this.soODaPessoa(agendamento);
   }
 
   /**
@@ -150,9 +153,17 @@ export class PublicoService {
     nome: string,
     telefone: string,
     contexto: { ip?: string; userAgent?: string; aceitouLembretes: boolean },
-  ): Promise<{ id: number; novaConta: boolean }> {
+  ): Promise<{ id: number }> {
+    // A base tem os dois formatos: uns cadastros gravaram `5511964891128`
+    // (com o DDI, como a Evolution manda) e outros `11964891128`. Procurando
+    // só pelo formato normalizado, o cliente antigo virava conta nova — e
+    // depois não achava o próprio agendamento ao entrar na conta de verdade.
     const existente = await this.prisma.usuario.findFirst({
-      where: { tenantId, telefone, ativo: true },
+      where: {
+        tenantId,
+        ativo: true,
+        OR: [{ telefone }, { telefone: `55${telefone}` }],
+      },
       select: { id: true, semCadastro: true },
     });
 
@@ -160,7 +171,7 @@ export class PublicoService {
       // O nome NÃO é sobrescrito: quem sabe o telefone de alguém poderia
       // renomear a conta dessa pessoa. O que a barbearia vê é o nome que a
       // própria pessoa cadastrou.
-      return { id: existente.id, novaConta: false };
+      return { id: existente.id };
     }
 
     const criado = await this.prisma.usuario.create({
@@ -200,7 +211,7 @@ export class PublicoService {
         ),
       );
 
-    return { id: criado.id, novaConta: true };
+    return { id: criado.id };
   }
 
   /**
@@ -211,7 +222,7 @@ export class PublicoService {
    * também qualquer campo novo que alguém acrescentasse sem pensar nesta
    * rota.
    */
-  private soODaPessoa(agendamento: any, novaConta: boolean) {
+  private soODaPessoa(agendamento: any) {
     return {
       id: agendamento.id,
       data: agendamento.data,
@@ -230,7 +241,6 @@ export class PublicoService {
               expiraEm: agendamento.sinalExpiraEm,
             }
           : null,
-      novaConta,
     };
   }
 

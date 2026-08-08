@@ -857,6 +857,27 @@ export class TenantService {
       mudancas.sinalAtivo = ligando;
     }
 
+    // Apagar a chave com o sinal ligado deixava a funcionalidade "ativa" sem
+    // cobrar nada: `calcularSinal` devolve zero sem chave, e a página pública
+    // continuava prometendo "sinal de R$ X" que nunca era pedido. Falhava
+    // para o lado seguro, mas em silêncio.
+    if (mudancas.chavePix === null) {
+      const continuaExigindo =
+        mudancas.sinalAtivo ??
+        (
+          await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { sinalAtivo: true },
+          })
+        )?.sinalAtivo;
+
+      if (continuaExigindo) {
+        throw new BadRequestException(
+          'Desligue o sinal antes de apagar a chave Pix — sem ela não há para onde mandar o dinheiro.',
+        );
+      }
+    }
+
     return this.prisma.tenant.update({
       where: { id: tenantId },
       data: mudancas,

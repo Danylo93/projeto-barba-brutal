@@ -18,6 +18,15 @@ import {
  */
 export const OCORRENCIAS_ADIANTADAS = 8;
 
+/**
+ * Até quando a série mantém horário criado.
+ *
+ * Sem um teto, cada chamada de `gerarHorarios` empurra mais oito ocorrências
+ * para a frente — e a agenda de quem clicou três vezes vai parar no ano que
+ * vem. Setenta dias cobrem os oito encontros semanais com folga e param aí.
+ */
+export const HORIZONTE_EM_DIAS = 70;
+
 @Injectable()
 export class SerieService {
   private readonly logger = new Logger(SerieService.name);
@@ -96,7 +105,7 @@ export class SerieService {
         frequencia: frequencia as Frequencia,
         diaSemana,
         hora: String(dados.hora).trim(),
-        ate: dados?.ate ? new Date(dados.ate) : null,
+        ate: this.dataDeFim(dados?.ate),
         observacoes: dados?.observacoes ? String(dados.observacoes).trim() : null,
       },
     });
@@ -108,15 +117,31 @@ export class SerieService {
   /**
    * Cria os próximos horários que ainda faltam desta série.
    *
-   * Idempotente pelo `geradoAte`: chamar duas vezes seguidas não duplica
-   * nada, porque a segunda chamada continua de onde a primeira parou.
+   * Não duplica data — o `geradoAte` faz a próxima chamada continuar de onde
+   * a anterior parou —, mas também não é um botão inofensivo: cada chamada
+   * empurrava mais oito ocorrências para a frente. Três cliques seguidos
+   * enfiavam vinte e quatro horários na agenda do barbeiro, chegando a
+   * janeiro do ano seguinte.
+   *
+   * O `HORIZONTE_EM_DIAS` resolve: passado o horizonte, a chamada não faz
+   * nada. A série mantém sempre uns dois meses à frente, e clicar de novo é
+   * inofensivo.
    */
   async gerarHorarios(serieId: number, agora = new Date()) {
     const serie = await this.prisma.serieAgendamento.findUnique({ where: { id: serieId } });
     if (!serie) throw new NotFoundException('Série não encontrada');
     if (!serie.ativo) return { criados: [], pulados: [] };
 
-    const datas = proximasOcorrencias(serie as any, OCORRENCIAS_ADIANTADAS, agora);
+    const limiteDoHorizonte = new Date(
+      agora.getTime() + HORIZONTE_EM_DIAS * 24 * 60 * 60_000,
+    );
+    if (serie.geradoAte && serie.geradoAte >= limiteDoHorizonte) {
+      return { criados: [], pulados: [], jaEstavaCheia: true };
+    }
+
+    const datas = proximasOcorrencias(serie as any, OCORRENCIAS_ADIANTADAS, agora).filter(
+      (data) => data <= limiteDoHorizonte,
+    );
 
     const criados: Array<{ id: number; data: Date }> = [];
     const pulados: Array<{ data: Date; motivo: string }> = [];
@@ -206,6 +231,29 @@ export class SerieService {
     });
 
     return { serieId, horariosCancelados: count };
+  }
+
+  /**
+   * A data de fim da série, ou nulo.
+   *
+   * `new Date("31/12/2026")` — formato brasileiro, plausível vindo do n8n ou
+   * de qualquer integração — produz `Invalid Date`, que o Prisma recusa com
+   * um erro de validação e o filtro traduz para 500 "Erro interno". Erro de
+   * quem chamou não pode virar erro nosso.
+   */
+  private dataDeFim(valor: unknown): Date | null {
+    if (valor === null || valor === undefined || valor === '') return null;
+
+    const quando = valor instanceof Date ? valor : new Date(String(valor));
+    if (Number.isNaN(quando.getTime())) {
+      throw new BadRequestException(
+        'Data de término inválida. Use o formato 2026-12-31.',
+      );
+    }
+    if (quando.getTime() <= Date.now()) {
+      throw new BadRequestException('A data de término tem que estar no futuro.');
+    }
+    return quando;
   }
 
   private idsDeServico(valor: unknown): number[] {

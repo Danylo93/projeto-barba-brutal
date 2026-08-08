@@ -188,6 +188,8 @@ function FormularioDaSerie({
   const [hora, setHora] = useState('10:00')
   const [salvando, setSalvando] = useState(false)
 
+  const { error: toastError } = useToast()
+
   useEffect(() => {
     Promise.all([httpGet('/usuarios'), httpGet('/profissionais'), httpGet('/servicos')])
       .then(([c, p, s]) => {
@@ -195,8 +197,14 @@ function FormularioDaSerie({
         setProfissionais(Array.isArray(p) ? p : [])
         setServicos(Array.isArray(s) ? s : [])
       })
-      .catch(() => undefined)
-  }, [httpGet])
+      .catch((erro: any) => {
+        // Sem isto os campos apareciam vazios e o dono ficava olhando um
+        // formulário que não dava para preencher, sem nenhuma explicação.
+        toastError(
+          erro?.message ?? 'Não conseguimos carregar clientes, profissionais e serviços.',
+        )
+      })
+  }, [httpGet, toastError])
 
   // Só os serviços que o profissional escolhido realiza. Oferecer o que ele
   // não faz é montar uma recorrência que a API vai recusar toda semana.

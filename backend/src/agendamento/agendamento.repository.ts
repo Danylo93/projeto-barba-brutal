@@ -260,7 +260,15 @@ export class AgendamentoRepository implements RepositorioAgendamento {
   ) {
     const agendamento = await this.prismaService.agendamento.findFirst({
       where: { id, tenantId },
-      select: { id: true, sinalStatus: true, sinalValor: true },
+      select: {
+        id: true,
+        data: true,
+        status: true,
+        profissionalId: true,
+        sinalStatus: true,
+        sinalValor: true,
+        servicos: { select: { id: true, qtdeSlots: true } },
+      },
     });
     if (!agendamento) {
       throw new BadRequestException('Agendamento não encontrado.');
@@ -272,6 +280,34 @@ export class AgendamentoRepository implements RepositorioAgendamento {
       return { id, sinalStatus: SINAL_PAGO, jaEstava: true };
     }
 
+    // O Pix atrasou e a varredura já cancelou o horário.
+    //
+    // Antes isto passava batido: os campos de sinal viravam "pago", a API
+    // respondia 201 e o agendamento continuava CANCELADO. O dono via "Sinal
+    // confirmado", o cliente tinha pagado de verdade, e ninguém tinha
+    // reserva — até o cliente aparecer na porta.
+    //
+    // Se a vaga ainda estiver livre, ela volta a ser dele. Se outra pessoa
+    // pegou, é preciso dizer isso em vez de fingir que deu certo.
+    let voltouParaAgenda = false;
+    if (agendamento.status === 'cancelado') {
+      const duracaoMin = duracaoEmMinutos(agendamento.servicos);
+      try {
+        await this.garantirHorarioLivre(
+          agendamento as any,
+          new Date(agendamento.data),
+          duracaoMin,
+          agendamento.id,
+        );
+      } catch {
+        throw new BadRequestException(
+          'O prazo do sinal venceu e este horário já foi de outra pessoa. ' +
+            'Devolva o valor ao cliente e marque outro horário.',
+        );
+      }
+      voltouParaAgenda = true;
+    }
+
     const atualizado = await this.prismaService.agendamento.update({
       where: { id },
       data: {
@@ -279,10 +315,11 @@ export class AgendamentoRepository implements RepositorioAgendamento {
         sinalPagoEm: novoStatus === SINAL_PAGO ? new Date() : null,
         // O prazo deixa de valer: o horário está garantido.
         sinalExpiraEm: null,
+        ...(voltouParaAgenda ? { status: 'agendado' } : {}),
       },
-      select: { id: true, sinalStatus: true, sinalValor: true, sinalPagoEm: true },
+      select: { id: true, status: true, sinalStatus: true, sinalValor: true, sinalPagoEm: true },
     });
-    return atualizado;
+    return { ...atualizado, voltouParaAgenda };
   }
 
   /**

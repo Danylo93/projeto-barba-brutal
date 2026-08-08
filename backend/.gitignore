@@ -37,6 +37,11 @@ lerna-debug.log*
 
 # dotenv environment variable files
 .env
+# Qualquer variação: um `.env.revisao` criado para um teste local entrou num
+# commit por causa de um `git add` abrangente. O padrão fecha a porta em vez
+# de contar com a atenção de quem commita.
+.env.*
+!.env.example
 .env.development.local
 .env.test.local
 .env.production.local

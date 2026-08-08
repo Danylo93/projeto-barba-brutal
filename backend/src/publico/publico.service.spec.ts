@@ -37,9 +37,16 @@ function montar(opcoes: { usuarios?: any[]; tenants?: any[] } = {}) {
       ),
     },
     usuario: {
-      findFirst: jest.fn(async ({ where }: any) =>
-        usuarios.find((u) => u.tenantId === where.tenantId && u.telefone === where.telefone) ?? null,
-      ),
+      findFirst: jest.fn(async ({ where }: any) => {
+        const telefones = (where.OR ?? [{ telefone: where.telefone }])
+          .map((c: any) => c.telefone)
+          .filter(Boolean);
+        return (
+          usuarios.find(
+            (u) => u.tenantId === where.tenantId && telefones.includes(u.telefone),
+          ) ?? null
+        );
+      }),
       create: jest.fn(async ({ data }: any) => {
         const criado = { ...data, id: 900 + usuarios.length };
         usuarios.push(criado);
@@ -213,10 +220,30 @@ describe('quem já é cliente', () => {
     expect(usuarios[0].nome).toBe('João Pereira');
   });
 
-  it('e a resposta diz que a conta não é nova', async () => {
-    const { service } = montar({ usuarios: [ANTIGO] });
-    const recibo: any = await service.agendar('marcao', PEDIDO);
-    expect(recibo.novaConta).toBe(false);
+  it('e a resposta não conta se o telefone já era cliente', async () => {
+    // A resposta trazia um `novaConta`, e ele era exatamente o bit que o
+    // cabeçalho deste serviço promete não entregar: digitando telefones dava
+    // para descobrir quem se corta ali. Custava um agendamento por consulta,
+    // mas era o dado.
+    const conhecido: any = await montar({ usuarios: [ANTIGO] }).service.agendar('marcao', PEDIDO);
+    const novo: any = await montar().service.agendar('marcao', PEDIDO);
+
+    expect(conhecido.novaConta).toBeUndefined();
+    expect(novo.novaConta).toBeUndefined();
+    expect(Object.keys(conhecido).sort()).toEqual(Object.keys(novo).sort());
+  });
+
+  it('acha a conta mesmo com o telefone gravado com DDI', async () => {
+    // A base tem os dois formatos. Sem isto, quem estava como
+    // `5511964891128` virava conta nova e não achava o próprio agendamento
+    // ao entrar na conta de verdade.
+    const comDdi = { ...ANTIGO, telefone: '5511988887777' };
+    const { service, prisma, salvos } = montar({ usuarios: [comDdi] });
+
+    await service.agendar('marcao', PEDIDO);
+
+    expect(prisma.usuario.create).not.toHaveBeenCalled();
+    expect(salvos[0].usuarioId).toBe(500);
   });
 });
 
