@@ -89,11 +89,24 @@ export const CATALOGO: PlanoDoCatalogo[] = [
     precoMensal: 99.9,
     maxUsuarios: SEM_LIMITE,
     maxAgendamentos: SEM_LIMITE,
+    // Escrito por extenso, e não como "Tudo do Profissional".
+    //
+    // Esta lista não é só texto de vitrine: o `FeatureGuard` procura dentro
+    // dela a palavra da rota. Quando o Premium dizia apenas "Tudo do
+    // Profissional", nenhuma linha continha "agendamentos" — e o plano MAIS
+    // CARO passou a levar 403 em toda rota de agendamento. Pior: no teste
+    // grátis todo mundo recebe o Premium, então barbearia nova nascia sem
+    // conseguir marcar nada.
     features: [
-      'Tudo do Profissional',
-      'Sinal no agendamento',
-      'Cupons de desconto',
+      'Profissionais ilimitados',
+      'Agendamentos ilimitados',
+      'Agendamento sem cadastro',
       'Robô de WhatsApp que marca, remarca e cancela',
+      'Atendimento recorrente',
+      'Comissão por profissional',
+      'Produtos e estoque',
+      'Sinal no agendamento',
+      'Relatórios avançados',
       'Suporte prioritário',
     ],
   },
