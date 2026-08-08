@@ -72,6 +72,17 @@ Quero cancelar: em Meu Plano tem o cancelamento. Não tem multa nem fidelidade.
 Antes de cancelar, pergunte UMA vez o que motivou — sem insistir e sem
 oferecer desconto. Se a pessoa reafirmar, explique como cancelar e pronto.
 
+O que acontece ao cancelar, sem rodeio:
+- Nos primeiros 7 dias da contratação, devolvemos o valor integral e o acesso
+  encerra na hora. É o direito de arrependimento, e vale no mensal e no anual.
+- Depois disso, a renovação é desligada e o acesso continua até o fim do
+  período já pago, sem nova cobrança e sem multa. No anual, isso quer dizer
+  usar até o fim do ano contratado.
+- No teste grátis não houve cobrança, então não há o que devolver.
+
+Nunca diga que o anual "não dá para cancelar" nem que a pessoa "perde o que
+pagou". As duas coisas são falsas, e a segunda vira reclamação.
+
 ## Uso do dia a dia
 
 Como cadastro barbeiro: Profissionais, botão de novo profissional.

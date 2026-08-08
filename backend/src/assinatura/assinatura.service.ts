@@ -20,6 +20,7 @@ import { dominioDaOpcao } from './dominio';
 import { DIAS_TESTE_GRATIS } from './teste-gratis';
 import { vigenciaAte } from '../plano/catalogo';
 import { contaDaTroca, tipoDaTroca } from './troca-de-plano';
+import { resultadoDoCancelamento } from './politica-de-cancelamento';
 
 @Injectable()
 export class AssinaturaService {
@@ -32,6 +33,15 @@ export class AssinaturaService {
     private notificacao: NotificacaoService,
   ) {}
 
+  /**
+   * Cancelamento com a regra do art. 49 do CDC e do resto do mercado.
+   *
+   * Antes, cancelar marcava `canceled` na hora — e o guard rebaixava a
+   * barbearia no request seguinte. Quem tivesse pago um ano adiantado perdia
+   * os meses restantes E o dinheiro. Agora o cancelamento desliga a renovação
+   * e o acesso segue até o fim do que já foi pago; dentro dos sete dias, o
+   * dinheiro volta inteiro e o acesso encerra.
+   */
   async cancelSubscription(tenantId: number) {
     const assinatura = await this.prisma.assinatura.findUnique({
       where: { tenantId },
@@ -44,14 +54,43 @@ export class AssinaturaService {
     // Para de cobrar no cartão: cancelar só localmente deixaria a fatura vindo.
     await this.cancelarRecorrenciaNoMp(assinatura.mpPreapprovalId);
 
-    // Atualizar no banco
-    return this.prisma.assinatura.update({
+    // O que ENTROU por este período, e não o preço de hoje: quem contratou
+    // antes de um reajuste pagou outro valor, e devolver o de agora seria
+    // devolver dinheiro que nunca foi cobrado.
+    const ultimoPago = await this.prisma.pagamento.findFirst({
+      where: {
+        tenantId,
+        status: 'approved',
+        createdAt: { gte: assinatura.dataInicio },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { valor: true },
+    });
+
+    const desfecho = resultadoDoCancelamento(assinatura, Number(ultimoPago?.valor ?? 0));
+
+    const atualizada = await this.prisma.assinatura.update({
       where: { tenantId },
       data: {
-        status: 'canceled',
+        status: desfecho.novoStatus,
         renovacaoAutomatica: false,
+        // No arrependimento o acesso encerra agora; nos outros casos a data
+        // já paga fica como está.
+        ...(desfecho.motivo === 'arrependimento' ? { dataFim: desfecho.acessoAte } : {}),
       },
     });
+
+    // O desfecho vai junto porque é o que a tela precisa dizer: quanto volta,
+    // até quando dá para usar, e por quê. Sem isso o dono cancela no escuro.
+    return {
+      ...atualizada,
+      cancelamento: {
+        motivo: desfecho.motivo,
+        reembolso: desfecho.reembolso,
+        acessoAte: desfecho.acessoAte,
+        explicacao: desfecho.explicacao,
+      },
+    };
   }
 
   /**

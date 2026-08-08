@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CATALOGO, MESES_COBRADOS_NO_ANUAL, precoAnual, SEM_LIMITE } from './catalogo';
+import { DIAS_DE_ARREPENDIMENTO } from '../assinatura/politica-de-cancelamento';
 
 /**
  * O Barry e a Cacau falam preço por WhatsApp. Quando o catálogo muda e o
@@ -237,6 +238,43 @@ describe('o que está colado no n8n conta a mesma história', () => {
     expect(gerente).toContain('SUPORTE');
     expect(gerente).toContain('VENDAS');
     expect(gerente).not.toMatch(/boleto|mentoria/i);
+  });
+});
+
+describe('a política de cancelamento é a mesma no código e na boca dos dois', () => {
+  it('os dois citam os 7 dias de arrependimento', () => {
+    // O número mora em `politica-de-cancelamento.ts`. Se ele mudar lá e não
+    // aqui, o Barry passa a prometer um prazo que o sistema não cumpre.
+    for (const quem of ['Barry', 'Cacau']) {
+      expect(noFluxo[quem]).toMatch(new RegExp(`${DIAS_DE_ARREPENDIMENTO} dias`));
+    }
+  });
+
+  it('nenhum promete devolução proporcional depois dos 7 dias', () => {
+    // O sistema não faz conta proporcional no cancelamento: ele mantém o
+    // acesso até o fim do período pago. Prometer dinheiro de volta seria
+    // vender uma regra que o código não executa.
+    for (const quem of ['Barry', 'Cacau']) {
+      expect(noFluxo[quem]).not.toMatch(/proporcional/i);
+    }
+  });
+
+  it('a Cacau diz que o acesso segue até o fim do período pago', () => {
+    expect(noFluxo.Cacau).toMatch(/at[ée] o fim do per[íi]odo j[áa] pago/i);
+  });
+
+  it('e "não dá para cancelar" só aparece na linha que proíbe dizer isso', () => {
+    // Terceira vez que caio nesta: a linha de defesa contém a frase proibida.
+    // Conferir a ausência da frase reprovaria justamente quem a proíbe — o que
+    // vale checar é se ela aparece em algum lugar ALÉM da proibição.
+    for (const quem of ['Barry', 'Cacau']) {
+      const linhas = promptDoNo(quem)
+        .split('\n')
+        .filter((linha) => /n[ãa]o d[áa] para cancelar/i.test(linha));
+      for (const linha of linhas) {
+        expect(linha.trim()).toMatch(/^Nunca diga/);
+      }
+    }
   });
 });
 

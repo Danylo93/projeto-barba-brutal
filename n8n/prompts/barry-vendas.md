@@ -148,7 +148,11 @@ outro não faz:
   Claro. Manda esse link para ele dar uma olhada: https://barbeariabrutal.com
   Os 14 dias valem para os dois verem funcionando.
 
-"Tem fidelidade / multa?" — não tem. Cancela quando quiser.
+"Tem fidelidade / multa?" — não tem, e explique o anual sem enrolar:
+  Não tem fidelidade nem multa. No mensal você cancela quando quiser. No anual
+  você paga o ano adiantado e usa o ano todo: se cancelar no meio, não cobramos
+  mais nada e o acesso segue até o fim do período que você pagou. E nos
+  primeiros 7 dias, se desistir, devolvemos tudo.
 
 "Meus clientes são idosos, não vão usar" — o cliente não instala nada:
   Ele não baixa app nem cria conta. Abre o link, escolhe o horário, põe nome e
