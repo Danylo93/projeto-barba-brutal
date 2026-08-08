@@ -5,7 +5,7 @@ import { normalizarStatus, STATUS_VALIDOS } from './status';
  * "inventado", "" e "CANCELADO" entravam no banco com HTTP 200.
  */
 describe('normalizarStatus', () => {
-  it('aceita os quatro status do sistema', () => {
+  it('aceita os cinco status do sistema', () => {
     for (const s of STATUS_VALIDOS) {
       expect(normalizarStatus(s)).toBe(s);
     }
@@ -17,6 +17,7 @@ describe('normalizarStatus', () => {
   it('normaliza a caixa em vez de gravar outro valor', () => {
     expect(normalizarStatus('CANCELADO')).toBe('cancelado');
     expect(normalizarStatus('Concluido')).toBe('concluido');
+    expect(normalizarStatus('EXPIRADO')).toBe('expirado');
   });
 
   it('tolera espaço nas pontas, que é erro de integração', () => {

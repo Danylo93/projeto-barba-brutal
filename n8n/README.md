@@ -5,7 +5,7 @@ Cinco fluxos, um trabalho cada:
 | Arquivo | O que faz | Quando roda |
 |---|---|---|
 | `barbabrutal1confirmacaoagendamento.json` | Ao **criar** um agendamento, avisa cliente e barbeiro | a cada 1 min |
-| `barbabrutal2lembrete1h.json` | **1 hora antes** do horário, lembra cliente e barbeiro | a cada 5 min |
+| `barbabrutal2lembrete1h.json` | **1 hora antes** do horário, lembra cliente e barbeiro e encerra horários já ultrapassados | a cada 5 min |
 | `barbabrutal3lembrete-retorno.json` | Lembra o cliente de **refazer um serviço concluído** | todo dia às 10h |
 | `barbabrutal4avisos-plano.json` | Avisa a barbearia **1 dia antes e quando o plano expira**, por WhatsApp e e-mail | a cada hora |
 | `Barbearia Brutal — atendente de WhatsApp.json` | **Atende** o cliente: marca, remarca e cancela pela conversa | a cada mensagem |
@@ -162,7 +162,7 @@ só; sem ele, vale para todas.
 
 | Rota | O que faz |
 |---|---|
-| `POST /lembretes/disparar` | busca, envia e marca os lembretes. `?minutosAntes=60&janelaMin=5&limite=60` |
+| `POST /lembretes/disparar` | encerra horários ultrapassados e busca, envia e marca os lembretes. `?minutosAntes=60&janelaMin=5&limite=60` |
 | `POST /lembretes/confirmacoes/disparar` | o mesmo, para as confirmações |
 | `POST /lembretes/retorno/disparar` | processa os retornos configurados em 15, 20, 30 ou 40 dias; disponível em todos os planos |
 | `POST /assinaturas/avisos-expiracao/disparar` | envia por WhatsApp e e-mail o aviso da véspera e o da expiração; cada canal tem deduplicação própria |

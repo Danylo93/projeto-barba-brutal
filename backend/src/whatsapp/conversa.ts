@@ -177,6 +177,9 @@ export function porqueNaoDaParaRemarcar(
   if (status === 'concluido') {
     return 'Esse atendimento já foi realizado. Se quiser voltar, marco um novo horário para você.';
   }
+  if (status === 'expirado') {
+    return 'Esse horário já terminou, então não dá para remarcar. Se quiser, marco um novo horário para você.';
+  }
 
   if (novaDataTexto === undefined || novaDataTexto === null || String(novaDataTexto).trim() === '') {
     return 'Me diz para qual dia e horário você quer mudar, por favor. Pode ser assim: 07/08 às 15:00.';

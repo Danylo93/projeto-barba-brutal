@@ -15,6 +15,7 @@ import {
   telefoneUtilizavel,
 } from './janela';
 import { configuracaoDeRetorno } from './retorno';
+import { encerrarHorariosUltrapassados } from '../agendamento/status-automatico';
 
 /** Quantos agendamentos um disparo processa por vez. */
 const LIMITE_PADRAO = 60;
@@ -174,6 +175,14 @@ export class LembreteService {
       limite?: number;
     },
   ) {
+    // O fluxo de lembrete roda a cada cinco minutos e também funciona como
+    // relógio global dos status. As telas repetem a sincronização ao carregar,
+    // mas isto mantém o banco correto mesmo se ninguém abrir o aplicativo.
+    await encerrarHorariosUltrapassados(
+      this.prisma,
+      opcoes.tenantId ? { tenantId: opcoes.tenantId } : {},
+    );
+
     const pendentes =
       tipo === 'lembrete'
         ? await this.proximos(
@@ -310,6 +319,11 @@ export class LembreteService {
     agora?: Date;
   }) {
     const agora = opcoes.agora ?? new Date();
+    await encerrarHorariosUltrapassados(
+      this.prisma,
+      opcoes.tenantId ? { tenantId: opcoes.tenantId } : {},
+      agora,
+    );
     const limite = Math.max(1, Math.min(500, Number(opcoes.limite) || LIMITE_PADRAO));
     const tenants = await this.prisma.tenant.findMany({
       where: {

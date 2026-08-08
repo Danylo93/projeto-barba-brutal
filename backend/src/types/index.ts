@@ -55,8 +55,11 @@ export class ObterHorariosOcupados {
   async executar(profissionalId: number, data: Date | string, tenantId: number): Promise<string[]> {
     const agendamentos = await this.repo.buscarPorProfissional(profissionalId, data, tenantId);
     
-    // Filtra agendamentos cancelados
-    const ativos = agendamentos.filter((a: any) => a.status !== 'cancelado');
+    // Somente horários realmente ativos ocupam a agenda. Cancelado,
+    // concluído e expirado ficam no histórico, não na disponibilidade.
+    const ativos = agendamentos.filter((a: any) =>
+      ['agendado', 'confirmado'].includes(String(a.status ?? 'agendado')),
+    );
     const ocupados: string[] = [];
 
     for (const agendamento of ativos) {

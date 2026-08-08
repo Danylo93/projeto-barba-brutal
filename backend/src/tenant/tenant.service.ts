@@ -14,6 +14,7 @@ import {
   configuracaoDeRetornoValida,
 } from '../lembrete/retorno';
 import { testeGratisVigente } from '../assinatura/teste-gratis';
+import { encerrarHorariosUltrapassados } from '../agendamento/status-automatico';
 
 @Injectable()
 export class TenantService {
@@ -82,6 +83,7 @@ export class TenantService {
 
   /** Todos os agendamentos do tenant (para a listagem do dono). */
   async getAgendamentos(tenantId: number) {
+    await encerrarHorariosUltrapassados(this.prisma, { tenantId });
     const agendamentos = await this.prisma.agendamento.findMany({
       where: { tenantId },
       include: {
@@ -108,6 +110,7 @@ export class TenantService {
 
   /** Estatísticas para o dashboard do dono (barbeiro-admin). */
   async getStats(tenantId: number) {
+    await encerrarHorariosUltrapassados(this.prisma, { tenantId });
     const inicioHoje = new Date();
     inicioHoje.setHours(0, 0, 0, 0);
     const fimHoje = new Date();
@@ -131,7 +134,9 @@ export class TenantService {
 
     // ---- Indicadores de gestão (referência: relatórios dos concorrentes) ----
     const cancelados = agsMes.filter((a) => a.status === 'cancelado');
-    const efetivos = agsMes.filter((a) => a.status !== 'cancelado');
+    const efetivos = agsMes.filter(
+      (a) => a.status !== 'cancelado' && a.status !== 'expirado',
+    );
 
     // Valor congelado no agendamento; só cai no preço de hoje nos registros
     // anteriores à migração, que não têm o congelado.
@@ -153,7 +158,7 @@ export class TenantService {
       include: { servicos: true },
     });
     const receitaMesPassado = agsMesPassado
-      .filter((a) => a.status !== 'cancelado')
+      .filter((a) => a.status !== 'cancelado' && a.status !== 'expirado')
       .reduce((acc, ag) => acc + valorCobrado(ag), 0);
     const crescimentoReceita = receitaMesPassado
       ? ((receitaMes - receitaMesPassado) / receitaMesPassado) * 100
@@ -213,9 +218,10 @@ export class TenantService {
 
   /**
    * Relatório de comissões da equipe no mês de referência ("2026-07").
-   * Considera apenas atendimentos não cancelados.
+   * Não conta cancelados nem horários encerrados sem confirmação de atendimento.
    */
   async getComissoes(tenantId: number, mes?: string) {
+    await encerrarHorariosUltrapassados(this.prisma, { tenantId });
     const { inicio, fim, ref } = intervaloDoMes(mes);
 
     const [profissionais, atendimentos] = await Promise.all([

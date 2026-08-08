@@ -164,12 +164,15 @@ describe('por que não dá para remarcar', () => {
     expect(msg).toContain('17:15');
   });
 
-  it('cancelado e concluído têm cada um a sua frase', () => {
+  it('cancelado, concluído e encerrado têm cada um a sua frase', () => {
     expect(porqueNaoDaParaRemarcar({ status: 'cancelado' }, daqui(120), agora)).toContain(
       'cancelado',
     );
     expect(porqueNaoDaParaRemarcar({ status: 'concluido' }, daqui(120), agora)).toContain(
       'já foi realizado',
+    );
+    expect(porqueNaoDaParaRemarcar({ status: 'expirado' }, daqui(120), agora)).toContain(
+      'já terminou',
     );
   });
 

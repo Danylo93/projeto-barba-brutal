@@ -348,10 +348,16 @@ export default function FinancasPage() {
                                     ? 'bg-blue-500/15 text-blue-400'
                                     : agendamento.status === 'cancelado'
                                       ? 'bg-red-500/15 text-red-400'
+                                      : agendamento.status === 'expirado'
+                                        ? 'bg-zinc-700/60 text-zinc-300'
                                       : 'bg-yellow-500/15 text-yellow-400'
                               }`}
                             >
-                              {agendamento.status ?? 'agendado'}
+                              {agendamento.status === 'expirado'
+                                ? 'encerrado'
+                                : agendamento.status === 'concluido'
+                                  ? 'concluído'
+                                  : agendamento.status ?? 'agendado'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-white">

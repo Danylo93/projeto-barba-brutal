@@ -242,7 +242,7 @@ model Agendamento {
   usuario        Usuario      @relation(fields: [usuarioId], references: [id])
   usuarioId      Int
   tenantId       Int
-  status         String       @default("agendado") // agendado, confirmado, cancelado, concluido
+  status         String       @default("agendado") // agendado, confirmado, cancelado, concluido, expirado
   observacoes    String?
   /// Valor cobrado, congelado na hora de agendar.
   ///
@@ -276,6 +276,7 @@ model Agendamento {
 
   tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId, status, data])
   @@map("agendamento")
 }
 

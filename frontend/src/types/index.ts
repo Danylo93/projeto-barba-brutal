@@ -67,7 +67,7 @@ export interface Agendamento {
   servicoId: number;
   dataHora: string;
   duracao: number; // em minutos
-  status: 'pendente' | 'confirmado' | 'cancelado' | 'concluido';
+  status: 'pendente' | 'agendado' | 'confirmado' | 'cancelado' | 'concluido' | 'expirado';
   observacoes?: string;
   tenantId: number;
   criadoEm: string;

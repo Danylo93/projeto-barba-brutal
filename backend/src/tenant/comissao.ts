@@ -4,7 +4,7 @@
  *
  * Regra: cada atendimento gera comissão sobre o valor total dos serviços,
  * no percentual configurado no cadastro do profissional. Atendimentos
- * cancelados não contam.
+ * cancelados e horários expirados sem confirmação de atendimento não contam.
  */
 import { valorCobrado } from '../servico/preco';
 
@@ -44,7 +44,7 @@ export interface ResumoComissoes {
   totalLiquido: number;
 }
 
-const STATUS_QUE_NAO_CONTAM = new Set(['cancelado']);
+const STATUS_QUE_NAO_CONTAM = new Set(['cancelado', 'expirado']);
 
 /** Arredonda para 2 casas, evitando o clássico 0.1+0.2 do ponto flutuante. */
 function centavos(valor: number): number {

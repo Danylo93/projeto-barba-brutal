@@ -60,6 +60,7 @@ export default function Sumario() {
                     (a) =>
                         a.status !== 'cancelado' &&
                         a.status !== 'concluido' &&
+                        a.status !== 'expirado' &&
                         mesmoDia(new Date(a.data), data)
                 )
                 if (noMesmoDia.length > 0) {

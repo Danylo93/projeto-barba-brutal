@@ -10,7 +10,13 @@
  * chave, e é por ali que o n8n e o WhatsApp mexem na agenda.
  */
 
-export const STATUS_VALIDOS = ['agendado', 'confirmado', 'cancelado', 'concluido'] as const;
+export const STATUS_VALIDOS = [
+  'agendado',
+  'confirmado',
+  'cancelado',
+  'concluido',
+  'expirado',
+] as const;
 
 export type StatusAgendamento = (typeof STATUS_VALIDOS)[number];
 
