@@ -141,6 +141,21 @@ describe('o robô, com as features que o plano realmente tem', () => {
     expect(planoTemRobo({ nome: 'Básico', grupo: null, features: doCatalogo('basico').features })).toBe(false);
   });
 
+  it('com grupo, nem o nome nem o texto da feature decidem', () => {
+    // O guard do robô lê o plano do banco e, até agora, trazia só `nome` e
+    // `features` — a chave canônica nunca era consultada em produção. Enquanto
+    // as duas coisas estivessem intactas dava no mesmo, e é por isso que o
+    // buraco ficou escondido: o nome sozinho salva, a feature sozinha salva.
+    //
+    // Mexer nas DUAS ao mesmo tempo é o que derruba. Renomear o plano numa
+    // promoção e reescrever a lista de features é exatamente o tipo de coisa
+    // que o dono do SaaS faz por uma tela de admin, sem imaginar que está
+    // desligando o robô de quem paga.
+    const renomeado = { nome: 'Plano Equipe 2026', features: ['Profissionais ilimitados'] };
+    expect(planoTemRobo({ ...renomeado, grupo: null })).toBe(false);
+    expect(planoTemRobo({ ...renomeado, grupo: 'profissional' })).toBe(true);
+  });
+
   it('o plano sob medida libera escrevendo robô e WhatsApp na mesma linha', () => {
     expect(planoTemRobo({ nome: 'Sob medida', features: ['Robô de WhatsApp'] })).toBe(true);
     expect(planoTemRobo({ nome: 'Sob medida', features: ['Robo de whatsapp'] })).toBe(true);

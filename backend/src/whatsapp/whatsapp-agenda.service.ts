@@ -145,7 +145,10 @@ export class WhatsappAgendaService {
       select: {
         status: true,
         dataFim: true,
-        plano: { select: { nome: true, features: true } },
+        // `grupo` junto, e não só o nome: é ele que `planoTemRobo` prefere.
+        // Sem trazer a coluna, a regra caía sempre no nome — e bastava alguém
+        // renomear "Profissional" no banco para o robô morrer em quem paga.
+        plano: { select: { nome: true, grupo: true, features: true } },
       },
     });
 
